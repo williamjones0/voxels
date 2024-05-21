@@ -1,4 +1,5 @@
 # Voxels
 
 Current progress:
-- Triangle
+- ~~Triangle~~ Cube
+- Camera

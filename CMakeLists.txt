@@ -15,7 +15,7 @@ add_executable(${PROJECT_NAME}
     lib/imgui/imgui_draw.cpp
     lib/imgui/imgui_tables.cpp
     lib/imgui/imgui_widgets.cpp
-  "src/opengl/Shader.h")
+  "src/opengl/Shader.h" "src/core/Camera.cpp")
 
 add_subdirectory(lib/submodules/glfw)
 add_subdirectory(lib/submodules/spdlog)
