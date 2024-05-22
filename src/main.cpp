@@ -57,10 +57,6 @@ void GLAPIENTRY MessageCallback(
         type, SEVERITY.c_str(), message);
 }
 
-void glfw_error_callback(int error, const char* description) {
-    fprintf(stderr, "GLFW error %d: %s\n", error, description);
-}
-
 int main() {
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
@@ -289,4 +285,8 @@ void mouse_callback(GLFWwindow* window, double xposIn, double yposIn) {
 
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
     camera.processMouse(0, 0, static_cast<float>(yoffset));
+}
+
+void glfw_error_callback(int error, const char* description) {
+    fprintf(stderr, "GLFW error %d: %s\n", error, description);
 }

@@ -1,5 +1,5 @@
 # Voxels
 
 Current progress:
-- ~~Triangle~~ Cube
+- Perlin noise terrain generation (unoptimized)
 - Camera
