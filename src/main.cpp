@@ -4,6 +4,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <util/PerlinNoise.hpp>
 
 #include <iostream>
 #include <opengl/Shader.h>
@@ -27,9 +28,42 @@ bool firstMouse = true;
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
 
+void GLAPIENTRY MessageCallback(
+    GLenum source,
+    GLenum type,
+    GLuint id,
+    GLenum severity,
+    GLsizei length,
+    const GLchar* message,
+    const void* userParam
+) {
+    std::string SEVERITY = "";
+    switch (severity) {
+    case GL_DEBUG_SEVERITY_LOW:
+        SEVERITY = "LOW";
+        break;
+    case GL_DEBUG_SEVERITY_MEDIUM:
+        SEVERITY = "MEDIUM";
+        break;
+    case GL_DEBUG_SEVERITY_HIGH:
+        SEVERITY = "HIGH";
+        break;
+    case GL_DEBUG_SEVERITY_NOTIFICATION:
+        SEVERITY = "NOTIFICATION";
+        break;
+    }
+    fprintf(stderr, "GL CALLBACK: %s type = 0x%x, severity = %s, message = %s\n",
+        type == GL_DEBUG_TYPE_ERROR ? "** GL ERROR **" : "",
+        type, SEVERITY.c_str(), message);
+}
+
+void glfw_error_callback(int error, const char* description) {
+    fprintf(stderr, "GLFW error %d: %s\n", error, description);
+}
+
 int main() {
     glfwInit();
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
@@ -45,6 +79,8 @@ int main() {
     glfwSetCursorPosCallback(window, mouse_callback);
     glfwSetScrollCallback(window, scroll_callback);
 
+    glfwSetErrorCallback(glfw_error_callback);
+
     glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     glfwSwapInterval(1);
@@ -53,6 +89,10 @@ int main() {
         std::cout << "Failed to initialize GLAD" << std::endl;
         return -1;
     }
+
+    // Enable debug output
+    glEnable(GL_DEBUG_OUTPUT);
+    glDebugMessageCallback(MessageCallback, 0);
 
     glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
 
@@ -114,6 +154,37 @@ int main() {
         -0.5f,  0.5f, -0.5f,  0.0f, 1.0f, 0.0f
     };
 
+    const int CHUNK_SIZE = 1024;
+    const double HEIGHT_SCALE = 32;
+
+    int *chunk = new int[CHUNK_SIZE * CHUNK_SIZE];
+
+    const siv::PerlinNoise::seed_type seed = 123456u;
+    const siv::PerlinNoise perlin{ seed };
+
+    for (int y = 0; y < CHUNK_SIZE; ++y) {
+        for (int x = 0; x < CHUNK_SIZE; ++x) {
+            const double noise = perlin.octave2D_01((x * 0.01), (y * 0.01), 4);
+            chunk[y * CHUNK_SIZE + x] = noise * HEIGHT_SCALE;
+        }
+    }
+
+    float *chunk_vertices = new float[216 * CHUNK_SIZE * CHUNK_SIZE];
+
+    for (int i = 0; i < CHUNK_SIZE; ++i) {
+        for (int j = 0; j < CHUNK_SIZE; ++j) {
+            float *translated_vertices = new float[216];
+            std::memcpy(translated_vertices, vertices, 216 * sizeof(float));
+            for (int k = 0; k < 36; ++k) {
+                translated_vertices[6 * k] += j;
+                translated_vertices[6 * k + 1] += chunk[CHUNK_SIZE * i + j];
+                translated_vertices[6 * k + 2] += i;
+            }
+
+            std::memcpy(chunk_vertices + 216 * (CHUNK_SIZE * i + j), translated_vertices, 216 * sizeof(float));
+        }
+    }
+
     unsigned int VBO;
     glGenBuffers(1, &VBO);
 
@@ -123,7 +194,7 @@ int main() {
     glBindVertexArray(VAO);
 
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, 216 * CHUNK_SIZE * CHUNK_SIZE * sizeof(float), chunk_vertices, GL_STATIC_DRAW);
 
     //unsigned int EBO;
     //glGenBuffers(1, &EBO);
@@ -151,8 +222,8 @@ int main() {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         glm::mat4 model = glm::mat4(1.0f);
-        model = glm::rotate(model, (float)glfwGetTime(), glm::vec3(0.5f, 1.0f, 0.0f));
-        glm::mat4 projection = glm::perspective((float)(camera.FOV * PI / 180), (float)SCREEN_WIDTH / (float)SCREEN_HEIGHT, 0.1f, 100.0f);
+        // model = glm::rotate(model, (float)glfwGetTime(), glm::vec3(0.5f, 1.0f, 0.0f));
+        glm::mat4 projection = glm::perspective((float)(camera.FOV * PI / 180), (float)SCREEN_WIDTH / (float)SCREEN_HEIGHT, 0.1f, 5000.0f);
 
         shader.use();
 
@@ -162,7 +233,9 @@ int main() {
 
         glBindVertexArray(VAO);
         //glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_INT, 0);
-        glDrawArrays(GL_TRIANGLES, 0, 36);
+        glDrawArrays(GL_TRIANGLES, 0, (216 * CHUNK_SIZE * CHUNK_SIZE)/sizeof(float));
+
+        std::cout << "Frame time: " << deltaTime << "\t FPS: " << (1.0f / deltaTime) << std::endl;
 
         glfwPollEvents();
         glfwSwapBuffers(window);
