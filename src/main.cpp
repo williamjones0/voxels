@@ -13,6 +13,7 @@
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
+void glfw_error_callback(int error, const char* description);
 void processInput(GLFWwindow* window);
 
 const unsigned int SCREEN_WIDTH = 1920;
@@ -20,7 +21,16 @@ const unsigned int SCREEN_HEIGHT = 1080;
 
 const double PI = 3.1415926535;
 
-Camera camera(glm::vec3(-5.0f, 0.0f, 0.0f), 0.0f, 0.0f);
+#define FRONT_FACE 0
+#define BACK_FACE 18
+#define LEFT_FACE 36
+#define RIGHT_FACE 54
+#define BOTTOM_FACE 72
+#define TOP_FACE 90
+
+#define VERTICES_LENGTH 108
+
+Camera camera(glm::vec3(-5.0f, 20.0f, 0.0f), 0.0f, 0.0f);
 float lastX = SCREEN_WIDTH / 2.0f;
 float lastY = SCREEN_HEIGHT / 2.0f;
 bool firstMouse = true;
@@ -107,79 +117,195 @@ int main() {
     //};
 
     float vertices[] = {
-        -0.5f, -0.5f, -0.5f,  0.0f, 0.0f, 0.0f,
-         0.5f, -0.5f, -0.5f,  1.0f, 0.0f, 0.0f,
-         0.5f,  0.5f, -0.5f,  1.0f, 1.0f, 0.0f,
-         0.5f,  0.5f, -0.5f,  1.0f, 1.0f, 0.0f,
-        -0.5f,  0.5f, -0.5f,  0.0f, 1.0f, 0.0f,
-        -0.5f, -0.5f, -0.5f,  0.0f, 0.0f, 0.0f,
+        // Front
+        -0.5f, -0.5f, -0.5f,
+         0.5f, -0.5f, -0.5f,
+         0.5f,  0.5f, -0.5f,
+         0.5f,  0.5f, -0.5f,
+        -0.5f,  0.5f, -0.5f,
+        -0.5f, -0.5f, -0.5f,
 
-        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f, 0.0f,
-         0.5f, -0.5f,  0.5f,  1.0f, 0.0f, 0.0f,
-         0.5f,  0.5f,  0.5f,  1.0f, 1.0f, 0.0f,
-         0.5f,  0.5f,  0.5f,  1.0f, 1.0f, 0.0f,
-        -0.5f,  0.5f,  0.5f,  0.0f, 1.0f, 0.0f,
-        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f, 0.0f,
+        // Back
+        -0.5f, -0.5f,  0.5f,
+         0.5f, -0.5f,  0.5f,
+         0.5f,  0.5f,  0.5f,
+         0.5f,  0.5f,  0.5f,
+        -0.5f,  0.5f,  0.5f,
+        -0.5f, -0.5f,  0.5f,
 
-        -0.5f,  0.5f,  0.5f,  1.0f, 0.0f, 0.0f,
-        -0.5f,  0.5f, -0.5f,  1.0f, 1.0f, 0.0f,
-        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f, 0.0f,
-        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f, 0.0f,
-        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f, 0.0f,
-        -0.5f,  0.5f,  0.5f,  1.0f, 0.0f, 0.0f,
+        // Left
+        -0.5f,  0.5f,  0.5f,
+        -0.5f,  0.5f, -0.5f,
+        -0.5f, -0.5f, -0.5f,
+        -0.5f, -0.5f, -0.5f,
+        -0.5f, -0.5f,  0.5f,
+        -0.5f,  0.5f,  0.5f,
 
-         0.5f,  0.5f,  0.5f,  1.0f, 0.0f, 0.0f,
-         0.5f,  0.5f, -0.5f,  1.0f, 1.0f, 0.0f,
-         0.5f, -0.5f, -0.5f,  0.0f, 1.0f, 0.0f,
-         0.5f, -0.5f, -0.5f,  0.0f, 1.0f, 0.0f,
-         0.5f, -0.5f,  0.5f,  0.0f, 0.0f, 0.0f,
-         0.5f,  0.5f,  0.5f,  1.0f, 0.0f, 0.0f,
+        // Right
+         0.5f,  0.5f,  0.5f,
+         0.5f,  0.5f, -0.5f,
+         0.5f, -0.5f, -0.5f,
+         0.5f, -0.5f, -0.5f,
+         0.5f, -0.5f,  0.5f,
+         0.5f,  0.5f,  0.5f,
 
-        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f, 0.0f,
-         0.5f, -0.5f, -0.5f,  1.0f, 1.0f, 0.0f,
-         0.5f, -0.5f,  0.5f,  1.0f, 0.0f, 0.0f,
-         0.5f, -0.5f,  0.5f,  1.0f, 0.0f, 0.0f,
-        -0.5f, -0.5f,  0.5f,  0.0f, 0.0f, 0.0f,
-        -0.5f, -0.5f, -0.5f,  0.0f, 1.0f, 0.0f,
+         // Bottom
+        -0.5f, -0.5f, -0.5f,
+         0.5f, -0.5f, -0.5f,
+         0.5f, -0.5f,  0.5f,
+         0.5f, -0.5f,  0.5f,
+        -0.5f, -0.5f,  0.5f,
+        -0.5f, -0.5f, -0.5f,
 
-        -0.5f,  0.5f, -0.5f,  0.0f, 1.0f, 0.0f,
-         0.5f,  0.5f, -0.5f,  1.0f, 1.0f, 0.0f,
-         0.5f,  0.5f,  0.5f,  1.0f, 0.0f, 0.0f,
-         0.5f,  0.5f,  0.5f,  1.0f, 0.0f, 0.0f,
-        -0.5f,  0.5f,  0.5f,  0.0f, 0.0f, 0.0f,
-        -0.5f,  0.5f, -0.5f,  0.0f, 1.0f, 0.0f
+        // Top
+        -0.5f,  0.5f, -0.5f,
+         0.5f,  0.5f, -0.5f,
+         0.5f,  0.5f,  0.5f,
+         0.5f,  0.5f,  0.5f,
+        -0.5f,  0.5f,  0.5f,
+        -0.5f,  0.5f, -0.5f
     };
 
-    const int CHUNK_SIZE = 1024;
-    const double HEIGHT_SCALE = 32;
+    float colours[] = {
+        0.0f, 0.0f, 0.0f,
+        1.0f, 0.0f, 0.0f,
+        1.0f, 1.0f, 0.0f,
+        1.0f, 1.0f, 0.0f,
+        0.0f, 1.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
 
-    int *chunk = new int[CHUNK_SIZE * CHUNK_SIZE];
+        0.0f, 0.0f, 0.0f,
+        1.0f, 0.0f, 0.0f,
+        1.0f, 1.0f, 0.0f,
+        1.0f, 1.0f, 0.0f,
+        0.0f, 1.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+
+        1.0f, 0.0f, 0.0f,
+        1.0f, 1.0f, 0.0f,
+        0.0f, 1.0f, 0.0f,
+        0.0f, 1.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        1.0f, 0.0f, 0.0f,
+
+        1.0f, 0.0f, 0.0f,
+        1.0f, 1.0f, 0.0f,
+        0.0f, 1.0f, 0.0f,
+        0.0f, 1.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        1.0f, 0.0f, 0.0f,
+
+        0.0f, 1.0f, 0.0f,
+        1.0f, 1.0f, 0.0f,
+        1.0f, 0.0f, 0.0f,
+        1.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 1.0f, 0.0f,
+
+        0.0f, 1.0f, 0.0f,
+        1.0f, 1.0f, 0.0f,
+        1.0f, 0.0f, 0.0f,
+        1.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 0.0f,
+        0.0f, 1.0f, 0.0f
+    };
+
+    const int WORLD_SIZE = 64;
+    const double HEIGHT_SCALE = 128;
+
+    int *chunk = new int[WORLD_SIZE * WORLD_SIZE];
 
     const siv::PerlinNoise::seed_type seed = 123456u;
     const siv::PerlinNoise perlin{ seed };
 
-    for (int y = 0; y < CHUNK_SIZE; ++y) {
-        for (int x = 0; x < CHUNK_SIZE; ++x) {
+    for (int y = 0; y < WORLD_SIZE; ++y) {
+        for (int x = 0; x < WORLD_SIZE; ++x) {
             const double noise = perlin.octave2D_01((x * 0.01), (y * 0.01), 4);
-            chunk[y * CHUNK_SIZE + x] = noise * HEIGHT_SCALE;
+            chunk[y * WORLD_SIZE + x] = noise * HEIGHT_SCALE;
         }
     }
 
-    float *chunk_vertices = new float[216 * CHUNK_SIZE * CHUNK_SIZE];
+    float *chunk_vertices = new float[VERTICES_LENGTH * WORLD_SIZE * WORLD_SIZE];
 
-    for (int i = 0; i < CHUNK_SIZE; ++i) {
-        for (int j = 0; j < CHUNK_SIZE; ++j) {
-            float *translated_vertices = new float[216];
-            std::memcpy(translated_vertices, vertices, 216 * sizeof(float));
+    for (int i = 0; i < WORLD_SIZE; ++i) {
+        for (int j = 0; j < WORLD_SIZE; ++j) {
+            float *translated_vertices = new float[VERTICES_LENGTH];
+            std::memcpy(translated_vertices, vertices, VERTICES_LENGTH * sizeof(float));
             for (int k = 0; k < 36; ++k) {
-                translated_vertices[6 * k] += j;
-                translated_vertices[6 * k + 1] += chunk[CHUNK_SIZE * i + j];
-                translated_vertices[6 * k + 2] += i;
+                translated_vertices[3 * k] += j;
+                translated_vertices[3 * k + 1] += chunk[WORLD_SIZE * i + j];
+                translated_vertices[3 * k + 2] += i;
             }
 
-            std::memcpy(chunk_vertices + 216 * (CHUNK_SIZE * i + j), translated_vertices, 216 * sizeof(float));
+            std::memcpy(chunk_vertices + VERTICES_LENGTH * (WORLD_SIZE * i + j), translated_vertices, VERTICES_LENGTH * sizeof(float));
         }
     }
+
+    std::vector<float> stuff;
+
+    for (int i = 0; i < WORLD_SIZE; ++i) {
+        for (int j = 0; j < WORLD_SIZE; ++j) {
+            float* translated_vertices = new float[VERTICES_LENGTH];
+            std::memcpy(translated_vertices, vertices, VERTICES_LENGTH * sizeof(float));
+            for (int k = 0; k < 36; ++k) {
+                translated_vertices[3 * k] += j;
+                translated_vertices[3 * k + 1] += chunk[WORLD_SIZE * i + j];
+                translated_vertices[3 * k + 2] += i;
+            }
+
+            int height = chunk[WORLD_SIZE * i + j];
+
+            int x_plus1 = WORLD_SIZE * i + j + 1;
+            int x_minus1 = WORLD_SIZE * i + j - 1;
+            int z_plus1 = WORLD_SIZE * (i + 1) + j;
+            int z_minus1 = WORLD_SIZE * (i - 1) + j;
+
+            int x_plus1h = -1;
+            int x_minus1h = -1;
+            int z_plus1h = -1;
+            int z_minus1h = -1;
+
+            if (0 <= x_plus1 && x_plus1 < WORLD_SIZE * WORLD_SIZE) {
+                x_plus1h = chunk[x_plus1];
+            }
+            if (0 <= x_minus1 && x_minus1 < WORLD_SIZE * WORLD_SIZE) {
+                x_minus1h = chunk[x_minus1];
+            }
+            if (0 <= z_plus1 && z_plus1 < WORLD_SIZE * WORLD_SIZE) {
+                z_plus1h = chunk[z_plus1];
+            }
+            if (0 <= z_minus1 && z_minus1 < WORLD_SIZE * WORLD_SIZE) {
+                z_minus1h = chunk[z_minus1];
+            }
+
+            // Copy top face
+            stuff.insert(stuff.end(), &translated_vertices[TOP_FACE], &translated_vertices[TOP_FACE + 18]);
+
+            if (height != x_plus1h) {
+                stuff.insert(stuff.end(), &translated_vertices[RIGHT_FACE], &translated_vertices[RIGHT_FACE + 18]);
+            }
+
+            if (height != x_minus1h) {
+                stuff.insert(stuff.end(), &translated_vertices[LEFT_FACE], &translated_vertices[LEFT_FACE + 18]);
+            }
+            if (height != z_plus1h) {
+                stuff.insert(stuff.end(), &translated_vertices[BACK_FACE], &translated_vertices[BACK_FACE + 18]);
+            }
+            if (height != z_minus1h) {
+                stuff.insert(stuff.end(), &translated_vertices[FRONT_FACE], &translated_vertices[FRONT_FACE + 18]);
+            }
+        }
+    }
+
+    std::cout << "stuff size:\t" << stuff.size() << std::endl;
+    std::cout << "num vertices:\t" << WORLD_SIZE * WORLD_SIZE * VERTICES_LENGTH << std::endl;
+
+    float* world_colours = new float[108 * WORLD_SIZE * WORLD_SIZE];
+    for (int i = 0; i < WORLD_SIZE * WORLD_SIZE; ++i) {
+        std::memcpy(world_colours + i * 108, colours, 108 * sizeof(float));
+    }
+
+    float* world_vertices = &stuff[0];
 
     unsigned int VBO;
     glGenBuffers(1, &VBO);
@@ -190,7 +316,12 @@ int main() {
     glBindVertexArray(VAO);
 
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, 216 * CHUNK_SIZE * CHUNK_SIZE * sizeof(float), chunk_vertices, GL_STATIC_DRAW);
+    // glBufferData(GL_ARRAY_BUFFER, VERTICES_LENGTH * WORLD_SIZE * WORLD_SIZE * sizeof(float), chunk_vertices, GL_STATIC_DRAW);
+    // glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, stuff.size() * sizeof(float), world_vertices, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
 
     //unsigned int EBO;
     //glGenBuffers(1, &EBO);
@@ -198,14 +329,17 @@ int main() {
     //glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
     //glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
+    unsigned int coloursVBO;
+    glGenBuffers(1, &coloursVBO);
 
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
+    glBindBuffer(GL_ARRAY_BUFFER, coloursVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(colours) * WORLD_SIZE * WORLD_SIZE, world_colours, GL_STATIC_DRAW);
+
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(1);
 
-    //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-
+    // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+    
     while (!glfwWindowShouldClose(window)) {
         float currentFrame = static_cast<float>(glfwGetTime());
         deltaTime = currentFrame - lastFrame;
@@ -228,8 +362,10 @@ int main() {
         shader.setMat4("projection", projection);
 
         glBindVertexArray(VAO);
-        //glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_INT, 0);
-        glDrawArrays(GL_TRIANGLES, 0, (216 * CHUNK_SIZE * CHUNK_SIZE)/sizeof(float));
+        // glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_INT, 0);
+        // glDrawArrays(GL_TRIANGLES, 0, (VERTICES_LENGTH * WORLD_SIZE * WORLD_SIZE));
+        // glDrawArrays(GL_TRIANGLES, 0, 36);
+        glDrawArrays(GL_TRIANGLES, 0, stuff.size());
 
         std::cout << "Frame time: " << deltaTime << "\t FPS: " << (1.0f / deltaTime) << std::endl;
 
