@@ -210,7 +210,7 @@ int main() {
         0.0f, 1.0f, 0.0f
     };
 
-    const int WORLD_SIZE = 64;
+    const int WORLD_SIZE = 1024;
     const double HEIGHT_SCALE = 128;
 
     int *chunk = new int[WORLD_SIZE * WORLD_SIZE];
@@ -241,7 +241,7 @@ int main() {
         }
     }
 
-    std::vector<float> stuff;
+    std::vector<float> world;
 
     for (int i = 0; i < WORLD_SIZE; ++i) {
         for (int j = 0; j < WORLD_SIZE; ++j) {
@@ -278,34 +278,57 @@ int main() {
                 z_minus1h = chunk[z_minus1];
             }
 
-            // Copy top face
-            stuff.insert(stuff.end(), &translated_vertices[TOP_FACE], &translated_vertices[TOP_FACE + 18]);
+            // Draw top face always
+            world.insert(world.end(), &translated_vertices[TOP_FACE], &translated_vertices[TOP_FACE + 18]);
 
-            if (height != x_plus1h) {
-                stuff.insert(stuff.end(), &translated_vertices[RIGHT_FACE], &translated_vertices[RIGHT_FACE + 18]);
+            if (height > x_plus1h && x_plus1h != -1) {
+                for (int k = 0; k < height - x_plus1h; ++k) {
+                    world.insert(world.end(), &translated_vertices[RIGHT_FACE], &translated_vertices[RIGHT_FACE + 18]);
+                    // Correct the y position of each face's vertices (first face, subtract nothing; second, subtract one, etc.)
+                    for (int v = 0; v < 6; ++v) {
+                        world[world.size() - 18 + 3 * v + 1] -= k;
+                    }
+                }
             }
 
-            if (height != x_minus1h) {
-                stuff.insert(stuff.end(), &translated_vertices[LEFT_FACE], &translated_vertices[LEFT_FACE + 18]);
+            if (height > x_minus1h && x_minus1h != -1) {
+                for (int k = 0; k < height - x_minus1h; ++k) {
+                    world.insert(world.end(), &translated_vertices[LEFT_FACE], &translated_vertices[LEFT_FACE + 18]);
+                    for (int v = 0; v < 6; ++v) {
+                        world[world.size() - 18 + 3 * v + 1] -= k;
+                    }
+                }
             }
-            if (height != z_plus1h) {
-                stuff.insert(stuff.end(), &translated_vertices[BACK_FACE], &translated_vertices[BACK_FACE + 18]);
+
+            if (height > z_plus1h && z_plus1h != -1) {
+                for (int k = 0; k < height - z_plus1h; ++k) {
+                    world.insert(world.end(), &translated_vertices[BACK_FACE], &translated_vertices[BACK_FACE + 18]);
+                    for (int v = 0; v < 6; ++v) {
+                        world[world.size() - 18 + 3 * v + 1] -= k;
+                    }
+                }
             }
-            if (height != z_minus1h) {
-                stuff.insert(stuff.end(), &translated_vertices[FRONT_FACE], &translated_vertices[FRONT_FACE + 18]);
+
+            if (height > z_minus1h && z_minus1h != -1) {
+                for (int k = 0; k < height - z_minus1h; ++k) {
+                    world.insert(world.end(), &translated_vertices[FRONT_FACE], &translated_vertices[FRONT_FACE + 18]);
+                    for (int v = 0; v < 6; ++v) {
+                        world[world.size() - 18 + 3 * v + 1] -= k;
+                    }
+                }
             }
         }
     }
 
-    std::cout << "stuff size:\t" << stuff.size() << std::endl;
-    std::cout << "num vertices:\t" << WORLD_SIZE * WORLD_SIZE * VERTICES_LENGTH << std::endl;
+    std::cout << "world vertices size:\t" << world.size() << std::endl;
+    std::cout << "original num vertices:\t" << WORLD_SIZE * WORLD_SIZE * VERTICES_LENGTH << std::endl;
 
     float* world_colours = new float[108 * WORLD_SIZE * WORLD_SIZE];
     for (int i = 0; i < WORLD_SIZE * WORLD_SIZE; ++i) {
         std::memcpy(world_colours + i * 108, colours, 108 * sizeof(float));
     }
 
-    float* world_vertices = &stuff[0];
+    float* world_vertices = &world[0];
 
     unsigned int VBO;
     glGenBuffers(1, &VBO);
@@ -318,7 +341,7 @@ int main() {
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     // glBufferData(GL_ARRAY_BUFFER, VERTICES_LENGTH * WORLD_SIZE * WORLD_SIZE * sizeof(float), chunk_vertices, GL_STATIC_DRAW);
     // glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-    glBufferData(GL_ARRAY_BUFFER, stuff.size() * sizeof(float), world_vertices, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, world.size() * sizeof(float), world_vertices, GL_STATIC_DRAW);
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
@@ -338,7 +361,7 @@ int main() {
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(1);
 
-    // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
     
     while (!glfwWindowShouldClose(window)) {
         float currentFrame = static_cast<float>(glfwGetTime());
@@ -365,7 +388,7 @@ int main() {
         // glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_INT, 0);
         // glDrawArrays(GL_TRIANGLES, 0, (VERTICES_LENGTH * WORLD_SIZE * WORLD_SIZE));
         // glDrawArrays(GL_TRIANGLES, 0, 36);
-        glDrawArrays(GL_TRIANGLES, 0, stuff.size());
+        glDrawArrays(GL_TRIANGLES, 0, world.size());
 
         std::cout << "Frame time: " << deltaTime << "\t FPS: " << (1.0f / deltaTime) << std::endl;
 
