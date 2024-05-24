@@ -119,8 +119,9 @@ int main() {
 
     std::vector<float> world;
     std::vector<float> world_colours;
+    std::vector<int> world_normals;
 
-    mesh(world, world_colours);
+    mesh(world, world_colours, world_normals);
 
     unsigned int VBO;
     glGenBuffers(1, &VBO);
@@ -152,6 +153,15 @@ int main() {
 
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(1);
+
+    unsigned int normalsVBO;
+    glGenBuffers(1, &normalsVBO);
+
+    glBindBuffer(GL_ARRAY_BUFFER, normalsVBO);
+    glBufferData(GL_ARRAY_BUFFER, world_normals.size() * sizeof(int), &world_normals[0], GL_STATIC_DRAW);
+
+    glVertexAttribIPointer(2, 1, GL_INT, sizeof(int), (void*)0);
+    glEnableVertexAttribArray(2);
 
     // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
     

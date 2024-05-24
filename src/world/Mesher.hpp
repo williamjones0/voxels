@@ -12,9 +12,16 @@
 
 #define VERTICES_LENGTH 108
 
-void mesh(std::vector<float> &world, std::vector<float> &world_colours);
+#define FRONT_NORMAL 0
+#define BACK_NORMAL 1
+#define LEFT_NORMAL 2
+#define RIGHT_NORMAL 3
+#define BOTTOM_NORMAL 4
+#define TOP_NORMAL 5
 
-void mesh(std::vector<float> &world, std::vector<float> &world_colours) {
+void mesh(std::vector<float> &world, std::vector<float> &world_colours, std::vector<int> &world_normals);
+
+void mesh(std::vector<float> &world, std::vector<float> &world_colours, std::vector<int> &world_normals) {
     float vertices[] = {
         // Front
         -0.5f, -0.5f, -0.5f,
@@ -65,7 +72,7 @@ void mesh(std::vector<float> &world, std::vector<float> &world_colours) {
         -0.5f,  0.5f, -0.5f
     };
 
-    const int WORLD_SIZE = 1024;
+    const int WORLD_SIZE = 256;
     const double HEIGHT_SCALE = 128;
 
     int* chunk = new int[WORLD_SIZE * WORLD_SIZE];
@@ -95,8 +102,6 @@ void mesh(std::vector<float> &world, std::vector<float> &world_colours) {
             std::memcpy(chunk_vertices + VERTICES_LENGTH * (WORLD_SIZE * i + j), translated_vertices, VERTICES_LENGTH * sizeof(float));
         }
     }
-
-    std::vector<float> world_ao;
 
     float red_face[] = {
         0.6, 0.1, 0.1,
@@ -154,10 +159,16 @@ void mesh(std::vector<float> &world, std::vector<float> &world_colours) {
             // Draw top face always
             world.insert(world.end(), &translated_vertices[TOP_FACE], &translated_vertices[TOP_FACE + 18]);
             world_colours.insert(world_colours.end(), &green_face[0], &green_face[18]);
+            for (int i = 0; i < 6; i++) {
+                world_normals.push_back(TOP_NORMAL);
+            }
 
             if (height > x_plus1h && x_plus1h != -1) {
                 for (int k = 0; k < height - x_plus1h; ++k) {
                     world.insert(world.end(), &translated_vertices[RIGHT_FACE], &translated_vertices[RIGHT_FACE + 18]);
+                    for (int i = 0; i < 6; i++) {
+                        world_normals.push_back(RIGHT_NORMAL);
+                    }
 
                     if (k == 0) {
                         world_colours.insert(world_colours.end(), &green_face[0], &green_face[18]);
@@ -176,6 +187,9 @@ void mesh(std::vector<float> &world, std::vector<float> &world_colours) {
             if (height > x_minus1h && x_minus1h != -1) {
                 for (int k = 0; k < height - x_minus1h; ++k) {
                     world.insert(world.end(), &translated_vertices[LEFT_FACE], &translated_vertices[LEFT_FACE + 18]);
+                    for (int i = 0; i < 6; i++) {
+                        world_normals.push_back(LEFT_NORMAL);
+                    }
 
                     if (k == 0) {
                         world_colours.insert(world_colours.end(), &green_face[0], &green_face[18]);
@@ -193,6 +207,9 @@ void mesh(std::vector<float> &world, std::vector<float> &world_colours) {
             if (height > z_plus1h && z_plus1h != -1) {
                 for (int k = 0; k < height - z_plus1h; ++k) {
                     world.insert(world.end(), &translated_vertices[BACK_FACE], &translated_vertices[BACK_FACE + 18]);
+                    for (int i = 0; i < 6; i++) {
+                        world_normals.push_back(BACK_NORMAL);
+                    }
 
                     if (k == 0) {
                         world_colours.insert(world_colours.end(), &green_face[0], &green_face[18]);
@@ -210,6 +227,9 @@ void mesh(std::vector<float> &world, std::vector<float> &world_colours) {
             if (height > z_minus1h && z_minus1h != -1) {
                 for (int k = 0; k < height - z_minus1h; ++k) {
                     world.insert(world.end(), &translated_vertices[FRONT_FACE], &translated_vertices[FRONT_FACE + 18]);
+                    for (int i = 0; i < 6; i++) {
+                        world_normals.push_back(FRONT_NORMAL);
+                    }
 
                     if (k == 0) {
                         world_colours.insert(world_colours.end(), &green_face[0], &green_face[18]);
