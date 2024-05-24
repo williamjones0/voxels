@@ -72,7 +72,7 @@ void mesh(std::vector<float> &world, std::vector<float> &world_colours, std::vec
         -0.5f,  0.5f, -0.5f
     };
 
-    const int WORLD_SIZE = 256;
+    const int WORLD_SIZE = 1024;
     const double HEIGHT_SCALE = 128;
 
     int* chunk = new int[WORLD_SIZE * WORLD_SIZE];
