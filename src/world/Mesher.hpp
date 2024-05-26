@@ -19,9 +19,27 @@
 #define BOTTOM_NORMAL 4
 #define TOP_NORMAL 5
 
-void mesh(std::vector<float> &world, std::vector<float> &world_colours, std::vector<int> &world_normals);
+static inline const int vertexAO(uint8_t side1, uint8_t side2, uint8_t corner) {
+    return (side1 && side2) ? 0 : (3 - (side1 + side2 + corner));
+}
 
-void mesh(std::vector<float> &world, std::vector<float> &world_colours, std::vector<int> &world_normals) {
+bool inBounds(int i, int j, int size) {
+    return (0 <= i && i < size) && (0 <= i && i < size);
+}
+
+void mesh(
+    std::vector<int> &world,
+    std::vector<float> &world_colours,
+    std::vector<int> &world_normals,
+    std::vector<int> &world_ao
+);
+
+void mesh(
+    std::vector<int> &world,
+    std::vector<float> &world_colours,
+    std::vector<int> &world_normals,
+    std::vector<int> &world_ao
+) {
     float vertices[] = {
         // Front
         -0.5f, -0.5f, -0.5f,
@@ -72,36 +90,32 @@ void mesh(std::vector<float> &world, std::vector<float> &world_colours, std::vec
         -0.5f,  0.5f, -0.5f
     };
 
-    const int WORLD_SIZE = 1024;
-    const double HEIGHT_SCALE = 128;
+    const int WORLD_SIZE = 2;
+    const double HEIGHT_SCALE = 2;
 
-    int* chunk = new int[WORLD_SIZE * WORLD_SIZE];
+    //int* chunk = new int[WORLD_SIZE * WORLD_SIZE];
 
-    const siv::PerlinNoise::seed_type seed = 123456u;
-    const siv::PerlinNoise perlin{ seed };
+    //const siv::PerlinNoise::seed_type seed = 123456u;
+    //const siv::PerlinNoise perlin{ seed };
 
-    for (int y = 0; y < WORLD_SIZE; ++y) {
-        for (int x = 0; x < WORLD_SIZE; ++x) {
-            const double noise = perlin.octave2D_01((x * 0.01), (y * 0.01), 4);
-            chunk[y * WORLD_SIZE + x] = noise * HEIGHT_SCALE;
-        }
-    }
+    //for (int y = 0; y < WORLD_SIZE; ++y) {
+    //    for (int x = 0; x < WORLD_SIZE; ++x) {
+    //        const double noise = perlin.octave2D_01((x * 0.01), (y * 0.01), 4);
+    //        chunk[y * WORLD_SIZE + x] = noise * HEIGHT_SCALE;
+    //    }
+    //}
 
-    float* chunk_vertices = new float[VERTICES_LENGTH * WORLD_SIZE * WORLD_SIZE];
+    //int* chunk = new int[] {
+    //    1, 1, 1, 1,
+    //        1, 3, 3, 1,
+    //        1, 3, 2, 1,
+    //        1, 1, 1, 1
+    //    };
 
-    for (int i = 0; i < WORLD_SIZE; ++i) {
-        for (int j = 0; j < WORLD_SIZE; ++j) {
-            float* translated_vertices = new float[VERTICES_LENGTH];
-            std::memcpy(translated_vertices, vertices, VERTICES_LENGTH * sizeof(float));
-            for (int k = 0; k < 36; ++k) {
-                translated_vertices[3 * k] += j;
-                translated_vertices[3 * k + 1] += chunk[WORLD_SIZE * i + j];
-                translated_vertices[3 * k + 2] += i;
-            }
-
-            std::memcpy(chunk_vertices + VERTICES_LENGTH * (WORLD_SIZE * i + j), translated_vertices, VERTICES_LENGTH * sizeof(float));
-        }
-    }
+    int* chunk = new int[] {
+        1, 1,
+            1, 2
+        };
 
     float red_face[] = {
         0.6, 0.1, 0.1,
@@ -123,12 +137,17 @@ void mesh(std::vector<float> &world, std::vector<float> &world_colours, std::vec
 
     for (int i = 0; i < WORLD_SIZE; ++i) {
         for (int j = 0; j < WORLD_SIZE; ++j) {
-            float* translated_vertices = new float[VERTICES_LENGTH];
-            std::memcpy(translated_vertices, vertices, VERTICES_LENGTH * sizeof(float));
+            float* translated_vertices_f = new float[VERTICES_LENGTH];
+            std::memcpy(translated_vertices_f, vertices, VERTICES_LENGTH * sizeof(float));
             for (int k = 0; k < 36; ++k) {
-                translated_vertices[3 * k] += j;
-                translated_vertices[3 * k + 1] += chunk[WORLD_SIZE * i + j];
-                translated_vertices[3 * k + 2] += i;
+                translated_vertices_f[3 * k] += j;
+                translated_vertices_f[3 * k + 1] += chunk[WORLD_SIZE * i + j];
+                translated_vertices_f[3 * k + 2] += i;
+            }
+
+            int* translated_vertices = new int[VERTICES_LENGTH];
+            for (int k = 0; k < 108; ++k) {
+                translated_vertices[k] = (int)(translated_vertices_f[k] + 0.5f);
             }
 
             int height = chunk[WORLD_SIZE * i + j];
@@ -241,6 +260,136 @@ void mesh(std::vector<float> &world, std::vector<float> &world_colours, std::vec
                     for (int v = 0; v < 6; ++v) {
                         world[world.size() - 18 + 3 * v + 1] -= k;
                     }
+                }
+            }
+        }
+    }
+
+    // Ambient occlusion
+    for (int i = 0; i < WORLD_SIZE; ++i) {
+        for (int j = 0; j < WORLD_SIZE; ++j) {
+            std::cout << i << " " << j << std::endl;
+            int height = chunk[WORLD_SIZE * i + j];
+
+            int x_plus1 = WORLD_SIZE * i + j + 1;
+            int x_minus1 = WORLD_SIZE * i + j - 1;
+            int z_plus1 = WORLD_SIZE * (i + 1) + j;
+            int z_minus1 = WORLD_SIZE * (i - 1) + j;
+
+            int x_plus1h = -1;
+            int x_minus1h = -1;
+            int z_plus1h = -1;
+            int z_minus1h = -1;
+
+            if (0 <= x_plus1 && x_plus1 < WORLD_SIZE * WORLD_SIZE) {
+                x_plus1h = chunk[x_plus1];
+            }
+            if (0 <= x_minus1 && x_minus1 < WORLD_SIZE * WORLD_SIZE) {
+                x_minus1h = chunk[x_minus1];
+            }
+            if (0 <= z_plus1 && z_plus1 < WORLD_SIZE * WORLD_SIZE) {
+                z_plus1h = chunk[z_plus1];
+            }
+            if (0 <= z_minus1 && z_minus1 < WORLD_SIZE * WORLD_SIZE) {
+                z_minus1h = chunk[z_minus1];
+            }
+
+            bool ao_F = inBounds(i - 1, j, WORLD_SIZE) && chunk[WORLD_SIZE * (i - 1) + j] > chunk[WORLD_SIZE * i + j];
+            bool ao_B = inBounds(i + 1, j, WORLD_SIZE) && chunk[WORLD_SIZE * (i + 1) + j] > chunk[WORLD_SIZE * i + j];
+            bool ao_L = inBounds(i, j - 1, WORLD_SIZE) && chunk[WORLD_SIZE * i + j - 1] > chunk[WORLD_SIZE * i + j];
+            bool ao_R = inBounds(i, j + 1, WORLD_SIZE) && chunk[WORLD_SIZE * i + j + 1] > chunk[WORLD_SIZE * i + j];
+
+            bool ao_LFC = inBounds(i - 1, j - 1, WORLD_SIZE) && chunk[WORLD_SIZE * (i - 1) + j - 1] > chunk[WORLD_SIZE * i + j];
+            bool ao_LBC = inBounds(i + 1, j - 1, WORLD_SIZE) && chunk[WORLD_SIZE * (i + 1) + j - 1] > chunk[WORLD_SIZE * i + j];
+            bool ao_RFC = inBounds(i - 1, j + 1, WORLD_SIZE) && chunk[WORLD_SIZE * (i - 1) + j + 1] > chunk[WORLD_SIZE * i + j];
+            bool ao_RBC = inBounds(i + 1, j + 1, WORLD_SIZE) && chunk[WORLD_SIZE * (i + 1) + j + 1] > chunk[WORLD_SIZE * i + j];
+
+            int ao_LB = vertexAO(ao_L, ao_B, ao_LBC);  // -x, +z
+            int ao_RB = vertexAO(ao_R, ao_B, ao_RBC);  // +x, +z
+            int ao_RF = vertexAO(ao_R, ao_F, ao_RFC);  // +x, -z
+            int ao_LF = vertexAO(ao_L, ao_F, ao_LFC);  // -x, -z
+
+            std::cout << "ao_F: " << ao_F << std::endl;
+            std::cout << "ao_B: " << ao_B << std::endl;
+            std::cout << "ao_L: " << ao_L << std::endl;
+            std::cout << "ao_R: " << ao_R << std::endl;
+
+            std::cout << "ao_LFC: " << ao_LFC << std::endl;
+            std::cout << "ao_LBC: " << ao_LBC << std::endl;
+            std::cout << "ao_RFC: " << ao_RFC << std::endl;
+            std::cout << "ao_RBC: " << ao_RBC << std::endl;
+
+            std::cout << "ao_LB: " << ao_LB << std::endl;
+            std::cout << "ao_RB: " << ao_RB << std::endl;
+            std::cout << "ao_RF: " << ao_RF << std::endl;
+            std::cout << "ao_LF: " << ao_LF << std::endl;
+
+            // Top (0)
+            std::cout << "top" << std::endl;
+            world_ao.push_back(ao_LB);
+            world_ao.push_back(ao_RB);
+            world_ao.push_back(ao_RF);
+            world_ao.push_back(ao_RF);
+            world_ao.push_back(ao_LF);
+            world_ao.push_back(ao_RB);
+
+            //// Bottom (1)
+            //world_ao.push_back(ao_LB);
+            //world_ao.push_back(ao_LF);
+            //world_ao.push_back(ao_RF);
+            //world_ao.push_back(ao_RF);
+            //world_ao.push_back(ao_RB);
+            //world_ao.push_back(ao_LF);
+
+            // Right
+            if (height > x_plus1h && x_plus1h != -1) {
+                for (int k = 0; k < height - x_plus1h; ++k) {
+                    std::cout << "right" << std::endl;
+                    world_ao.push_back(ao_LB);
+                    world_ao.push_back(ao_LF);
+                    world_ao.push_back(ao_RF);
+                    world_ao.push_back(ao_RF);
+                    world_ao.push_back(ao_RB);
+                    world_ao.push_back(ao_LF);
+                }
+            }
+
+            // Left
+            if (height > x_minus1h && x_minus1h != -1) {
+                for (int k = 0; k < height - x_minus1h; ++k) {
+                    std::cout << "left" << std::endl;
+                    world_ao.push_back(ao_LB);
+                    world_ao.push_back(ao_RB);
+                    world_ao.push_back(ao_RF);
+                    world_ao.push_back(ao_RF);
+                    world_ao.push_back(ao_LF);
+                    world_ao.push_back(ao_RB);
+                }
+            }
+
+            // Back
+            if (height > z_plus1h && z_plus1h != -1) {
+                for (int k = 0; k < height - z_plus1h; ++k) {
+                    std::cout << "back" << std::endl;
+                    world_ao.push_back(ao_LB);
+                    world_ao.push_back(ao_LF);
+                    world_ao.push_back(ao_RF);
+                    world_ao.push_back(ao_RF);
+                    world_ao.push_back(ao_RB);
+                    world_ao.push_back(ao_LF);
+                }
+            }
+
+            // Front
+            if (height > z_minus1h && z_minus1h != -1) {
+                for (int k = 0; k < height - z_minus1h; ++k) {
+                    std::cout << "front" << std::endl;
+                    world_ao.push_back(ao_LB);
+                    world_ao.push_back(ao_RB);
+                    world_ao.push_back(ao_RF);
+                    world_ao.push_back(ao_RF);
+                    world_ao.push_back(ao_LF);
+                    world_ao.push_back(ao_RB);
                 }
             }
         }

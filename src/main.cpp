@@ -117,12 +117,18 @@ int main() {
     //    0, 1, 2
     //};
 
-    std::vector<float> world;
+    std::vector<int> world;
     std::vector<float> world_colours;
     std::vector<int> world_normals;
+    std::vector<int> world_ao;
     std::vector<uint64_t> world_data;
 
-    mesh(world, world_colours, world_normals);
+    mesh(world, world_colours, world_normals, world_ao);
+
+    std::cout << "world size: " << world.size() << std::endl;
+    std::cout << "colours size: " << world_colours.size() << std::endl;
+    std::cout << "normals size: " << world_normals.size() << std::endl;
+    std::cout << "ao size: " << world_ao.size() << std::endl;
 
     for (int i = 0; i < world.size() / 3; ++i) {
         uint64_t colour;
@@ -138,26 +144,36 @@ int main() {
             ((uint64_t)world[3 * i + 1] << 11) |
             ((uint64_t)world[3 * i + 2] << 22) |
             (colour << 33) |
-            ((uint64_t)world_normals[i] << 34);
+            ((uint64_t)world_normals[i] << 34) |
+            ((uint64_t)world_ao[i] << 37);
 
         world_data.push_back(data);
     }
 
-    //unsigned int VBO;
-    //glGenBuffers(1, &VBO);
+    std::cout << "data size: " << world_data.size() << std::endl;
+
+    unsigned int VBO;
+    glGenBuffers(1, &VBO);
 
     unsigned int VAO;
     glGenVertexArrays(1, &VAO);
 
     glBindVertexArray(VAO);
 
-    //glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    //// glBufferData(GL_ARRAY_BUFFER, VERTICES_LENGTH * WORLD_SIZE * WORLD_SIZE * sizeof(float), chunk_vertices, GL_STATIC_DRAW);
-    //// glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-    //glBufferData(GL_ARRAY_BUFFER, world.size() * sizeof(float), &world[0], GL_STATIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+    // glBufferData(GL_ARRAY_BUFFER, VERTICES_LENGTH * WORLD_SIZE * WORLD_SIZE * sizeof(float), chunk_vertices, GL_STATIC_DRAW);
+    // glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, world.size() * sizeof(int), &world[0], GL_STATIC_DRAW);
 
-    //glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-    //glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 3, GL_INT, GL_FALSE, 3 * sizeof(int), (void*)0);
+    glEnableVertexAttribArray(1);
+
+    unsigned int aoVBO;
+    glGenBuffers(1, &aoVBO);
+    glBindBuffer(GL_ARRAY_BUFFER, aoVBO);
+    glBufferData(GL_ARRAY_BUFFER, world_ao.size() * sizeof(int), &world_ao[0], GL_STATIC_DRAW);
+    glVertexAttribPointer(2, 3, GL_INT, GL_FALSE, 3 * sizeof(int), (void*)0);
+    glEnableVertexAttribArray(2);
 
     //unsigned int EBO;
     //glGenBuffers(1, &EBO);

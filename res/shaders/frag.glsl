@@ -2,6 +2,7 @@
 out vec4 FragColor;  
 in vec3 ourColor;
 flat in int normal;
+in float fragAo;
 
 float get_shade(int type) {
   switch (type) {
@@ -15,5 +16,9 @@ float get_shade(int type) {
 }
 
 void main() {
-    FragColor = vec4(ourColor * get_shade(normal), 1.0);
+    vec3 color = ourColor * get_shade(normal);
+    float ao = clamp(fragAo, 0.0, 1.0);
+    color *= smoothstep(0.0, 1.0, ao);
+
+    FragColor = vec4(color, 1.0);
 }
