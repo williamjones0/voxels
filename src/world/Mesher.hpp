@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <util/PerlinNoise.hpp>
+#include <util/Util.hpp>
 
 #define FRONT_FACE 0
 #define BACK_FACE 18
@@ -25,6 +26,16 @@ static inline const int vertexAO(uint8_t side1, uint8_t side2, uint8_t corner) {
 
 bool inBounds(int i, int j, int size) {
     return (0 <= i && i < size) && (0 <= j && j < size);
+}
+
+bool inBounds(int x, int y, int z, int size, int height) {
+    return (0 <= x && x < size)
+        && (0 <= y && y < height)
+        && (0 <= z && z < size);
+}
+
+int dirToIndex(int i, int j, int k) {
+    return (i + 1) * 9 + (j + 1) * 3 + k + 1;
 }
 
 void mesh(
@@ -90,8 +101,8 @@ void mesh(
         -0.5f,  0.5f, -0.5f
     };
 
-    const int WORLD_SIZE = 256;
-    const double HEIGHT_SCALE = 32;
+    const int WORLD_SIZE = 4;
+    const double HEIGHT_SCALE = 2;
 
     int* chunk = new int[WORLD_SIZE * WORLD_SIZE];
 
@@ -398,4 +409,269 @@ void mesh(
 
     std::cout << "world vertices size:\t" << world.size() << std::endl;
     std::cout << "original num vertices:\t" << WORLD_SIZE * WORLD_SIZE * VERTICES_LENGTH << std::endl;
+}
+
+void meshVoxels(
+    std::vector<int>& voxels,
+    std::vector<int>& world,
+    std::vector<float>& world_colours,
+    std::vector<int>& world_normals,
+    std::vector<int>& world_ao,
+    int worldSize,
+    int heightScale
+) {
+    int vertices[] = {
+        // Front
+        0, 0, 0,
+        1, 0, 0,
+        1, 1, 0,
+        1, 1, 0,
+        0, 1, 0,
+        0, 0, 0,
+
+        // Back
+        0, 0, 1,
+        1, 0, 1,
+        1, 1, 1,
+        1, 1, 1,
+        0, 1, 1,
+        0, 0, 1,
+
+        // Left
+        0, 1, 1,
+        0, 1, 0,
+        0, 0, 0,
+        0, 0, 0,
+        0, 0, 1,
+        0, 1, 1,
+
+        // Right
+        1, 1, 1,
+        1, 1, 0,
+        1, 0, 0,
+        1, 0, 0,
+        1, 0, 1,
+        1, 1, 1,
+
+        // Bottom
+        0, 0, 0,
+        1, 0, 0,
+        1, 0, 1,
+        1, 0, 1,
+        0, 0, 1,
+        0, 0, 0,
+
+        // Top
+        0, 1, 0,
+        1, 1, 0,
+        1, 1, 1,
+        1, 1, 1,
+        0, 1, 1,
+        0, 1, 0
+    };
+
+    float red_face[] = {
+        0.6, 0.1, 0.1,
+        0.6, 0.1, 0.1,
+        0.6, 0.1, 0.1,
+        0.6, 0.1, 0.1,
+        0.6, 0.1, 0.1,
+        0.6, 0.1, 0.1
+    };
+
+    float green_face[] = {
+        0.278, 0.600, 0.141,
+        0.278, 0.600, 0.141,
+        0.278, 0.600, 0.141,
+        0.278, 0.600, 0.141,
+        0.278, 0.600, 0.141,
+        0.278, 0.600, 0.141
+    };
+
+    for (int y = 0; y < heightScale - 1; ++y) {
+        for (int z = 0; z < worldSize; ++z) {
+            for (int x = 0; x < worldSize; ++x) {
+                int voxel = voxels[getVoxelIndex(x, y, z, worldSize)];
+                if (voxel != 0) {
+                    // Add vertices
+                    int* translated_vertices = new int[VERTICES_LENGTH];
+                    std::memcpy(translated_vertices, vertices, VERTICES_LENGTH * sizeof(int));
+                    for (int k = 0; k < 36; ++k) {
+                        translated_vertices[3 * k] += x;
+                        translated_vertices[3 * k + 1] += y;
+                        translated_vertices[3 * k + 2] += z;
+                    }
+
+                    // Top face
+                    if (voxel != 2) {
+                        world.insert(world.end(), &translated_vertices[TOP_FACE], &translated_vertices[TOP_FACE + 18]);
+                        world_colours.insert(world_colours.end(), &green_face[0], &green_face[18]);
+                        for (int i = 0; i < 6; i++) {
+                            world_normals.push_back(TOP_NORMAL);
+                        }
+                    }
+
+                    // Left
+                    if (inBounds(x - 1, y, z, worldSize, heightScale) && voxels[getVoxelIndex(x - 1, y, z, worldSize)] == 0) {
+                        world.insert(world.end(), &translated_vertices[LEFT_FACE], &translated_vertices[LEFT_FACE + 18]);
+                        for (int i = 0; i < 6; i++) {
+                            world_normals.push_back(LEFT_NORMAL);
+                        }
+                        if (voxel == 1) {
+                            world_colours.insert(world_colours.end(), &green_face[0], &green_face[18]);
+                        }
+                        else {
+                            world_colours.insert(world_colours.end(), &red_face[0], &red_face[18]);
+                        }
+                    }
+
+                    // Right
+                    if (inBounds(x + 1, y, z, worldSize, heightScale) && voxels[getVoxelIndex(x + 1, y, z, worldSize)] == 0) {
+                        world.insert(world.end(), &translated_vertices[RIGHT_FACE], &translated_vertices[RIGHT_FACE + 18]);
+                        for (int i = 0; i < 6; i++) {
+                            world_normals.push_back(RIGHT_NORMAL);
+                        }
+                        if (voxel == 1) {
+                            world_colours.insert(world_colours.end(), &green_face[0], &green_face[18]);
+                        }
+                        else {
+                            world_colours.insert(world_colours.end(), &red_face[0], &red_face[18]);
+                        }
+                    }
+
+                    // Front
+                    if (inBounds(x, y, z - 1, worldSize, heightScale) && voxels[getVoxelIndex(x, y, z - 1, worldSize)] == 0) {
+                        world.insert(world.end(), &translated_vertices[FRONT_FACE], &translated_vertices[FRONT_FACE + 18]);
+                        for (int i = 0; i < 6; i++) {
+                            world_normals.push_back(FRONT_NORMAL);
+                        }
+                        if (voxel == 1) {
+                            world_colours.insert(world_colours.end(), &green_face[0], &green_face[18]);
+                        }
+                        else {
+                            world_colours.insert(world_colours.end(), &red_face[0], &red_face[18]);
+                        }
+                    }
+
+                    // Back
+                    if (inBounds(x, y, z + 1, worldSize, heightScale) && voxels[getVoxelIndex(x, y, z + 1, worldSize)] == 0) {
+                        world.insert(world.end(), &translated_vertices[BACK_FACE], &translated_vertices[BACK_FACE + 18]);
+                        for (int i = 0; i < 6; i++) {
+                            world_normals.push_back(BACK_NORMAL);
+                        }
+                        if (voxel == 1) {
+                            world_colours.insert(world_colours.end(), &green_face[0], &green_face[18]);
+                        }
+                        else {
+                            world_colours.insert(world_colours.end(), &red_face[0], &red_face[18]);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Ambient occlusion
+    for (int y = 0; y < heightScale - 1; ++y) {
+        for (int z = 0; z < worldSize; ++z) {
+            for (int x = 0; x < worldSize; ++x) {
+                int voxel = voxels[getVoxelIndex(x, y, z, worldSize)];
+                if (voxel != 0) {
+                    // (-1, -1, -1) to (1, 1, 1)
+                    std::vector<bool> presence;
+
+                    for (int i = -1; i <= 1; ++i) {
+                        for (int j = -1; j <= 1; ++j) {
+                            for (int k = -1; k <= 1; ++k) {
+                                presence.push_back(inBounds(x + i, y + j, z + k, worldSize, heightScale)
+                                    && voxels[getVoxelIndex(x + i, y + j, z + k, worldSize)] != 0);
+                            }
+                        }
+                    }
+
+                    std::vector<int> voxelAo;
+
+                    // Top
+                    voxelAo.push_back(vertexAO(presence[dirToIndex(0, +1, -1)], presence[dirToIndex(-1, +1, 0)], presence[dirToIndex(-1, +1, -1)]));  // bottom left
+                    voxelAo.push_back(vertexAO(presence[dirToIndex(0, +1, -1)], presence[dirToIndex(+1, +1, 0)], presence[dirToIndex(+1, +1, -1)]));  // bottom right
+                    voxelAo.push_back(vertexAO(presence[dirToIndex(0, +1, +1)], presence[dirToIndex(+1, +1, 0)], presence[dirToIndex(+1, +1, +1)]));  // top right
+                    voxelAo.push_back(vertexAO(presence[dirToIndex(0, +1, +1)], presence[dirToIndex(-1, +1, 0)], presence[dirToIndex(-1, +1, +1)]));  // top left
+
+                    // Left
+                    voxelAo.push_back(vertexAO(presence[dirToIndex(-1, 0, +1)], presence[dirToIndex(-1, -1, 0)], presence[dirToIndex(-1, -1, +1)]));  // bottom left
+                    voxelAo.push_back(vertexAO(presence[dirToIndex(-1, 0, -1)], presence[dirToIndex(-1, -1, 0)], presence[dirToIndex(-1, -1, -1)]));  // bottom right
+                    voxelAo.push_back(vertexAO(presence[dirToIndex(-1, 0, -1)], presence[dirToIndex(-1, +1, 0)], presence[dirToIndex(-1, +1, -1)]));  // top right
+                    voxelAo.push_back(vertexAO(presence[dirToIndex(-1, 0, +1)], presence[dirToIndex(-1, +1, 0)], presence[dirToIndex(-1, +1, +1)]));  // top left
+
+                    // Right
+                    voxelAo.push_back(vertexAO(presence[dirToIndex(+1, 0, -1)], presence[dirToIndex(+1, -1, 0)], presence[dirToIndex(+1, -1, -1)]));  // bottom left
+                    voxelAo.push_back(vertexAO(presence[dirToIndex(+1, 0, +1)], presence[dirToIndex(+1, -1, 0)], presence[dirToIndex(+1, -1, +1)]));  // bottom right
+                    voxelAo.push_back(vertexAO(presence[dirToIndex(+1, 0, +1)], presence[dirToIndex(+1, +1, 0)], presence[dirToIndex(+1, +1, +1)]));  // top right
+                    voxelAo.push_back(vertexAO(presence[dirToIndex(+1, 0, -1)], presence[dirToIndex(+1, +1, 0)], presence[dirToIndex(+1, +1, -1)]));  // top left
+
+                    // Front
+                    voxelAo.push_back(vertexAO(presence[dirToIndex(-1, 0, -1)], presence[dirToIndex(0, -1, -1)], presence[dirToIndex(-1, -1, -1)]));  // bottom left
+                    voxelAo.push_back(vertexAO(presence[dirToIndex(+1, 0, -1)], presence[dirToIndex(0, -1, -1)], presence[dirToIndex(+1, -1, -1)]));  // bottom right
+                    voxelAo.push_back(vertexAO(presence[dirToIndex(+1, 0, -1)], presence[dirToIndex(0, +1, -1)], presence[dirToIndex(+1, +1, -1)]));  // top right
+                    voxelAo.push_back(vertexAO(presence[dirToIndex(-1, 0, -1)], presence[dirToIndex(0, +1, -1)], presence[dirToIndex(-1, +1, -1)]));  // top left
+
+                    // Back
+                    voxelAo.push_back(vertexAO(presence[dirToIndex(+1, 0, +1)], presence[dirToIndex(0, -1, +1)], presence[dirToIndex(+1, -1, +1)]));  // bottom left
+                    voxelAo.push_back(vertexAO(presence[dirToIndex(-1, 0, +1)], presence[dirToIndex(0, -1, +1)], presence[dirToIndex(-1, -1, +1)]));  // bottom right
+                    voxelAo.push_back(vertexAO(presence[dirToIndex(-1, 0, +1)], presence[dirToIndex(0, +1, +1)], presence[dirToIndex(-1, +1, +1)]));  // top right
+                    voxelAo.push_back(vertexAO(presence[dirToIndex(+1, 0, +1)], presence[dirToIndex(0, +1, +1)], presence[dirToIndex(+1, +1, +1)]));  // top left
+
+                    // Top
+                    if (voxel != 2) {
+                        world_ao.push_back(voxelAo[0]);
+                        world_ao.push_back(voxelAo[1]);
+                        world_ao.push_back(voxelAo[2]);
+                        world_ao.push_back(voxelAo[2]);
+                        world_ao.push_back(voxelAo[3]);
+                        world_ao.push_back(voxelAo[0]);
+                    }
+
+                    // Left
+                    if (inBounds(x - 1, y, z, worldSize, heightScale) && voxels[getVoxelIndex(x - 1, y, z, worldSize)] == 0) {
+                        world_ao.push_back(voxelAo[7]);
+                        world_ao.push_back(voxelAo[6]);
+                        world_ao.push_back(voxelAo[5]);
+                        world_ao.push_back(voxelAo[5]);
+                        world_ao.push_back(voxelAo[4]);
+                        world_ao.push_back(voxelAo[7]);
+                    }
+
+                    // Right
+                    if (inBounds(x + 1, y, z, worldSize, heightScale) && voxels[getVoxelIndex(x + 1, y, z, worldSize)] == 0) {
+                        world_ao.push_back(voxelAo[10]);
+                        world_ao.push_back(voxelAo[11]);
+                        world_ao.push_back(voxelAo[8]);
+                        world_ao.push_back(voxelAo[8]);
+                        world_ao.push_back(voxelAo[9]);
+                        world_ao.push_back(voxelAo[10]);
+                    }
+
+                    // Front
+                    if (inBounds(x, y, z - 1, worldSize, heightScale) && voxels[getVoxelIndex(x, y, z - 1, worldSize)] == 0) {
+                        world_ao.push_back(voxelAo[12]);
+                        world_ao.push_back(voxelAo[13]);
+                        world_ao.push_back(voxelAo[14]);
+                        world_ao.push_back(voxelAo[14]);
+                        world_ao.push_back(voxelAo[15]);
+                        world_ao.push_back(voxelAo[12]);
+                    }
+
+                    // Back
+                    if (inBounds(x, y, z + 1, worldSize, heightScale) && voxels[getVoxelIndex(x, y, z + 1, worldSize)] == 0) {
+                        world_ao.push_back(voxelAo[17]);
+                        world_ao.push_back(voxelAo[16]);
+                        world_ao.push_back(voxelAo[19]);
+                        world_ao.push_back(voxelAo[19]);
+                        world_ao.push_back(voxelAo[18]);
+                        world_ao.push_back(voxelAo[17]);
+                    }
+                }
+            }
+        }
+    }
 }

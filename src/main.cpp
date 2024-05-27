@@ -10,6 +10,7 @@
 #include <opengl/Shader.h>
 #include <core/Camera.hpp>
 #include <world/Mesher.hpp>
+#include <world/Noise.hpp>
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
@@ -117,13 +118,22 @@ int main() {
     //    0, 1, 2
     //};
 
+    const int WORLD_SIZE = 256;
+    const int HEIGHT_SCALE = 32;
+
+    std::vector<int> voxels(WORLD_SIZE * WORLD_SIZE * HEIGHT_SCALE);
+    std::fill(voxels.begin(), voxels.end(), 0);
+    generateTerrain(voxels, 123456u, WORLD_SIZE, HEIGHT_SCALE);
+
     std::vector<int> world;
     std::vector<float> world_colours;
     std::vector<int> world_normals;
     std::vector<int> world_ao;
     std::vector<uint64_t> world_data;
 
-    mesh(world, world_colours, world_normals, world_ao);
+    // mesh(world, world_colours, world_normals, world_ao);
+
+    meshVoxels(voxels, world, world_colours, world_normals, world_ao, WORLD_SIZE, HEIGHT_SCALE);
 
     std::cout << "world size: " << world.size() << std::endl;
     std::cout << "colours size: " << world_colours.size() << std::endl;
