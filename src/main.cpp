@@ -172,7 +172,7 @@ int main() {
     glGenBuffers(1, &aoVBO);
     glBindBuffer(GL_ARRAY_BUFFER, aoVBO);
     glBufferData(GL_ARRAY_BUFFER, world_ao.size() * sizeof(int), &world_ao[0], GL_STATIC_DRAW);
-    glVertexAttribPointer(2, 3, GL_INT, GL_FALSE, 3 * sizeof(int), (void*)0);
+    glVertexAttribPointer(2, 1, GL_INT, GL_FALSE, sizeof(int), (void*)0);
     glEnableVertexAttribArray(2);
 
     //unsigned int EBO;
@@ -237,7 +237,7 @@ int main() {
         // glDrawArrays(GL_TRIANGLES, 0, 36);
         glDrawArrays(GL_TRIANGLES, 0, world.size());
 
-        std::cout << "Frame time: " << deltaTime << "\t FPS: " << (1.0f / deltaTime) << std::endl;
+        // std::cout << "Frame time: " << deltaTime << "\t FPS: " << (1.0f / deltaTime) << std::endl;
 
         glfwPollEvents();
         glfwSwapBuffers(window);

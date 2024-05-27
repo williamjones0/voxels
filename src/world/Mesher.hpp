@@ -24,7 +24,7 @@ static inline const int vertexAO(uint8_t side1, uint8_t side2, uint8_t corner) {
 }
 
 bool inBounds(int i, int j, int size) {
-    return (0 <= i && i < size) && (0 <= i && i < size);
+    return (0 <= i && i < size) && (0 <= j && j < size);
 }
 
 void mesh(
@@ -90,20 +90,20 @@ void mesh(
         -0.5f,  0.5f, -0.5f
     };
 
-    const int WORLD_SIZE = 2;
-    const double HEIGHT_SCALE = 2;
+    const int WORLD_SIZE = 256;
+    const double HEIGHT_SCALE = 32;
 
-    //int* chunk = new int[WORLD_SIZE * WORLD_SIZE];
+    int* chunk = new int[WORLD_SIZE * WORLD_SIZE];
 
-    //const siv::PerlinNoise::seed_type seed = 123456u;
-    //const siv::PerlinNoise perlin{ seed };
+    const siv::PerlinNoise::seed_type seed = 123456u;
+    const siv::PerlinNoise perlin{ seed };
 
-    //for (int y = 0; y < WORLD_SIZE; ++y) {
-    //    for (int x = 0; x < WORLD_SIZE; ++x) {
-    //        const double noise = perlin.octave2D_01((x * 0.01), (y * 0.01), 4);
-    //        chunk[y * WORLD_SIZE + x] = noise * HEIGHT_SCALE;
-    //    }
-    //}
+    for (int y = 0; y < WORLD_SIZE; ++y) {
+        for (int x = 0; x < WORLD_SIZE; ++x) {
+            const double noise = perlin.octave2D_01((x * 0.01), (y * 0.01), 4);
+            chunk[y * WORLD_SIZE + x] = noise * HEIGHT_SCALE;
+        }
+    }
 
     //int* chunk = new int[] {
     //    1, 1, 1, 1,
@@ -112,10 +112,11 @@ void mesh(
     //        1, 1, 1, 1
     //    };
 
-    int* chunk = new int[] {
-        1, 1,
-            1, 2
-        };
+    //int* chunk = new int[] {
+    //        1, 1, 1,
+    //        1, 2, 3,
+    //        1, 3, 3
+    //};
 
     float red_face[] = {
         0.6, 0.1, 0.1,
@@ -268,7 +269,7 @@ void mesh(
     // Ambient occlusion
     for (int i = 0; i < WORLD_SIZE; ++i) {
         for (int j = 0; j < WORLD_SIZE; ++j) {
-            std::cout << i << " " << j << std::endl;
+            //std::cout << i << " " << j << std::endl;
             int height = chunk[WORLD_SIZE * i + j];
 
             int x_plus1 = WORLD_SIZE * i + j + 1;
@@ -309,29 +310,29 @@ void mesh(
             int ao_RF = vertexAO(ao_R, ao_F, ao_RFC);  // +x, -z
             int ao_LF = vertexAO(ao_L, ao_F, ao_LFC);  // -x, -z
 
-            std::cout << "ao_F: " << ao_F << std::endl;
-            std::cout << "ao_B: " << ao_B << std::endl;
-            std::cout << "ao_L: " << ao_L << std::endl;
-            std::cout << "ao_R: " << ao_R << std::endl;
+            //std::cout << "ao_F: " << ao_F << std::endl;
+            //std::cout << "ao_B: " << ao_B << std::endl;
+            //std::cout << "ao_L: " << ao_L << std::endl;
+            //std::cout << "ao_R: " << ao_R << std::endl;
 
-            std::cout << "ao_LFC: " << ao_LFC << std::endl;
-            std::cout << "ao_LBC: " << ao_LBC << std::endl;
-            std::cout << "ao_RFC: " << ao_RFC << std::endl;
-            std::cout << "ao_RBC: " << ao_RBC << std::endl;
+            //std::cout << "ao_LFC: " << ao_LFC << std::endl;
+            //std::cout << "ao_LBC: " << ao_LBC << std::endl;
+            //std::cout << "ao_RFC: " << ao_RFC << std::endl;
+            //std::cout << "ao_RBC: " << ao_RBC << std::endl;
 
-            std::cout << "ao_LB: " << ao_LB << std::endl;
-            std::cout << "ao_RB: " << ao_RB << std::endl;
-            std::cout << "ao_RF: " << ao_RF << std::endl;
-            std::cout << "ao_LF: " << ao_LF << std::endl;
+            //std::cout << "ao_LB: " << ao_LB << std::endl;
+            //std::cout << "ao_RB: " << ao_RB << std::endl;
+            //std::cout << "ao_RF: " << ao_RF << std::endl;
+            //std::cout << "ao_LF: " << ao_LF << std::endl;
 
-            // Top (0)
-            std::cout << "top" << std::endl;
-            world_ao.push_back(ao_LB);
-            world_ao.push_back(ao_RB);
-            world_ao.push_back(ao_RF);
-            world_ao.push_back(ao_RF);
+            //// Top (0)
+            //std::cout << "top" << std::endl;
             world_ao.push_back(ao_LF);
+            world_ao.push_back(ao_RF);
             world_ao.push_back(ao_RB);
+            world_ao.push_back(ao_RB);
+            world_ao.push_back(ao_LB);
+            world_ao.push_back(ao_LF);
 
             //// Bottom (1)
             //world_ao.push_back(ao_LB);

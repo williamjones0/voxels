@@ -21,9 +21,9 @@ vec3 get_color(uint type) {
 }
 
 void main() {
-    float x = float(aData & 2047u);
-    float y = float((aData >> 11) & 2047u);
-    float z = float((aData >> 22) & 2047u);
+    float x = aPos.x; // float(aData & 2047u);
+    float y = aPos.y; // float((aData >> 11) & 2047u);
+    float z = aPos.z; // float((aData >> 22) & 2047u);
     float ao = aAo; // float((aData >> 37) & 3u);
 
     gl_Position = projection * view * model * vec4(x, y, z, 1.0);
