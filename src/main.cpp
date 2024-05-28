@@ -118,12 +118,24 @@ int main() {
     //    0, 1, 2
     //};
 
-    const int WORLD_SIZE = 256;
-    const int HEIGHT_SCALE = 32;
+    const int WORLD_SIZE = 3;
+    const int HEIGHT_SCALE = 3;
 
-    std::vector<int> voxels(WORLD_SIZE * WORLD_SIZE * HEIGHT_SCALE);
-    std::fill(voxels.begin(), voxels.end(), 0);
-    generateTerrain(voxels, 123456u, WORLD_SIZE, HEIGHT_SCALE);
+    std::vector<int> voxels = {
+        1, 1, 1,
+        1, 1, 1,
+        1, 1, 1,
+
+        0, 0, 0,
+        0, 1, 0,
+        0, 0, 0,
+
+        0, 0, 0,
+        0, 0, 0,
+        0, 0, 0
+    };
+    //std::fill(voxels.begin(), voxels.end(), 0);
+    //generateTerrain(voxels, 123456u, WORLD_SIZE, HEIGHT_SCALE);
 
     std::vector<int> world;
     std::vector<float> world_colours;
@@ -133,7 +145,7 @@ int main() {
 
     // mesh(world, world_colours, world_normals, world_ao);
 
-    meshVoxels(voxels, world, world_colours, world_normals, world_ao, WORLD_SIZE, HEIGHT_SCALE);
+    meshVoxels(voxels, world, world_colours, world_normals, world_ao, world_data, WORLD_SIZE, HEIGHT_SCALE);
 
     std::cout << "world size: " << world.size() << std::endl;
     std::cout << "colours size: " << world_colours.size() << std::endl;
