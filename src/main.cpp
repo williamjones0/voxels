@@ -118,24 +118,25 @@ int main() {
     //    0, 1, 2
     //};
 
-    const int WORLD_SIZE = 3;
-    const int HEIGHT_SCALE = 3;
+    const int WORLD_SIZE = 32;
+    const int HEIGHT_SCALE = 32;
 
-    std::vector<int> voxels = {
-        1, 1, 1,
-        1, 1, 1,
-        1, 1, 1,
+    std::vector<int> voxels(WORLD_SIZE * WORLD_SIZE * HEIGHT_SCALE);
+    //std::vector<int> voxels = {
+    //    1, 1, 1,
+    //    1, 1, 1,
+    //    1, 1, 1,
 
-        0, 0, 0,
-        0, 1, 0,
-        0, 0, 0,
+    //    0, 0, 0,
+    //    0, 1, 0,
+    //    0, 0, 0,
 
-        0, 0, 0,
-        0, 0, 0,
-        0, 0, 0
-    };
-    //std::fill(voxels.begin(), voxels.end(), 0);
-    //generateTerrain(voxels, 123456u, WORLD_SIZE, HEIGHT_SCALE);
+    //    0, 0, 0,
+    //    0, 0, 0,
+    //    0, 0, 0
+    //};
+    std::fill(voxels.begin(), voxels.end(), 0);
+    generateTerrain(voxels, 123456u, WORLD_SIZE, HEIGHT_SCALE);
 
     std::vector<int> world;
     std::vector<float> world_colours;

@@ -600,7 +600,7 @@ void meshVoxels(
 
                     // Top
                     if (voxel != 2) {
-                        if (voxelAo[0] + voxelAo[2] > voxelAo[3] + voxelAo[1]) {
+                        if (voxelAo[0] + voxelAo[2] <= voxelAo[3] + voxelAo[1]) {
                             // Flip
                             world_ao.push_back(voxelAo[0]);
                             world_ao.push_back(voxelAo[1]);
@@ -718,7 +718,7 @@ void meshVoxels(
 
                     // Top face
                     if (voxel != 2) {
-                        if (voxelAo[0] + voxelAo[2] > voxelAo[3] + voxelAo[1]) {
+                        if (voxelAo[0] + voxelAo[2] <= voxelAo[3] + voxelAo[1]) {
                             world.insert(world.end(), &translated_flipped_vertices[TOP_FACE], &translated_flipped_vertices[TOP_FACE + 18]);
                         }
                         else {
