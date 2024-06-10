@@ -7,6 +7,8 @@
 #include <util/PerlinNoise.hpp>
 
 #include <iostream>
+#include <set>
+
 #include <opengl/Shader.h>
 #include <core/Camera.hpp>
 #include <world/Mesher.hpp>
@@ -32,13 +34,16 @@ const double PI = 3.1415926535;
 
 #define VERTICES_LENGTH 108
 
-Camera camera(glm::vec3(-5.0f, 20.0f, 0.0f), 0.0f, 0.0f);
+Camera camera(glm::vec3(-5.0f, 2.0f, 0.0f), 0.0f, 0.0f);
 float lastX = SCREEN_WIDTH / 2.0f;
 float lastY = SCREEN_HEIGHT / 2.0f;
 bool firstMouse = true;
 
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
+
+bool wireframe;
+std::set<int> lastFrameKeys;
 
 void GLAPIENTRY MessageCallback(
     GLenum source,
@@ -118,40 +123,54 @@ int main() {
     //    0, 1, 2
     //};
 
-    const int WORLD_SIZE = 32;
-    const int HEIGHT_SCALE = 32;
+    const int WORLD_SIZE = 3;
+    const int HEIGHT_SCALE = 3;
 
-    std::vector<int> voxels(WORLD_SIZE * WORLD_SIZE * HEIGHT_SCALE);
+    // std::vector<int> voxels(WORLD_SIZE * WORLD_SIZE * HEIGHT_SCALE);
+    std::vector<int> voxels = {
+        1, 1, 1,
+        1, 2, 1,
+        1, 1, 1,
+
+        0, 0, 0,
+        0, 1, 0,
+        0, 0, 0,
+
+        0, 0, 0,
+        0, 0, 0,
+        0, 0, 0
+    };
     //std::vector<int> voxels = {
-    //    1, 1, 1,
-    //    1, 1, 1,
-    //    1, 1, 1,
+    //    2, 1,
+    //    1, 1,
 
-    //    0, 0, 0,
-    //    0, 1, 0,
-    //    0, 0, 0,
+    //    1, 0,
+    //    0, 0,
 
-    //    0, 0, 0,
-    //    0, 0, 0,
-    //    0, 0, 0
+    //    0, 0,
+    //    0, 0
     //};
-    std::fill(voxels.begin(), voxels.end(), 0);
-    generateTerrain(voxels, 123456u, WORLD_SIZE, HEIGHT_SCALE);
+    // generateTerrain(voxels, 123456u, WORLD_SIZE, HEIGHT_SCALE);
+    // std::fill(voxels.begin(), voxels.end(), 0);
 
     std::vector<int> world;
     std::vector<float> world_colours;
+    std::vector<int> world_tex_coords;
     std::vector<int> world_normals;
     std::vector<int> world_ao;
+    std::vector<int> ao_lol;
     std::vector<uint64_t> world_data;
 
     // mesh(world, world_colours, world_normals, world_ao);
 
-    meshVoxels(voxels, world, world_colours, world_normals, world_ao, world_data, WORLD_SIZE, HEIGHT_SCALE);
+    meshVoxels(voxels, world, world_tex_coords, world_colours, world_normals, world_ao, ao_lol, world_data, WORLD_SIZE, HEIGHT_SCALE);
 
     std::cout << "world size: " << world.size() << std::endl;
     std::cout << "colours size: " << world_colours.size() << std::endl;
     std::cout << "normals size: " << world_normals.size() << std::endl;
-    std::cout << "ao size: " << world_ao.size() << std::endl;
+    std::cout << "ao_lol size: " << ao_lol.size() << std::endl;
+
+    std::vector<int> ao_for_vbo;
 
     for (int i = 0; i < world.size() / 3; ++i) {
         uint64_t colour;
@@ -168,12 +187,28 @@ int main() {
             ((uint64_t)world[3 * i + 2] << 22) |
             (colour << 33) |
             ((uint64_t)world_normals[i] << 34) |
-            ((uint64_t)world_ao[i] << 37);
+            ((uint64_t)ao_lol[4 * (i / 6)] << 37) |
+            ((uint64_t)ao_lol[4 * (i / 6) + 1] << 39) |
+            ((uint64_t)ao_lol[4 * (i / 6) + 2] << 41) |
+            ((uint64_t)ao_lol[4 * (i / 6) + 3] << 43) |
+            ((uint64_t)(i % 4) << 45) |
+            ((uint64_t)world_tex_coords[2 * i] << 47) |
+            ((uint64_t)world_tex_coords[2 * i + 1] << 48);
 
         world_data.push_back(data);
+
+        ao_for_vbo.push_back(ao_lol[4 * (i / 6)]);
+        ao_for_vbo.push_back(ao_lol[4 * (i / 6) + 1]);
+        ao_for_vbo.push_back(ao_lol[4 * (i / 6) + 2]);
+        ao_for_vbo.push_back(ao_lol[4 * (i / 6) + 3]);
     }
 
     std::cout << "data size: " << world_data.size() << std::endl;
+
+    std::cout << "=================================" << std::endl;
+    debugPrint(world, 3);
+    std::cout << std::endl;
+    debugPrint(ao_lol, 4);
 
     unsigned int VBO;
     glGenBuffers(1, &VBO);
@@ -194,8 +229,8 @@ int main() {
     unsigned int aoVBO;
     glGenBuffers(1, &aoVBO);
     glBindBuffer(GL_ARRAY_BUFFER, aoVBO);
-    glBufferData(GL_ARRAY_BUFFER, world_ao.size() * sizeof(int), &world_ao[0], GL_STATIC_DRAW);
-    glVertexAttribPointer(2, 1, GL_INT, GL_FALSE, sizeof(int), (void*)0);
+    glBufferData(GL_ARRAY_BUFFER, ao_for_vbo.size() * sizeof(int), &ao_for_vbo[0], GL_STATIC_DRAW);
+    glVertexAttribPointer(2, 4, GL_INT, GL_FALSE, 0 * sizeof(int), (void*)0);
     glEnableVertexAttribArray(2);
 
     //unsigned int EBO;
@@ -232,7 +267,7 @@ int main() {
     glEnableVertexAttribArray(0);
 
     // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-    
+
     while (!glfwWindowShouldClose(window)) {
         float currentFrame = static_cast<float>(glfwGetTime());
         deltaTime = currentFrame - lastFrame;
@@ -275,7 +310,7 @@ void processInput(GLFWwindow* window) {
         glfwSetWindowShouldClose(window, true);
     }
 
-    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS) 
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
         camera.processKeyboard(FORWARD, deltaTime);
     if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
         camera.processKeyboard(BACKWARD, deltaTime);
@@ -287,6 +322,23 @@ void processInput(GLFWwindow* window) {
         camera.processKeyboard(UP, deltaTime);
     if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
         camera.processKeyboard(DOWN, deltaTime);
+
+    // Toggles
+    if (glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS) {
+        if (!lastFrameKeys.contains(GLFW_KEY_T)) {
+            wireframe = !wireframe;
+            if (wireframe) {
+                glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+            }
+            else {
+                glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+            }
+        }
+        lastFrameKeys.insert(GLFW_KEY_T);
+    }
+    else {
+        lastFrameKeys.erase(GLFW_KEY_T);
+    }
 }
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height) {

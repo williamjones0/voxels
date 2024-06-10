@@ -423,9 +423,11 @@ void mesh(
 void meshVoxels(
     std::vector<int>& voxels,
     std::vector<int>& world,
+    std::vector<int>& world_tex_coords,
     std::vector<float>& world_colours,
     std::vector<int>& world_normals,
     std::vector<int>& world_ao,
+    std::vector<int>& ao_lol,
     std::vector<uint64_t>& world_data,
     int worldSize,
     int heightScale
@@ -530,6 +532,56 @@ void meshVoxels(
         1, 1, 1,
     };
 
+    int texCoords[] = {
+        // Front
+        0, 0,
+        1, 0,
+        1, 1,
+        1, 1,
+        0, 1,
+        0, 0,
+
+        // Back
+        1, 0,
+        0, 0,
+        0, 1,
+        0, 1,
+        1, 1,
+        1, 0,
+
+        // Left
+        1, 0,
+        1, 1,
+        0, 1,
+        0, 1,
+        0, 0,
+        1, 0,
+
+        // Right
+        1, 1,
+        0, 1,
+        0, 0,
+        0, 0,
+        0, 1,
+        1, 1,
+
+        // Bottom
+        1, 0,
+        0, 0,
+        0, 1,
+        0, 1,
+        1, 1,
+        1, 0,
+
+        // Top
+        0, 0,
+        1, 0,
+        1, 1,
+        1, 1,
+        0, 1,
+        0, 0
+    };
+
     float red_face[] = {
         0.6, 0.1, 0.1,
         0.6, 0.1, 0.1,
@@ -566,6 +618,9 @@ void meshVoxels(
                         }
                     }
 
+                    std::cout << "x: " << x << " y: " << y << " z: " << z << std::endl;
+                    debugPrint(presence, 3);
+
                     std::vector<int> voxelAo;
 
                     // Top
@@ -598,106 +653,106 @@ void meshVoxels(
                     voxelAo.push_back(vertexAO(presence[dirToIndex(-1, 0, +1)], presence[dirToIndex(0, +1, +1)], presence[dirToIndex(-1, +1, +1)]));  // top right
                     voxelAo.push_back(vertexAO(presence[dirToIndex(+1, 0, +1)], presence[dirToIndex(0, +1, +1)], presence[dirToIndex(+1, +1, +1)]));  // top left
 
-                    // Top
-                    if (voxel != 2) {
-                        if (voxelAo[0] + voxelAo[2] <= voxelAo[3] + voxelAo[1]) {
-                            // Flip
-                            world_ao.push_back(voxelAo[0]);
-                            world_ao.push_back(voxelAo[1]);
-                            world_ao.push_back(voxelAo[3]);
-                            world_ao.push_back(voxelAo[3]);
-                            world_ao.push_back(voxelAo[1]);
-                            world_ao.push_back(voxelAo[2]);
-                        }
-                        else {
-                            world_ao.push_back(voxelAo[0]);
-                            world_ao.push_back(voxelAo[1]);
-                            world_ao.push_back(voxelAo[2]);
-                            world_ao.push_back(voxelAo[2]);
-                            world_ao.push_back(voxelAo[3]);
-                            world_ao.push_back(voxelAo[0]);
-                        }
-                    }
+                    //// Top
+                    //if (voxel != 2) {
+                    //    if (voxelAo[0] + voxelAo[2] <= voxelAo[3] + voxelAo[1]) {
+                    //        // Flip
+                    //        world_ao.push_back(voxelAo[0]);
+                    //        world_ao.push_back(voxelAo[1]);
+                    //        world_ao.push_back(voxelAo[3]);
+                    //        world_ao.push_back(voxelAo[3]);
+                    //        world_ao.push_back(voxelAo[1]);
+                    //        world_ao.push_back(voxelAo[2]);
+                    //    }
+                    //    else {
+                    //        world_ao.push_back(voxelAo[0]);
+                    //        world_ao.push_back(voxelAo[1]);
+                    //        world_ao.push_back(voxelAo[2]);
+                    //        world_ao.push_back(voxelAo[2]);
+                    //        world_ao.push_back(voxelAo[3]);
+                    //        world_ao.push_back(voxelAo[0]);
+                    //    }
+                    //}
 
-                    // Left
-                    if (inBounds(x - 1, y, z, worldSize, heightScale) && voxels[getVoxelIndex(x - 1, y, z, worldSize)] == 0) {
-                        if (voxelAo[4] + voxelAo[6] > voxelAo[7] + voxelAo[5]) {
-                            world_ao.push_back(voxelAo[7]);
-                            world_ao.push_back(voxelAo[6]);
-                            world_ao.push_back(voxelAo[4]);
-                            world_ao.push_back(voxelAo[4]);
-                            world_ao.push_back(voxelAo[6]);
-                            world_ao.push_back(voxelAo[5]);
-                        }
-                        else {
-                            world_ao.push_back(voxelAo[7]);
-                            world_ao.push_back(voxelAo[6]);
-                            world_ao.push_back(voxelAo[5]);
-                            world_ao.push_back(voxelAo[5]);
-                            world_ao.push_back(voxelAo[4]);
-                            world_ao.push_back(voxelAo[7]);
-                        }
-                    }
+                    //// Left
+                    //if (inBounds(x - 1, y, z, worldSize, heightScale) && voxels[getVoxelIndex(x - 1, y, z, worldSize)] == 0) {
+                    //    if (voxelAo[4] + voxelAo[6] > voxelAo[7] + voxelAo[5]) {
+                    //        world_ao.push_back(voxelAo[7]);
+                    //        world_ao.push_back(voxelAo[6]);
+                    //        world_ao.push_back(voxelAo[4]);
+                    //        world_ao.push_back(voxelAo[4]);
+                    //        world_ao.push_back(voxelAo[6]);
+                    //        world_ao.push_back(voxelAo[5]);
+                    //    }
+                    //    else {
+                    //        world_ao.push_back(voxelAo[7]);
+                    //        world_ao.push_back(voxelAo[6]);
+                    //        world_ao.push_back(voxelAo[5]);
+                    //        world_ao.push_back(voxelAo[5]);
+                    //        world_ao.push_back(voxelAo[4]);
+                    //        world_ao.push_back(voxelAo[7]);
+                    //    }
+                    //}
 
-                    // Right
-                    if (inBounds(x + 1, y, z, worldSize, heightScale) && voxels[getVoxelIndex(x + 1, y, z, worldSize)] == 0) {
-                        if (voxelAo[8] + voxelAo[10] > voxelAo[11] + voxelAo[9]) {
-                            world_ao.push_back(voxelAo[10]);
-                            world_ao.push_back(voxelAo[11]);
-                            world_ao.push_back(voxelAo[9]);
-                            world_ao.push_back(voxelAo[9]);
-                            world_ao.push_back(voxelAo[11]);
-                            world_ao.push_back(voxelAo[8]);
-                        }
-                        else {
-                            world_ao.push_back(voxelAo[10]);
-                            world_ao.push_back(voxelAo[11]);
-                            world_ao.push_back(voxelAo[8]);
-                            world_ao.push_back(voxelAo[8]);
-                            world_ao.push_back(voxelAo[9]);
-                            world_ao.push_back(voxelAo[10]);
-                        }
-                    }
+                    //// Right
+                    //if (inBounds(x + 1, y, z, worldSize, heightScale) && voxels[getVoxelIndex(x + 1, y, z, worldSize)] == 0) {
+                    //    if (voxelAo[8] + voxelAo[10] > voxelAo[11] + voxelAo[9]) {
+                    //        world_ao.push_back(voxelAo[10]);
+                    //        world_ao.push_back(voxelAo[11]);
+                    //        world_ao.push_back(voxelAo[9]);
+                    //        world_ao.push_back(voxelAo[9]);
+                    //        world_ao.push_back(voxelAo[11]);
+                    //        world_ao.push_back(voxelAo[8]);
+                    //    }
+                    //    else {
+                    //        world_ao.push_back(voxelAo[10]);
+                    //        world_ao.push_back(voxelAo[11]);
+                    //        world_ao.push_back(voxelAo[8]);
+                    //        world_ao.push_back(voxelAo[8]);
+                    //        world_ao.push_back(voxelAo[9]);
+                    //        world_ao.push_back(voxelAo[10]);
+                    //    }
+                    //}
 
-                    // Front
-                    if (inBounds(x, y, z - 1, worldSize, heightScale) && voxels[getVoxelIndex(x, y, z - 1, worldSize)] == 0) {
-                        if (voxelAo[12] + voxelAo[14] > voxelAo[15] + voxelAo[13]) {
-                            world_ao.push_back(voxelAo[12]);
-                            world_ao.push_back(voxelAo[13]);
-                            world_ao.push_back(voxelAo[15]);
-                            world_ao.push_back(voxelAo[15]);
-                            world_ao.push_back(voxelAo[13]);
-                            world_ao.push_back(voxelAo[14]);
-                        }
-                        else {
-                            world_ao.push_back(voxelAo[12]);
-                            world_ao.push_back(voxelAo[13]);
-                            world_ao.push_back(voxelAo[14]);
-                            world_ao.push_back(voxelAo[14]);
-                            world_ao.push_back(voxelAo[15]);
-                            world_ao.push_back(voxelAo[12]);
-                        }
-                    }
+                    //// Front
+                    //if (inBounds(x, y, z - 1, worldSize, heightScale) && voxels[getVoxelIndex(x, y, z - 1, worldSize)] == 0) {
+                    //    if (voxelAo[12] + voxelAo[14] > voxelAo[15] + voxelAo[13]) {
+                    //        world_ao.push_back(voxelAo[12]);
+                    //        world_ao.push_back(voxelAo[13]);
+                    //        world_ao.push_back(voxelAo[15]);
+                    //        world_ao.push_back(voxelAo[15]);
+                    //        world_ao.push_back(voxelAo[13]);
+                    //        world_ao.push_back(voxelAo[14]);
+                    //    }
+                    //    else {
+                    //        world_ao.push_back(voxelAo[12]);
+                    //        world_ao.push_back(voxelAo[13]);
+                    //        world_ao.push_back(voxelAo[14]);
+                    //        world_ao.push_back(voxelAo[14]);
+                    //        world_ao.push_back(voxelAo[15]);
+                    //        world_ao.push_back(voxelAo[12]);
+                    //    }
+                    //}
 
-                    // Back
-                    if (inBounds(x, y, z + 1, worldSize, heightScale) && voxels[getVoxelIndex(x, y, z + 1, worldSize)] == 0) {
-                        if (voxelAo[16] + voxelAo[18] > voxelAo[19] + voxelAo[17]) {
-                            world_ao.push_back(voxelAo[17]);
-                            world_ao.push_back(voxelAo[16]);
-                            world_ao.push_back(voxelAo[18]);
-                            world_ao.push_back(voxelAo[18]);
-                            world_ao.push_back(voxelAo[16]);
-                            world_ao.push_back(voxelAo[19]);
-                        }
-                        else {
-                            world_ao.push_back(voxelAo[17]);
-                            world_ao.push_back(voxelAo[16]);
-                            world_ao.push_back(voxelAo[19]);
-                            world_ao.push_back(voxelAo[19]);
-                            world_ao.push_back(voxelAo[18]);
-                            world_ao.push_back(voxelAo[17]);
-                        }
-                    }
+                    //// Back
+                    //if (inBounds(x, y, z + 1, worldSize, heightScale) && voxels[getVoxelIndex(x, y, z + 1, worldSize)] == 0) {
+                    //    if (voxelAo[16] + voxelAo[18] > voxelAo[19] + voxelAo[17]) {
+                    //        world_ao.push_back(voxelAo[17]);
+                    //        world_ao.push_back(voxelAo[16]);
+                    //        world_ao.push_back(voxelAo[18]);
+                    //        world_ao.push_back(voxelAo[18]);
+                    //        world_ao.push_back(voxelAo[16]);
+                    //        world_ao.push_back(voxelAo[19]);
+                    //    }
+                    //    else {
+                    //        world_ao.push_back(voxelAo[17]);
+                    //        world_ao.push_back(voxelAo[16]);
+                    //        world_ao.push_back(voxelAo[19]);
+                    //        world_ao.push_back(voxelAo[19]);
+                    //        world_ao.push_back(voxelAo[18]);
+                    //        world_ao.push_back(voxelAo[17]);
+                    //    }
+                    //}
 
                     // Add vertices
                     int* translated_vertices = new int[VERTICES_LENGTH];
@@ -718,26 +773,27 @@ void meshVoxels(
 
                     // Top face
                     if (voxel != 2) {
-                        if (voxelAo[0] + voxelAo[2] <= voxelAo[3] + voxelAo[1]) {
-                            world.insert(world.end(), &translated_flipped_vertices[TOP_FACE], &translated_flipped_vertices[TOP_FACE + 18]);
-                        }
-                        else {
-                            world.insert(world.end(), &translated_vertices[TOP_FACE], &translated_vertices[TOP_FACE + 18]);
-                        }
+                        world.insert(world.end(), &translated_vertices[TOP_FACE], &translated_vertices[TOP_FACE + 18]);
+
+                        world_tex_coords.insert(world_tex_coords.end(), &texCoords[TOP_FACE * 2 / 3], &texCoords[(TOP_FACE + 18) * 2 / 3]);
+
                         for (int i = 0; i < 6; i++) {
                             world_normals.push_back(TOP_NORMAL);
                         }
                         world_colours.insert(world_colours.end(), &green_face[0], &green_face[18]);
+
+                        ao_lol.push_back(vertexAO(presence[dirToIndex(0, +1, -1)], presence[dirToIndex(-1, +1, 0)], presence[dirToIndex(-1, +1, -1)]));  // bottom left   a00
+                        ao_lol.push_back(vertexAO(presence[dirToIndex(0, +1, -1)], presence[dirToIndex(+1, +1, 0)], presence[dirToIndex(+1, +1, -1)]));  // bottom right  a10
+                        ao_lol.push_back(vertexAO(presence[dirToIndex(0, +1, +1)], presence[dirToIndex(-1, +1, 0)], presence[dirToIndex(-1, +1, +1)]));  // top left      a01
+                        ao_lol.push_back(vertexAO(presence[dirToIndex(0, +1, +1)], presence[dirToIndex(+1, +1, 0)], presence[dirToIndex(+1, +1, +1)]));  // top right     a11
                     }
 
                     // Left
                     if (inBounds(x - 1, y, z, worldSize, heightScale) && voxels[getVoxelIndex(x - 1, y, z, worldSize)] == 0) {
-                        if (voxelAo[4] + voxelAo[6] > voxelAo[7] + voxelAo[5]) {
-                            world.insert(world.end(), &translated_flipped_vertices[LEFT_FACE], &translated_flipped_vertices[LEFT_FACE + 18]);
-                        }
-                        else {
-                            world.insert(world.end(), &translated_vertices[LEFT_FACE], &translated_vertices[LEFT_FACE + 18]);
-                        }
+                        world.insert(world.end(), &translated_vertices[LEFT_FACE], &translated_vertices[LEFT_FACE + 18]);
+
+                        world_tex_coords.insert(world_tex_coords.end(), &texCoords[LEFT_FACE * 2 / 3], &texCoords[(LEFT_FACE + 18) * 2 / 3]);
+
                         for (int i = 0; i < 6; i++) {
                             world_normals.push_back(LEFT_NORMAL);
                         }
@@ -747,16 +803,19 @@ void meshVoxels(
                         else {
                             world_colours.insert(world_colours.end(), &red_face[0], &red_face[18]);
                         }
+
+                        ao_lol.push_back(vertexAO(presence[dirToIndex(-1, 0, +1)], presence[dirToIndex(-1, -1, 0)], presence[dirToIndex(-1, -1, +1)]));  // bottom left
+                        ao_lol.push_back(vertexAO(presence[dirToIndex(-1, 0, -1)], presence[dirToIndex(-1, -1, 0)], presence[dirToIndex(-1, -1, -1)]));  // bottom right
+                        ao_lol.push_back(vertexAO(presence[dirToIndex(-1, 0, +1)], presence[dirToIndex(-1, +1, 0)], presence[dirToIndex(-1, +1, +1)]));  // top left
+                        ao_lol.push_back(vertexAO(presence[dirToIndex(-1, 0, -1)], presence[dirToIndex(-1, +1, 0)], presence[dirToIndex(-1, +1, -1)]));  // top right
                     }
 
                     // Right
                     if (inBounds(x + 1, y, z, worldSize, heightScale) && voxels[getVoxelIndex(x + 1, y, z, worldSize)] == 0) {
-                        if (voxelAo[8] + voxelAo[10] > voxelAo[11] + voxelAo[9]) {
-                            world.insert(world.end(), &translated_flipped_vertices[RIGHT_FACE], &translated_flipped_vertices[RIGHT_FACE + 18]);
-                        }
-                        else {
-                            world.insert(world.end(), &translated_vertices[RIGHT_FACE], &translated_vertices[RIGHT_FACE + 18]);
-                        }
+                        world.insert(world.end(), &translated_vertices[RIGHT_FACE], &translated_vertices[RIGHT_FACE + 18]);
+
+                        world_tex_coords.insert(world_tex_coords.end(), &texCoords[RIGHT_FACE * 2 / 3], &texCoords[(RIGHT_FACE + 18) * 2 / 3]);
+
                         for (int i = 0; i < 6; i++) {
                             world_normals.push_back(RIGHT_NORMAL);
                         }
@@ -766,16 +825,19 @@ void meshVoxels(
                         else {
                             world_colours.insert(world_colours.end(), &red_face[0], &red_face[18]);
                         }
+
+                        ao_lol.push_back(vertexAO(presence[dirToIndex(+1, 0, -1)], presence[dirToIndex(+1, -1, 0)], presence[dirToIndex(+1, -1, -1)]));  // bottom left
+                        ao_lol.push_back(vertexAO(presence[dirToIndex(+1, 0, +1)], presence[dirToIndex(+1, -1, 0)], presence[dirToIndex(+1, -1, +1)]));  // bottom right
+                        ao_lol.push_back(vertexAO(presence[dirToIndex(+1, 0, -1)], presence[dirToIndex(+1, +1, 0)], presence[dirToIndex(+1, +1, -1)]));  // top left
+                        ao_lol.push_back(vertexAO(presence[dirToIndex(+1, 0, +1)], presence[dirToIndex(+1, +1, 0)], presence[dirToIndex(+1, +1, +1)]));  // top right
                     }
 
                     // Front
                     if (inBounds(x, y, z - 1, worldSize, heightScale) && voxels[getVoxelIndex(x, y, z - 1, worldSize)] == 0) {
-                        if (voxelAo[12] + voxelAo[14] > voxelAo[15] + voxelAo[13]) {
-                            world.insert(world.end(), &translated_flipped_vertices[FRONT_FACE], &translated_flipped_vertices[FRONT_FACE + 18]);
-                        }
-                        else {
-                            world.insert(world.end(), &translated_vertices[FRONT_FACE], &translated_vertices[FRONT_FACE + 18]);
-                        }
+                        world.insert(world.end(), &translated_vertices[FRONT_FACE], &translated_vertices[FRONT_FACE + 18]);
+
+                        world_tex_coords.insert(world_tex_coords.end(), &texCoords[FRONT_FACE * 2 / 3], &texCoords[(FRONT_FACE + 18) * 2 / 3]);
+
                         for (int i = 0; i < 6; i++) {
                             world_normals.push_back(FRONT_NORMAL);
                         }
@@ -785,16 +847,19 @@ void meshVoxels(
                         else {
                             world_colours.insert(world_colours.end(), &red_face[0], &red_face[18]);
                         }
+
+                        ao_lol.push_back(vertexAO(presence[dirToIndex(-1, 0, -1)], presence[dirToIndex(0, -1, -1)], presence[dirToIndex(-1, -1, -1)]));  // bottom left
+                        ao_lol.push_back(vertexAO(presence[dirToIndex(+1, 0, -1)], presence[dirToIndex(0, -1, -1)], presence[dirToIndex(+1, -1, -1)]));  // bottom right
+                        ao_lol.push_back(vertexAO(presence[dirToIndex(-1, 0, -1)], presence[dirToIndex(0, +1, -1)], presence[dirToIndex(-1, +1, -1)]));  // top left
+                        ao_lol.push_back(vertexAO(presence[dirToIndex(+1, 0, -1)], presence[dirToIndex(0, +1, -1)], presence[dirToIndex(+1, +1, -1)]));  // top right
                     }
 
                     // Back
                     if (inBounds(x, y, z + 1, worldSize, heightScale) && voxels[getVoxelIndex(x, y, z + 1, worldSize)] == 0) {
-                        if (voxelAo[16] + voxelAo[18] > voxelAo[19] + voxelAo[17]) {
-                            world.insert(world.end(), &translated_flipped_vertices[BACK_FACE], &translated_flipped_vertices[BACK_FACE + 18]);
-                        }
-                        else {
-                            world.insert(world.end(), &translated_vertices[BACK_FACE], &translated_vertices[BACK_FACE + 18]);
-                        }
+                        world.insert(world.end(), &translated_vertices[BACK_FACE], &translated_vertices[BACK_FACE + 18]);
+
+                        world_tex_coords.insert(world_tex_coords.end(), &texCoords[BACK_FACE * 2 / 3], &texCoords[(BACK_FACE + 18) * 2 / 3]);
+
                         for (int i = 0; i < 6; i++) {
                             world_normals.push_back(BACK_NORMAL);
                         }
@@ -804,6 +869,11 @@ void meshVoxels(
                         else {
                             world_colours.insert(world_colours.end(), &red_face[0], &red_face[18]);
                         }
+
+                        ao_lol.push_back(vertexAO(presence[dirToIndex(+1, 0, +1)], presence[dirToIndex(0, -1, +1)], presence[dirToIndex(+1, -1, +1)]));  // bottom left
+                        ao_lol.push_back(vertexAO(presence[dirToIndex(-1, 0, +1)], presence[dirToIndex(0, -1, +1)], presence[dirToIndex(-1, -1, +1)]));  // bottom right
+                        ao_lol.push_back(vertexAO(presence[dirToIndex(+1, 0, +1)], presence[dirToIndex(0, +1, +1)], presence[dirToIndex(+1, +1, +1)]));  // top left
+                        ao_lol.push_back(vertexAO(presence[dirToIndex(-1, 0, +1)], presence[dirToIndex(0, +1, +1)], presence[dirToIndex(-1, +1, +1)]));  // top right
                     }
                 }
             }
