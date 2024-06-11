@@ -17,3 +17,7 @@ void debugPrint(std::vector<T>& vec, int stride) {
 		}
 	}
 }
+
+bool inBounds(int i, int j, int size) {
+	return (0 <= i && i < size) && (0 <= j && j < size);
+}

@@ -21,11 +21,29 @@ void generateTerrain(std::vector<int>& voxels, unsigned int seed, int worldSize,
         }
     }
 
-    for (int y = 0; y < heightScale - 1; ++y) {
-        for (int z = 0; z < worldSize; ++z) {
-            for (int x = 0; x < worldSize; ++x) {
-                if (voxels[getVoxelIndex(x, y + 1, z, worldSize)] == 1) {
-                    voxels[getVoxelIndex(x, y, z, worldSize)] = 2;
+    for (int z = 0; z < worldSize; ++z) {
+        for (int x = 0; x < worldSize; ++x) {
+            int height = chunk[z * worldSize + x];
+            int height_diffs[] = { 0, 0, 0, 0 };  // -x, +x, -z, +z
+            if (inBounds(x - 1, z, worldSize)) {
+                height_diffs[0] = chunk[z * worldSize + x] - chunk[z * worldSize + x - 1];
+            }
+            if (inBounds(x + 1, z, worldSize)) {
+                height_diffs[1] = chunk[z * worldSize + x] - chunk[z * worldSize + x + 1];
+            }
+            if (inBounds(x, z - 1, worldSize)) {
+                height_diffs[2] = chunk[z * worldSize + x] - chunk[(z - 1) * worldSize + x];
+            }
+            if (inBounds(x, z + 1, worldSize)) {
+                height_diffs[3] = chunk[z * worldSize + x] - chunk[(z + 1) * worldSize + x];
+            }
+
+            int max_diff = *std::max_element(std::begin(height_diffs), std::end(height_diffs));
+            if (max_diff > 1) {
+                for (int i = 1; i < max_diff; ++i) {
+                    if (inBounds(x, height - i, z, worldSize, heightScale)) {
+                        voxels[getVoxelIndex(x, height - i, z, worldSize)] = 2;
+                    }
                 }
             }
         }
