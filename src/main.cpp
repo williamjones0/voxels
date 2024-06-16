@@ -1,8 +1,11 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
+#define GLM_ENABLE_EXPERIMENTAL
+
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtx/string_cast.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <util/PerlinNoise.hpp>
 
@@ -11,6 +14,7 @@
 #include <core/Camera.hpp>
 #include <world/Mesher.hpp>
 #include <world/Noise.hpp>
+#include <world/Chunk.hpp>
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
@@ -31,6 +35,8 @@ const double PI = 3.1415926535;
 #define TOP_FACE 90
 
 #define VERTICES_LENGTH 108
+
+#define CHUNK_SIZE_SHIFT 4
 
 Camera camera(glm::vec3(-5.0f, 20.0f, 0.0f), 0.0f, 0.0f);
 float lastX = SCREEN_WIDTH / 2.0f;
@@ -106,22 +112,40 @@ int main() {
 
     glEnable(GL_DEPTH_TEST);
 
-    Shader shader("../../../res/shaders/vert.glsl", "../../../res/shaders/frag.glsl");
+    Shader shader("../res/shaders/vert.glsl", "../res/shaders/frag.glsl");
 
-    //float vertices[] = {
-    //    // positions         // colors
-    //     0.5f, -0.5f, 0.0f,  1.0f, 0.0f, 0.0f,   // bottom right
-    //    -0.5f, -0.5f, 0.0f,  0.0f, 1.0f, 0.0f,   // bottom left
-    //     0.0f,  0.5f, 0.0f,  0.0f, 0.0f, 1.0f    // top 
-    //};
-    //unsigned int indices[] = {
-    //    0, 1, 2
-    //};
+    const int WORLD_SIZE = 256;
 
-    const int WORLD_SIZE = 64;
-    const int HEIGHT_SCALE = 128;
+    const int NUM_AXIS_CHUNKS = WORLD_SIZE / CHUNK_SIZE;
+    const int NUM_CHUNKS = NUM_AXIS_CHUNKS * NUM_AXIS_CHUNKS;
+    std::vector<Chunk> chunks;
+    for (int cx = 0; cx < NUM_AXIS_CHUNKS; ++cx) {
+        for (int cz = 0; cz < NUM_AXIS_CHUNKS; ++cz) {
+            Chunk chunk = Chunk(cx, cz);
+            chunk.init();
+            chunks.push_back(chunk);
 
-    std::vector<int> voxels(WORLD_SIZE * WORLD_SIZE * HEIGHT_SCALE);
+//            std::cout << "Chunk " << cz + cx * NUM_AXIS_CHUNKS << ":\n";
+//            std::cout << "positions size: " << chunk.positions.size() << std::endl;
+//            std::cout << "colours size: " << chunk.colours.size() << std::endl;
+//            std::cout << "normals size: " << chunk.normals.size() << std::endl;
+//            std::cout << "ao size: " << chunk.ao.size() << std::endl;
+//            std::cout << glm::to_string(chunk.model) << std::endl;
+
+//            for (int y = 0; y < CHUNK_HEIGHT; ++y) {
+//                for (int z = 0; z < CHUNK_SIZE; ++z) {
+//                    for (int x = 0; x < CHUNK_SIZE; ++x) {
+//                        std::cout << chunk.voxels[y * CHUNK_SIZE * CHUNK_SIZE + z * CHUNK_SIZE + x] << " ";
+//                    }
+//                    std::cout << std::endl;
+//                }
+//                std::cout << std::endl;
+//            }
+
+//            std::cout << std::endl;
+        }
+    }
+
     //std::vector<int> voxels = {
     //    1, 1, 1,
     //    1, 1, 1,
@@ -135,8 +159,6 @@ int main() {
     //    0, 0, 0,
     //    0, 0, 0
     //};
-    std::fill(voxels.begin(), voxels.end(), 0);
-    generateTerrain(voxels, 123456u, WORLD_SIZE, HEIGHT_SCALE);
 
     std::vector<int> world;
     std::vector<float> world_colours;
@@ -146,7 +168,7 @@ int main() {
 
     // mesh(world, world_colours, world_normals, world_ao);
 
-    meshVoxels(voxels, world, world_colours, world_normals, world_ao, world_data, WORLD_SIZE, HEIGHT_SCALE);
+    // meshVoxels(voxels, world, world_colours, world_normals, world_ao, world_data, WORLD_SIZE, HEIGHT_SCALE);
 
     std::cout << "world size: " << world.size() << std::endl;
     std::cout << "colours size: " << world_colours.size() << std::endl;
@@ -175,28 +197,28 @@ int main() {
 
     std::cout << "data size: " << world_data.size() << std::endl;
 
-    unsigned int VBO;
-    glGenBuffers(1, &VBO);
-
-    unsigned int VAO;
-    glGenVertexArrays(1, &VAO);
-
-    glBindVertexArray(VAO);
-
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    // glBufferData(GL_ARRAY_BUFFER, VERTICES_LENGTH * WORLD_SIZE * WORLD_SIZE * sizeof(float), chunk_vertices, GL_STATIC_DRAW);
-    // glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-    glBufferData(GL_ARRAY_BUFFER, world.size() * sizeof(int), &world[0], GL_STATIC_DRAW);
-
-    glVertexAttribPointer(1, 3, GL_INT, GL_FALSE, 3 * sizeof(int), (void*)0);
-    glEnableVertexAttribArray(1);
-
-    unsigned int aoVBO;
-    glGenBuffers(1, &aoVBO);
-    glBindBuffer(GL_ARRAY_BUFFER, aoVBO);
-    glBufferData(GL_ARRAY_BUFFER, world_ao.size() * sizeof(int), &world_ao[0], GL_STATIC_DRAW);
-    glVertexAttribPointer(2, 1, GL_INT, GL_FALSE, sizeof(int), (void*)0);
-    glEnableVertexAttribArray(2);
+//    unsigned int VBO;
+//    glGenBuffers(1, &VBO);
+//
+//    unsigned int VAO;
+//    glGenVertexArrays(1, &VAO);
+//
+//    glBindVertexArray(VAO);
+//
+//    glBindBuffer(GL_ARRAY_BUFFER, VBO);
+//    // glBufferData(GL_ARRAY_BUFFER, VERTICES_LENGTH * WORLD_SIZE * WORLD_SIZE * sizeof(float), chunk_vertices, GL_STATIC_DRAW);
+//    // glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+//    glBufferData(GL_ARRAY_BUFFER, world.size() * sizeof(int), &world[0], GL_STATIC_DRAW);
+//
+//    glVertexAttribPointer(1, 3, GL_INT, GL_FALSE, 3 * sizeof(int), (void*)0);
+//    glEnableVertexAttribArray(1);
+//
+//    unsigned int aoVBO;
+//    glGenBuffers(1, &aoVBO);
+//    glBindBuffer(GL_ARRAY_BUFFER, aoVBO);
+//    glBufferData(GL_ARRAY_BUFFER, world_ao.size() * sizeof(int), &world_ao[0], GL_STATIC_DRAW);
+//    glVertexAttribPointer(2, 1, GL_INT, GL_FALSE, sizeof(int), (void*)0);
+//    glEnableVertexAttribArray(2);
 
     //unsigned int EBO;
     //glGenBuffers(1, &EBO);
@@ -222,14 +244,14 @@ int main() {
     //glVertexAttribIPointer(2, 1, GL_INT, sizeof(int), (void*)0);
     //glEnableVertexAttribArray(2);
 
-    unsigned int dataVBO;
-    glGenBuffers(1, &dataVBO);
-
-    glBindBuffer(GL_ARRAY_BUFFER, dataVBO);
-    glBufferData(GL_ARRAY_BUFFER, world_data.size() * sizeof(uint64_t), &world_data[0], GL_STATIC_DRAW);
-
-    glVertexAttribLPointer(0, 1, GL_DOUBLE, sizeof(uint64_t), (void*)0);
-    glEnableVertexAttribArray(0);
+//    unsigned int dataVBO;
+//    glGenBuffers(1, &dataVBO);
+//
+//    glBindBuffer(GL_ARRAY_BUFFER, dataVBO);
+//    glBufferData(GL_ARRAY_BUFFER, world_data.size() * sizeof(uint64_t), &world_data[0], GL_STATIC_DRAW);
+//
+//    glVertexAttribLPointer(0, 1, GL_DOUBLE, sizeof(uint64_t), (void*)0);
+//    glEnableVertexAttribArray(0);
 
     // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
@@ -244,21 +266,25 @@ int main() {
         glClearColor(0.2f, 0.2f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        glm::mat4 model = glm::mat4(1.0f);
-        // model = glm::rotate(model, (float)glfwGetTime(), glm::vec3(0.5f, 1.0f, 0.0f));
         glm::mat4 projection = glm::perspective((float)(camera.FOV * PI / 180), (float)SCREEN_WIDTH / (float)SCREEN_HEIGHT, 0.1f, 5000.0f);
 
         shader.use();
 
-        shader.setMat4("model", model);
         shader.setMat4("view", camera.calculateViewMatrix());
         shader.setMat4("projection", projection);
 
-        glBindVertexArray(VAO);
-        // glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_INT, 0);
-        // glDrawArrays(GL_TRIANGLES, 0, (VERTICES_LENGTH * WORLD_SIZE * WORLD_SIZE));
-        // glDrawArrays(GL_TRIANGLES, 0, 36);
-        glDrawArrays(GL_TRIANGLES, 0, world.size());
+        for (int i = 0; i < NUM_CHUNKS; ++i) {
+            Chunk chunk = chunks[i];
+            shader.setMat4("model", chunk.model);
+            // std::cout << "rendering chunk " << i << std::endl;
+            chunk.render();
+        }
+
+//        glBindVertexArray(VAO);
+//        // glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_INT, 0);
+//        // glDrawArrays(GL_TRIANGLES, 0, (VERTICES_LENGTH * WORLD_SIZE * WORLD_SIZE));
+//        // glDrawArrays(GL_TRIANGLES, 0, 36);
+//        glDrawArrays(GL_TRIANGLES, 0, world.size());
 
         // std::cout << "Frame time: " << deltaTime << "\t FPS: " << (1.0f / deltaTime) << std::endl;
 

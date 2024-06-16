@@ -441,3 +441,5 @@ FodyWeavers.xsd
 ## OTHER
 /include
 /lib
+/.idea
+/cmake-build-debug

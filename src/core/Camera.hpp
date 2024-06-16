@@ -1,4 +1,3 @@
-// Camera.hpp
 #pragma once
 
 #include <glm/glm.hpp>
