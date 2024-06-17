@@ -2,6 +2,7 @@
 
 #include <vector>
 #include <cstdint>
+#include <world/Chunk.hpp>
 
 static inline int vertexAO(uint8_t side1, uint8_t side2, uint8_t corner);
 
@@ -35,3 +36,7 @@ void meshVoxels(
     int worldSize,
     int heightScale
 );
+
+void meshChunk(Chunk *chunk, int worldSize);
+
+bool boundsCheck(int x, int y, int z, int i, int j, int k, int worldSize, std::vector<int> &voxels);

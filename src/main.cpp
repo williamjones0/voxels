@@ -114,7 +114,7 @@ int main() {
 
     Shader shader("../res/shaders/vert.glsl", "../res/shaders/frag.glsl");
 
-    const int WORLD_SIZE = 256;
+    const int WORLD_SIZE = 32;
 
     const int NUM_AXIS_CHUNKS = WORLD_SIZE / CHUNK_SIZE;
     const int NUM_CHUNKS = NUM_AXIS_CHUNKS * NUM_AXIS_CHUNKS;
