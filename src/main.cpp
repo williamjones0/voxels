@@ -146,29 +146,11 @@ int main() {
         }
     }
 
-    //std::vector<int> voxels = {
-    //    1, 1, 1,
-    //    1, 1, 1,
-    //    1, 1, 1,
-
-    //    0, 0, 0,
-    //    0, 1, 0,
-    //    0, 0, 0,
-
-    //    0, 0, 0,
-    //    0, 0, 0,
-    //    0, 0, 0
-    //};
-
     std::vector<int> world;
     std::vector<float> world_colours;
     std::vector<int> world_normals;
     std::vector<int> world_ao;
     std::vector<uint64_t> world_data;
-
-    // mesh(world, world_colours, world_normals, world_ao);
-
-    // meshVoxels(voxels, world, world_colours, world_normals, world_ao, world_data, WORLD_SIZE, HEIGHT_SCALE);
 
     std::cout << "world size: " << world.size() << std::endl;
     std::cout << "colours size: " << world_colours.size() << std::endl;
@@ -197,62 +179,6 @@ int main() {
 
     std::cout << "data size: " << world_data.size() << std::endl;
 
-//    unsigned int VBO;
-//    glGenBuffers(1, &VBO);
-//
-//    unsigned int VAO;
-//    glGenVertexArrays(1, &VAO);
-//
-//    glBindVertexArray(VAO);
-//
-//    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-//    // glBufferData(GL_ARRAY_BUFFER, VERTICES_LENGTH * WORLD_SIZE * WORLD_SIZE * sizeof(float), chunk_vertices, GL_STATIC_DRAW);
-//    // glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-//    glBufferData(GL_ARRAY_BUFFER, world.size() * sizeof(int), &world[0], GL_STATIC_DRAW);
-//
-//    glVertexAttribPointer(1, 3, GL_INT, GL_FALSE, 3 * sizeof(int), (void*)0);
-//    glEnableVertexAttribArray(1);
-//
-//    unsigned int aoVBO;
-//    glGenBuffers(1, &aoVBO);
-//    glBindBuffer(GL_ARRAY_BUFFER, aoVBO);
-//    glBufferData(GL_ARRAY_BUFFER, world_ao.size() * sizeof(int), &world_ao[0], GL_STATIC_DRAW);
-//    glVertexAttribPointer(2, 1, GL_INT, GL_FALSE, sizeof(int), (void*)0);
-//    glEnableVertexAttribArray(2);
-
-    //unsigned int EBO;
-    //glGenBuffers(1, &EBO);
-
-    //glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    //glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
-
-    //unsigned int coloursVBO;
-    //glGenBuffers(1, &coloursVBO);
-
-    //glBindBuffer(GL_ARRAY_BUFFER, coloursVBO);
-    //glBufferData(GL_ARRAY_BUFFER, world_colours.size() * sizeof(float), &world_colours[0], GL_STATIC_DRAW);
-
-    //glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
-    //glEnableVertexAttribArray(1);
-
-    //unsigned int normalsVBO;
-    //glGenBuffers(1, &normalsVBO);
-
-    //glBindBuffer(GL_ARRAY_BUFFER, normalsVBO);
-    //glBufferData(GL_ARRAY_BUFFER, world_normals.size() * sizeof(int), &world_normals[0], GL_STATIC_DRAW);
-
-    //glVertexAttribIPointer(2, 1, GL_INT, sizeof(int), (void*)0);
-    //glEnableVertexAttribArray(2);
-
-//    unsigned int dataVBO;
-//    glGenBuffers(1, &dataVBO);
-//
-//    glBindBuffer(GL_ARRAY_BUFFER, dataVBO);
-//    glBufferData(GL_ARRAY_BUFFER, world_data.size() * sizeof(uint64_t), &world_data[0], GL_STATIC_DRAW);
-//
-//    glVertexAttribLPointer(0, 1, GL_DOUBLE, sizeof(uint64_t), (void*)0);
-//    glEnableVertexAttribArray(0);
-
     // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
     while (!glfwWindowShouldClose(window)) {
@@ -276,15 +202,8 @@ int main() {
         for (int i = 0; i < NUM_CHUNKS; ++i) {
             Chunk chunk = chunks[i];
             shader.setMat4("model", chunk.model);
-            // std::cout << "rendering chunk " << i << std::endl;
             chunk.render();
         }
-
-//        glBindVertexArray(VAO);
-//        // glDrawElements(GL_TRIANGLES, 3, GL_UNSIGNED_INT, 0);
-//        // glDrawArrays(GL_TRIANGLES, 0, (VERTICES_LENGTH * WORLD_SIZE * WORLD_SIZE));
-//        // glDrawArrays(GL_TRIANGLES, 0, 36);
-//        glDrawArrays(GL_TRIANGLES, 0, world.size());
 
         // std::cout << "Frame time: " << deltaTime << "\t FPS: " << (1.0f / deltaTime) << std::endl;
 

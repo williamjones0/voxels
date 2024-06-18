@@ -27,9 +27,6 @@ void Chunk::init() {
     voxels = std::vector<int>(CHUNK_SIZE * CHUNK_SIZE * CHUNK_HEIGHT);
     generateVoxels();
 
-    // generateTerrain(voxels, 123456u, CHUNK_SIZE, CHUNK_HEIGHT);
-
-//    meshVoxels(voxels, positions, colours, normals, ao, data, CHUNK_SIZE, CHUNK_HEIGHT);
     meshChunk(this, 32);
     for (int i = 0; i < positions.size() / 3; ++i) {
         uint64_t colour;
