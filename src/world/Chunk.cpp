@@ -66,6 +66,6 @@ void Chunk::generateVoxels() {
 
 void Chunk::render() {
     glBindVertexArray(VAO);
-    glDrawArrays(GL_TRIANGLES, 0, positions.size());
+    glDrawArrays(GL_TRIANGLES, 0, data.size() * 3);
     glBindVertexArray(0);
 }

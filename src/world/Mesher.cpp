@@ -41,10 +41,10 @@ uint64_t createVertex(int x, int y, int z, int colour, int normal, int ao) {
 
 void meshChunk(Chunk *chunk, int worldSize) {
     std::vector<int> &voxels = chunk->voxels;
-    std::vector<int> &world = chunk->positions;
-    std::vector<float> &world_colours = chunk->colours;
-    std::vector<int> &world_normals = chunk->normals;
-    std::vector<int> &world_ao = chunk->ao;
+    std::vector<int> positions;
+    std::vector<float> colours;
+    std::vector<int> normals;
+    std::vector<int> ao;
 
     int vertices[] = {
             // Front
@@ -238,95 +238,95 @@ void meshChunk(Chunk *chunk, int worldSize) {
                     if (voxel != 2) {
                         if (voxelAo[0] + voxelAo[2] <= voxelAo[3] + voxelAo[1]) {
                             // Flip
-                            world_ao.push_back(voxelAo[0]);
-                            world_ao.push_back(voxelAo[1]);
-                            world_ao.push_back(voxelAo[3]);
-                            world_ao.push_back(voxelAo[3]);
-                            world_ao.push_back(voxelAo[1]);
-                            world_ao.push_back(voxelAo[2]);
+                            ao.push_back(voxelAo[0]);
+                            ao.push_back(voxelAo[1]);
+                            ao.push_back(voxelAo[3]);
+                            ao.push_back(voxelAo[3]);
+                            ao.push_back(voxelAo[1]);
+                            ao.push_back(voxelAo[2]);
                         } else {
-                            world_ao.push_back(voxelAo[0]);
-                            world_ao.push_back(voxelAo[1]);
-                            world_ao.push_back(voxelAo[2]);
-                            world_ao.push_back(voxelAo[2]);
-                            world_ao.push_back(voxelAo[3]);
-                            world_ao.push_back(voxelAo[0]);
+                            ao.push_back(voxelAo[0]);
+                            ao.push_back(voxelAo[1]);
+                            ao.push_back(voxelAo[2]);
+                            ao.push_back(voxelAo[2]);
+                            ao.push_back(voxelAo[3]);
+                            ao.push_back(voxelAo[0]);
                         }
                     }
 
                     // Left
                     if (boundsCheck(x, y, z, -1, 0, 0, worldSize, voxels)) {
                         if (voxelAo[4] + voxelAo[6] > voxelAo[7] + voxelAo[5]) {
-                            world_ao.push_back(voxelAo[7]);
-                            world_ao.push_back(voxelAo[6]);
-                            world_ao.push_back(voxelAo[4]);
-                            world_ao.push_back(voxelAo[4]);
-                            world_ao.push_back(voxelAo[6]);
-                            world_ao.push_back(voxelAo[5]);
+                            ao.push_back(voxelAo[7]);
+                            ao.push_back(voxelAo[6]);
+                            ao.push_back(voxelAo[4]);
+                            ao.push_back(voxelAo[4]);
+                            ao.push_back(voxelAo[6]);
+                            ao.push_back(voxelAo[5]);
                         } else {
-                            world_ao.push_back(voxelAo[7]);
-                            world_ao.push_back(voxelAo[6]);
-                            world_ao.push_back(voxelAo[5]);
-                            world_ao.push_back(voxelAo[5]);
-                            world_ao.push_back(voxelAo[4]);
-                            world_ao.push_back(voxelAo[7]);
+                            ao.push_back(voxelAo[7]);
+                            ao.push_back(voxelAo[6]);
+                            ao.push_back(voxelAo[5]);
+                            ao.push_back(voxelAo[5]);
+                            ao.push_back(voxelAo[4]);
+                            ao.push_back(voxelAo[7]);
                         }
                     }
 
                     // Right
                     if (boundsCheck(x, y, z, 1, 0, 0, worldSize, voxels)) {
                         if (voxelAo[8] + voxelAo[10] > voxelAo[11] + voxelAo[9]) {
-                            world_ao.push_back(voxelAo[10]);
-                            world_ao.push_back(voxelAo[11]);
-                            world_ao.push_back(voxelAo[9]);
-                            world_ao.push_back(voxelAo[9]);
-                            world_ao.push_back(voxelAo[11]);
-                            world_ao.push_back(voxelAo[8]);
+                            ao.push_back(voxelAo[10]);
+                            ao.push_back(voxelAo[11]);
+                            ao.push_back(voxelAo[9]);
+                            ao.push_back(voxelAo[9]);
+                            ao.push_back(voxelAo[11]);
+                            ao.push_back(voxelAo[8]);
                         } else {
-                            world_ao.push_back(voxelAo[10]);
-                            world_ao.push_back(voxelAo[11]);
-                            world_ao.push_back(voxelAo[8]);
-                            world_ao.push_back(voxelAo[8]);
-                            world_ao.push_back(voxelAo[9]);
-                            world_ao.push_back(voxelAo[10]);
+                            ao.push_back(voxelAo[10]);
+                            ao.push_back(voxelAo[11]);
+                            ao.push_back(voxelAo[8]);
+                            ao.push_back(voxelAo[8]);
+                            ao.push_back(voxelAo[9]);
+                            ao.push_back(voxelAo[10]);
                         }
                     }
 
                     // Front
                     if (boundsCheck(x, y, z, 0, 0, -1, worldSize, voxels)) {
                         if (voxelAo[12] + voxelAo[14] > voxelAo[15] + voxelAo[13]) {
-                            world_ao.push_back(voxelAo[12]);
-                            world_ao.push_back(voxelAo[13]);
-                            world_ao.push_back(voxelAo[15]);
-                            world_ao.push_back(voxelAo[15]);
-                            world_ao.push_back(voxelAo[13]);
-                            world_ao.push_back(voxelAo[14]);
+                            ao.push_back(voxelAo[12]);
+                            ao.push_back(voxelAo[13]);
+                            ao.push_back(voxelAo[15]);
+                            ao.push_back(voxelAo[15]);
+                            ao.push_back(voxelAo[13]);
+                            ao.push_back(voxelAo[14]);
                         } else {
-                            world_ao.push_back(voxelAo[12]);
-                            world_ao.push_back(voxelAo[13]);
-                            world_ao.push_back(voxelAo[14]);
-                            world_ao.push_back(voxelAo[14]);
-                            world_ao.push_back(voxelAo[15]);
-                            world_ao.push_back(voxelAo[12]);
+                            ao.push_back(voxelAo[12]);
+                            ao.push_back(voxelAo[13]);
+                            ao.push_back(voxelAo[14]);
+                            ao.push_back(voxelAo[14]);
+                            ao.push_back(voxelAo[15]);
+                            ao.push_back(voxelAo[12]);
                         }
                     }
 
                     // Back
                     if (boundsCheck(x, y, z, 0, 0, 1, worldSize, voxels)) {
                         if (voxelAo[16] + voxelAo[18] > voxelAo[19] + voxelAo[17]) {
-                            world_ao.push_back(voxelAo[17]);
-                            world_ao.push_back(voxelAo[16]);
-                            world_ao.push_back(voxelAo[18]);
-                            world_ao.push_back(voxelAo[18]);
-                            world_ao.push_back(voxelAo[16]);
-                            world_ao.push_back(voxelAo[19]);
+                            ao.push_back(voxelAo[17]);
+                            ao.push_back(voxelAo[16]);
+                            ao.push_back(voxelAo[18]);
+                            ao.push_back(voxelAo[18]);
+                            ao.push_back(voxelAo[16]);
+                            ao.push_back(voxelAo[19]);
                         } else {
-                            world_ao.push_back(voxelAo[17]);
-                            world_ao.push_back(voxelAo[16]);
-                            world_ao.push_back(voxelAo[19]);
-                            world_ao.push_back(voxelAo[19]);
-                            world_ao.push_back(voxelAo[18]);
-                            world_ao.push_back(voxelAo[17]);
+                            ao.push_back(voxelAo[17]);
+                            ao.push_back(voxelAo[16]);
+                            ao.push_back(voxelAo[19]);
+                            ao.push_back(voxelAo[19]);
+                            ao.push_back(voxelAo[18]);
+                            ao.push_back(voxelAo[17]);
                         }
                     }
 
@@ -350,91 +350,91 @@ void meshChunk(Chunk *chunk, int worldSize) {
                     // Top face
                     if (voxel != 2) {
                         if (voxelAo[0] + voxelAo[2] <= voxelAo[3] + voxelAo[1]) {
-                            world.insert(world.end(), &translated_flipped_vertices[TOP_FACE],
-                                         &translated_flipped_vertices[TOP_FACE + 18]);
+                            positions.insert(positions.end(), &translated_flipped_vertices[TOP_FACE],
+                                             &translated_flipped_vertices[TOP_FACE + 18]);
                         } else {
-                            world.insert(world.end(), &translated_vertices[TOP_FACE],
-                                         &translated_vertices[TOP_FACE + 18]);
+                            positions.insert(positions.end(), &translated_vertices[TOP_FACE],
+                                             &translated_vertices[TOP_FACE + 18]);
                         }
                         for (int i = 0; i < 6; i++) {
-                            world_normals.push_back(TOP_NORMAL);
+                            normals.push_back(TOP_NORMAL);
                         }
-                        world_colours.insert(world_colours.end(), &green_face[0], &green_face[18]);
+                        colours.insert(colours.end(), &green_face[0], &green_face[18]);
                     }
 
                     // Left
                     if (boundsCheck(x, y, z, -1, 0, 0, worldSize, voxels)) {
                         if (voxelAo[4] + voxelAo[6] > voxelAo[7] + voxelAo[5]) {
-                            world.insert(world.end(), &translated_flipped_vertices[LEFT_FACE],
-                                         &translated_flipped_vertices[LEFT_FACE + 18]);
+                            positions.insert(positions.end(), &translated_flipped_vertices[LEFT_FACE],
+                                             &translated_flipped_vertices[LEFT_FACE + 18]);
                         } else {
-                            world.insert(world.end(), &translated_vertices[LEFT_FACE],
-                                         &translated_vertices[LEFT_FACE + 18]);
+                            positions.insert(positions.end(), &translated_vertices[LEFT_FACE],
+                                             &translated_vertices[LEFT_FACE + 18]);
                         }
                         for (int i = 0; i < 6; i++) {
-                            world_normals.push_back(LEFT_NORMAL);
+                            normals.push_back(LEFT_NORMAL);
                         }
                         if (voxel == 1) {
-                            world_colours.insert(world_colours.end(), &green_face[0], &green_face[18]);
+                            colours.insert(colours.end(), &green_face[0], &green_face[18]);
                         } else {
-                            world_colours.insert(world_colours.end(), &red_face[0], &red_face[18]);
+                            colours.insert(colours.end(), &red_face[0], &red_face[18]);
                         }
                     }
 
                     // Right
                     if (boundsCheck(x, y, z, 1, 0, 0, worldSize, voxels)) {
                         if (voxelAo[8] + voxelAo[10] > voxelAo[11] + voxelAo[9]) {
-                            world.insert(world.end(), &translated_flipped_vertices[RIGHT_FACE],
-                                         &translated_flipped_vertices[RIGHT_FACE + 18]);
+                            positions.insert(positions.end(), &translated_flipped_vertices[RIGHT_FACE],
+                                             &translated_flipped_vertices[RIGHT_FACE + 18]);
                         } else {
-                            world.insert(world.end(), &translated_vertices[RIGHT_FACE],
-                                         &translated_vertices[RIGHT_FACE + 18]);
+                            positions.insert(positions.end(), &translated_vertices[RIGHT_FACE],
+                                             &translated_vertices[RIGHT_FACE + 18]);
                         }
                         for (int i = 0; i < 6; i++) {
-                            world_normals.push_back(RIGHT_NORMAL);
+                            normals.push_back(RIGHT_NORMAL);
                         }
                         if (voxel == 1) {
-                            world_colours.insert(world_colours.end(), &green_face[0], &green_face[18]);
+                            colours.insert(colours.end(), &green_face[0], &green_face[18]);
                         } else {
-                            world_colours.insert(world_colours.end(), &red_face[0], &red_face[18]);
+                            colours.insert(colours.end(), &red_face[0], &red_face[18]);
                         }
                     }
 
                     // Front
                     if (boundsCheck(x, y, z, 0, 0, -1, worldSize, voxels)) {
                         if (voxelAo[12] + voxelAo[14] > voxelAo[15] + voxelAo[13]) {
-                            world.insert(world.end(), &translated_flipped_vertices[FRONT_FACE],
-                                         &translated_flipped_vertices[FRONT_FACE + 18]);
+                            positions.insert(positions.end(), &translated_flipped_vertices[FRONT_FACE],
+                                             &translated_flipped_vertices[FRONT_FACE + 18]);
                         } else {
-                            world.insert(world.end(), &translated_vertices[FRONT_FACE],
-                                         &translated_vertices[FRONT_FACE + 18]);
+                            positions.insert(positions.end(), &translated_vertices[FRONT_FACE],
+                                             &translated_vertices[FRONT_FACE + 18]);
                         }
                         for (int i = 0; i < 6; i++) {
-                            world_normals.push_back(FRONT_NORMAL);
+                            normals.push_back(FRONT_NORMAL);
                         }
                         if (voxel == 1) {
-                            world_colours.insert(world_colours.end(), &green_face[0], &green_face[18]);
+                            colours.insert(colours.end(), &green_face[0], &green_face[18]);
                         } else {
-                            world_colours.insert(world_colours.end(), &red_face[0], &red_face[18]);
+                            colours.insert(colours.end(), &red_face[0], &red_face[18]);
                         }
                     }
 
                     // Back
                     if (boundsCheck(x, y, z, 0, 0, 1, worldSize, voxels)) {
                         if (voxelAo[16] + voxelAo[18] > voxelAo[19] + voxelAo[17]) {
-                            world.insert(world.end(), &translated_flipped_vertices[BACK_FACE],
-                                         &translated_flipped_vertices[BACK_FACE + 18]);
+                            positions.insert(positions.end(), &translated_flipped_vertices[BACK_FACE],
+                                             &translated_flipped_vertices[BACK_FACE + 18]);
                         } else {
-                            world.insert(world.end(), &translated_vertices[BACK_FACE],
-                                         &translated_vertices[BACK_FACE + 18]);
+                            positions.insert(positions.end(), &translated_vertices[BACK_FACE],
+                                             &translated_vertices[BACK_FACE + 18]);
                         }
                         for (int i = 0; i < 6; i++) {
-                            world_normals.push_back(BACK_NORMAL);
+                            normals.push_back(BACK_NORMAL);
                         }
                         if (voxel == 1) {
-                            world_colours.insert(world_colours.end(), &green_face[0], &green_face[18]);
+                            colours.insert(colours.end(), &green_face[0], &green_face[18]);
                         } else {
-                            world_colours.insert(world_colours.end(), &red_face[0], &red_face[18]);
+                            colours.insert(colours.end(), &red_face[0], &red_face[18]);
                         }
                     }
                 }
@@ -442,9 +442,9 @@ void meshChunk(Chunk *chunk, int worldSize) {
         }
     }
 
-    for (int i = 0; i < world.size() / 3; ++i) {
+    for (int i = 0; i < positions.size() / 3; ++i) {
         uint64_t colour;
-        if (world_colours[3 * i] == 0.278f) {
+        if (colours[3 * i] == 0.278f) {
             colour = 0;
         }
         else {
@@ -452,17 +452,17 @@ void meshChunk(Chunk *chunk, int worldSize) {
         }
 
         uint64_t vertex =
-                (uint64_t)world[3 * i] |
-                ((uint64_t)world[3 * i + 1] << 11) |
-                ((uint64_t)world[3 * i + 2] << 22) |
+                (uint64_t)positions[3 * i] |
+                ((uint64_t)positions[3 * i + 1] << 11) |
+                ((uint64_t)positions[3 * i + 2] << 22) |
                 (colour << 33) |
-                ((uint64_t)world_normals[i] << 34) |
-                ((uint64_t)world_ao[i] << 37);
+                ((uint64_t)normals[i] << 34) |
+                ((uint64_t)ao[i] << 37);
 
         chunk->data.push_back(vertex);
     }
 
-    std::cout << "positions: " << world.size() << std::endl;
+    std::cout << "positions: " << positions.size() << std::endl;
 }
 
 bool boundsCheck(int x, int y, int z, int i, int j, int k, int worldSize, std::vector<int> &voxels) {

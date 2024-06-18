@@ -19,10 +19,6 @@ public:
 	unsigned int VAO;
 	unsigned int dataVBO;
 
-	std::vector<int> positions;
-	std::vector<float> colours;
-	std::vector<int> normals;
-	std::vector<int> ao;
 	std::vector<uint64_t> data;
 
     glm::mat4 model;
