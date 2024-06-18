@@ -176,7 +176,7 @@ void meshChunk(Chunk *chunk, int worldSize) {
                     for (int i = -1; i <= 1; ++i) {
                         for (int j = -1; j <= 1; ++j) {
                             for (int k = -1; k <= 1; ++k) {
-                                presence.push_back(inBounds(x + i, y + j, z + k, CHUNK_SIZE, CHUNK_HEIGHT)
+                                presence.push_back(inBounds(x + i, y + j, z + k, CHUNK_SIZE + 2, CHUNK_HEIGHT)
                                                    && voxels[getVoxelIndex(x + i, y + j, z + k, CHUNK_SIZE + 2)] != 0);
                             }
                         }

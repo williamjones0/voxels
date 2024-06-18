@@ -146,39 +146,6 @@ int main() {
         }
     }
 
-    std::vector<int> world;
-    std::vector<float> world_colours;
-    std::vector<int> world_normals;
-    std::vector<int> world_ao;
-    std::vector<uint64_t> world_data;
-
-    std::cout << "world size: " << world.size() << std::endl;
-    std::cout << "colours size: " << world_colours.size() << std::endl;
-    std::cout << "normals size: " << world_normals.size() << std::endl;
-    std::cout << "ao size: " << world_ao.size() << std::endl;
-
-    for (int i = 0; i < world.size() / 3; ++i) {
-        uint64_t colour;
-        if (world_colours[3 * i] == 0.278f) {
-            colour = 0;
-        }
-        else {
-            colour = 1;
-        }
-
-        uint64_t data =
-            (uint64_t)world[3 * i] |
-            ((uint64_t)world[3 * i + 1] << 11) |
-            ((uint64_t)world[3 * i + 2] << 22) |
-            (colour << 33) |
-            ((uint64_t)world_normals[i] << 34) |
-            ((uint64_t)world_ao[i] << 37);
-
-        world_data.push_back(data);
-    }
-
-    std::cout << "data size: " << world_data.size() << std::endl;
-
     // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
     while (!glfwWindowShouldClose(window)) {
