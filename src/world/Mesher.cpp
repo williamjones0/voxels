@@ -442,6 +442,26 @@ void meshChunk(Chunk *chunk, int worldSize) {
         }
     }
 
+    for (int i = 0; i < world.size() / 3; ++i) {
+        uint64_t colour;
+        if (world_colours[3 * i] == 0.278f) {
+            colour = 0;
+        }
+        else {
+            colour = 1;
+        }
+
+        uint64_t vertex =
+                (uint64_t)world[3 * i] |
+                ((uint64_t)world[3 * i + 1] << 11) |
+                ((uint64_t)world[3 * i + 2] << 22) |
+                (colour << 33) |
+                ((uint64_t)world_normals[i] << 34) |
+                ((uint64_t)world_ao[i] << 37);
+
+        chunk->data.push_back(vertex);
+    }
+
     std::cout << "positions: " << world.size() << std::endl;
 }
 

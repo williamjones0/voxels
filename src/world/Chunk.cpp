@@ -28,25 +28,6 @@ void Chunk::init() {
     generateVoxels();
 
     meshChunk(this, 32);
-    for (int i = 0; i < positions.size() / 3; ++i) {
-        uint64_t colour;
-        if (colours[3 * i] == 0.278f) {
-            colour = 0;
-        }
-        else {
-            colour = 1;
-        }
-
-        uint64_t vertex =
-            (uint64_t)positions[3 * i] |
-            ((uint64_t)positions[3 * i + 1] << 11) |
-            ((uint64_t)positions[3 * i + 2] << 22) |
-            (colour << 33) |
-            ((uint64_t)normals[i] << 34) |
-            ((uint64_t)ao[i] << 37);
-
-        data.push_back(vertex);
-    }
 
     glGenVertexArrays(1, &VAO);
 
