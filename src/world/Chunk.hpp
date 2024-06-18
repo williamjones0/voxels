@@ -17,8 +17,6 @@ public:
 	int maxY;
 
 	unsigned int VAO;
-	unsigned int VBO;
-	unsigned int aoVBO;
 	unsigned int dataVBO;
 
 	std::vector<int> positions;

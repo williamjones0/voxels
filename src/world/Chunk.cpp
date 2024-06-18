@@ -30,30 +30,15 @@ void Chunk::init() {
     meshChunk(this, 32);
 
     glGenVertexArrays(1, &VAO);
-
-    glGenBuffers(1, &VBO);
-
     glBindVertexArray(VAO);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, positions.size() * sizeof(int), &positions[0], GL_STATIC_DRAW);
-    glVertexAttribPointer(1, 3, GL_INT, GL_FALSE, 3 * sizeof(int), (void*)0);
-    glEnableVertexAttribArray(1);
-
-    glGenBuffers(1, &aoVBO);
-    glBindBuffer(GL_ARRAY_BUFFER, aoVBO);
-    glBufferData(GL_ARRAY_BUFFER, ao.size() * sizeof(int), &ao[0], GL_STATIC_DRAW);
-    glVertexAttribPointer(2, 1, GL_INT, GL_FALSE, sizeof(int), (void*)0);
-    glEnableVertexAttribArray(2);
 
     glGenBuffers(1, &dataVBO);
-
     glBindBuffer(GL_ARRAY_BUFFER, dataVBO);
     glBufferData(GL_ARRAY_BUFFER, data.size() * sizeof(uint64_t), &data[0], GL_STATIC_DRAW);
-
     glVertexAttribLPointer(0, 1, GL_DOUBLE, sizeof(uint64_t), (void*)0);
     glEnableVertexAttribArray(0);
-
     glBindBuffer(GL_ARRAY_BUFFER, 0);
+
     glBindVertexArray(0);
 }
 
