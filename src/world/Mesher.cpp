@@ -165,9 +165,9 @@ void meshChunk(Chunk *chunk, int worldSize) {
     };
 
     for (int y = 0; y < CHUNK_HEIGHT - 1; ++y) {
-        for (int z = 0; z < CHUNK_SIZE; ++z) {
-            for (int x = 0; x < CHUNK_SIZE; ++x) {
-                int voxel = voxels[getVoxelIndex(x, y, z, CHUNK_SIZE)];
+        for (int z = 1; z < CHUNK_SIZE + 1; ++z) {
+            for (int x = 1; x < CHUNK_SIZE + 1; ++x) {
+                int voxel = voxels[getVoxelIndex(x, y, z, CHUNK_SIZE + 2)];
                 if (voxel != 0) {
                     // Ambient occlusion (computed first so that quads can be flipped if necessary)
                     // (-1, -1, -1) to (1, 1, 1)
@@ -177,7 +177,7 @@ void meshChunk(Chunk *chunk, int worldSize) {
                         for (int j = -1; j <= 1; ++j) {
                             for (int k = -1; k <= 1; ++k) {
                                 presence.push_back(inBounds(x + i, y + j, z + k, CHUNK_SIZE, CHUNK_HEIGHT)
-                                                   && voxels[getVoxelIndex(x + i, y + j, z + k, CHUNK_SIZE)] != 0);
+                                                   && voxels[getVoxelIndex(x + i, y + j, z + k, CHUNK_SIZE + 2)] != 0);
                             }
                         }
                     }
@@ -334,17 +334,17 @@ void meshChunk(Chunk *chunk, int worldSize) {
                     int *translated_vertices = new int[VERTICES_LENGTH];
                     std::memcpy(translated_vertices, vertices, VERTICES_LENGTH * sizeof(int));
                     for (int k = 0; k < 36; ++k) {
-                        translated_vertices[3 * k] += x;
+                        translated_vertices[3 * k] += x - 1;
                         translated_vertices[3 * k + 1] += y;
-                        translated_vertices[3 * k + 2] += z;
+                        translated_vertices[3 * k + 2] += z - 1;
                     }
 
                     int *translated_flipped_vertices = new int[VERTICES_LENGTH];
                     std::memcpy(translated_flipped_vertices, flipped_vertices, VERTICES_LENGTH * sizeof(int));
                     for (int k = 0; k < 36; ++k) {
-                        translated_flipped_vertices[3 * k] += x;
+                        translated_flipped_vertices[3 * k] += x - 1;
                         translated_flipped_vertices[3 * k + 1] += y;
-                        translated_flipped_vertices[3 * k + 2] += z;
+                        translated_flipped_vertices[3 * k + 2] += z - 1;
                     }
 
                     // Top face
@@ -447,21 +447,11 @@ void meshChunk(Chunk *chunk, int worldSize) {
 
 bool boundsCheck(int x, int y, int z, int i, int j, int k, int worldSize, std::vector<int> &voxels) {
     bool adjInBounds = inBounds(x + i, y + j, z + k, worldSize, CHUNK_HEIGHT);
-    bool isEdgeVoxel = false;
-    if (i == -1) {
-        isEdgeVoxel = x == 0;
-    } else if (i == 1) {
-        isEdgeVoxel = x == CHUNK_SIZE - 1;
-    } else if (k == -1) {
-        isEdgeVoxel = z == 0;
-    } else if (k == 1) {
-        isEdgeVoxel = z == CHUNK_SIZE - 1;
-    }
 
     bool isAdjVoxelEmpty = true;
     if (adjInBounds) {
-        isAdjVoxelEmpty = voxels[getVoxelIndex(x + i, y + j, z + k, CHUNK_SIZE)] == 0;
+        isAdjVoxelEmpty = voxels[getVoxelIndex(x + i, y + j, z + k, CHUNK_SIZE + 2)] == 0;
     }
 
-    return isEdgeVoxel || (adjInBounds && isAdjVoxelEmpty);
+    return adjInBounds && isAdjVoxelEmpty;
 }
