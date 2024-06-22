@@ -437,6 +437,9 @@ void meshChunk(Chunk *chunk, int worldSize) {
                             colours.insert(colours.end(), &red_face[0], &red_face[18]);
                         }
                     }
+
+                    delete[] translated_vertices;
+                    delete[] translated_flipped_vertices;
                 }
             }
         }
@@ -462,7 +465,16 @@ void meshChunk(Chunk *chunk, int worldSize) {
         chunk->data.push_back(vertex);
     }
 
-    std::cout << "positions: " << positions.size() << std::endl;
+    unsigned long long totalSize = 0;
+//    totalSize += positions.capacity() * sizeof(positions[0]);
+//    totalSize += normals.capacity() * sizeof(normals[0]);
+//    totalSize += colours.capacity() * sizeof(colours[0]);
+//    totalSize += ao.capacity() * sizeof(ao[0]);
+    totalSize += chunk->data.capacity() * sizeof(uint64_t);
+    totalSize += chunk->voxels.capacity() * sizeof(int);
+    std::cout << "totalSize: " << totalSize << std::endl;
+
+//    std::cout << "chunk data size: " << chunk->data.capacity() * sizeof(uint64_t) << std::endl;
 }
 
 bool boundsCheck(int x, int y, int z, int i, int j, int k, int worldSize, std::vector<int> &voxels) {
