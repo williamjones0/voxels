@@ -9,3 +9,4 @@ Optimisation progress (featuring very rigorous benchmarking):
 | ---                               | --- |
 | Naive (no optimisation)           | 16-18 |
 | Removing triangles between voxels | 40-ish |
+| Naive chunking                    | 12-ish |
