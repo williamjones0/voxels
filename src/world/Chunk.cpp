@@ -7,7 +7,6 @@
 #include <util/Util.hpp>
 #include <glm/ext/matrix_transform.hpp>
 #include <iostream>
-#include "Noise.hpp"
 
 #define EPSILON 0.000001
 

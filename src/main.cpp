@@ -13,7 +13,6 @@
 #include <opengl/Shader.h>
 #include <core/Camera.hpp>
 #include <world/Mesher.hpp>
-#include <world/Noise.hpp>
 #include <world/Chunk.hpp>
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
