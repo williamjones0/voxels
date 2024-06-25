@@ -12,6 +12,6 @@ int dirToIndex(int i, int j, int k);
 
 uint64_t createVertex(int x, int y, int z, int colour, int normal, int ao);
 
-void meshChunk(Chunk *chunk, int worldSize);
+void meshChunk(Chunk *chunk, int worldSize, std::vector<uint64_t> &data);
 
 bool boundsCheck(int x, int y, int z, int i, int j, int k, int worldSize, std::vector<int> &voxels);

@@ -14,12 +14,14 @@
 #include <core/Camera.hpp>
 #include <world/Mesher.hpp>
 #include <world/Chunk.hpp>
+#include <world/WorldMesh.hpp>
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void glfw_error_callback(int error, const char* description);
 void processInput(GLFWwindow* window);
+void putMatrix4f(std::vector<float> &buffer, glm::mat4 m);
 
 const unsigned int SCREEN_WIDTH = 1920;
 const unsigned int SCREEN_HEIGHT = 1080;
@@ -36,6 +38,13 @@ const double PI = 3.1415926535;
 #define VERTICES_LENGTH 108
 
 #define CHUNK_SIZE_SHIFT 4
+
+typedef struct {
+    unsigned int count;
+    unsigned int instanceCount;
+    unsigned int firstIndex;
+    unsigned int baseInstance;
+} DrawArraysIndirectCommand;
 
 Camera camera(glm::vec3(-5.0f, 20.0f, 0.0f), 0.0f, 0.0f);
 float lastX = SCREEN_WIDTH / 2.0f;
@@ -94,7 +103,7 @@ int main() {
 
     glfwSetErrorCallback(glfw_error_callback);
 
-    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    // glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     glfwSwapInterval(1);
 
@@ -111,9 +120,11 @@ int main() {
 
     glEnable(GL_DEPTH_TEST);
 
-    Shader shader("../res/shaders/vert.glsl", "../res/shaders/frag.glsl");
+    Shader shader("../../../res/shaders/vert.glsl", "../../../res/shaders/frag.glsl");
 
-    const int WORLD_SIZE = 256;
+    WorldMesh worldMesh;
+
+    const int WORLD_SIZE = 32;
 
     const int NUM_AXIS_CHUNKS = WORLD_SIZE / CHUNK_SIZE;
     const int NUM_CHUNKS = NUM_AXIS_CHUNKS * NUM_AXIS_CHUNKS;
@@ -121,7 +132,7 @@ int main() {
     for (int cx = 0; cx < NUM_AXIS_CHUNKS; ++cx) {
         for (int cz = 0; cz < NUM_AXIS_CHUNKS; ++cz) {
             Chunk chunk = Chunk(cx, cz);
-            chunk.init();
+            chunk.init(worldMesh.data);
             chunks.push_back(chunk);
 
 //            std::cout << "Chunk " << cz + cx * NUM_AXIS_CHUNKS << ":\n";
@@ -145,6 +156,40 @@ int main() {
         }
     }
 
+    worldMesh.createBuffers();
+
+    std::vector<DrawArraysIndirectCommand> commands;
+    std::vector<float> cmb;
+    unsigned int firstIndex = 0;
+    for (size_t i = 0; i < NUM_CHUNKS; ++i) {
+        DrawArraysIndirectCommand chunkCmd = {
+                .count = static_cast<unsigned int>(chunks[i].numVertices),
+                .instanceCount = 1,
+                .firstIndex = firstIndex,
+                .baseInstance = 0
+        };
+        commands.push_back(chunkCmd);
+        firstIndex += chunks[i].numVertices;
+
+        // Push chunk's model matrix to the vertex buffer
+        putMatrix4f(cmb, chunks[i].model);
+    }
+
+    GLuint drawCmdBuffer;
+    glGenBuffers(1, &drawCmdBuffer);
+    glBindBuffer(GL_DRAW_INDIRECT_BUFFER, drawCmdBuffer);
+    glObjectLabel(GL_BUFFER, drawCmdBuffer, 13, "drawCmdBuffer");
+    glBufferData(GL_DRAW_INDIRECT_BUFFER, commands.size() * sizeof(DrawArraysIndirectCommand), &commands, GL_STATIC_DRAW);
+    glBindBuffer(GL_DRAW_INDIRECT_BUFFER, 0);
+
+    GLuint chunkModelBuffer;
+    glGenBuffers(1, &chunkModelBuffer);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, chunkModelBuffer);
+    glObjectLabel(GL_BUFFER, chunkModelBuffer, 16, "chunkModelBuffer");
+    glBufferData(GL_SHADER_STORAGE_BUFFER, cmb.size() * sizeof(float), &cmb, GL_STATIC_DRAW);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, chunkModelBuffer);
+    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+
     // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
     while (!glfwWindowShouldClose(window)) {
@@ -165,11 +210,16 @@ int main() {
         shader.setMat4("view", camera.calculateViewMatrix());
         shader.setMat4("projection", projection);
 
-        for (int i = 0; i < NUM_CHUNKS; ++i) {
-            Chunk chunk = chunks[i];
-            shader.setMat4("model", chunk.model);
-            chunk.render();
-        }
+//        for (int i = 0; i < NUM_CHUNKS; ++i) {
+//            Chunk chunk = chunks[i];
+//            shader.setMat4("model", chunk.model);
+//            chunk.render();
+//        }
+
+        glBindBuffer(GL_DRAW_INDIRECT_BUFFER, drawCmdBuffer);
+        glBindVertexArray(worldMesh.VAO);
+        glMultiDrawArraysIndirect(GL_TRIANGLES, 0, NUM_CHUNKS, 0);
+        glBindVertexArray(0);
 
         // std::cout << "Frame time: " << deltaTime << "\t FPS: " << (1.0f / deltaTime) << std::endl;
 
@@ -229,4 +279,23 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
 
 void glfw_error_callback(int error, const char* description) {
     fprintf(stderr, "GLFW error %d: %s\n", error, description);
+}
+
+void putMatrix4f(std::vector<float> &buffer, glm::mat4 m) {
+    buffer.push_back(m[0][0]);
+    buffer.push_back(m[0][1]);
+    buffer.push_back(m[0][2]);
+    buffer.push_back(m[0][3]);
+    buffer.push_back(m[1][0]);
+    buffer.push_back(m[1][1]);
+    buffer.push_back(m[1][2]);
+    buffer.push_back(m[1][3]);
+    buffer.push_back(m[2][0]);
+    buffer.push_back(m[2][1]);
+    buffer.push_back(m[2][2]);
+    buffer.push_back(m[2][3]);
+    buffer.push_back(m[3][0]);
+    buffer.push_back(m[3][1]);
+    buffer.push_back(m[3][2]);
+    buffer.push_back(m[3][3]);
 }

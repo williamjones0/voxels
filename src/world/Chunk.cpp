@@ -20,25 +20,25 @@ char Chunk::load(int x, int y, int z) {
     return voxels[getVoxelIndex(x, y, z, CHUNK_SIZE)];
 }
 
-void Chunk::init() {
+void Chunk::init(std::vector<uint64_t> &data) {
     model = glm::translate(glm::mat4(1.0f), glm::vec3(cx * CHUNK_SIZE, 0, cz * CHUNK_SIZE));
 
     voxels = std::vector<int>((CHUNK_SIZE + 2) * (CHUNK_SIZE + 2) * CHUNK_HEIGHT);
     generateVoxels();
 
-    meshChunk(this, 32);
+    meshChunk(this, 32, data);
 
-    glGenVertexArrays(1, &VAO);
-    glBindVertexArray(VAO);
-
-    glGenBuffers(1, &dataVBO);
-    glBindBuffer(GL_ARRAY_BUFFER, dataVBO);
-    glBufferData(GL_ARRAY_BUFFER, data.size() * sizeof(uint64_t), &data[0], GL_STATIC_DRAW);
-    glVertexAttribLPointer(0, 1, GL_DOUBLE, sizeof(uint64_t), (void*)0);
-    glEnableVertexAttribArray(0);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-    glBindVertexArray(0);
+//    glGenVertexArrays(1, &VAO);
+//    glBindVertexArray(VAO);
+//
+//    glGenBuffers(1, &dataVBO);
+//    glBindBuffer(GL_ARRAY_BUFFER, dataVBO);
+//    glBufferData(GL_ARRAY_BUFFER, data.size() * sizeof(uint64_t), &data[0], GL_STATIC_DRAW);
+//    glVertexAttribLPointer(0, 1, GL_DOUBLE, sizeof(uint64_t), (void*)0);
+//    glEnableVertexAttribArray(0);
+//    glBindBuffer(GL_ARRAY_BUFFER, 0);
+//
+//    glBindVertexArray(0);
 }
 
 void Chunk::generateVoxels() {
@@ -61,10 +61,4 @@ void Chunk::generateVoxels() {
             }
         }
     }
-}
-
-void Chunk::render() {
-    glBindVertexArray(VAO);
-    glDrawArrays(GL_TRIANGLES, 0, data.size() * 3);
-    glBindVertexArray(0);
 }

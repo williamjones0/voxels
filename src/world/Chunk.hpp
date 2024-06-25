@@ -19,14 +19,14 @@ public:
 	unsigned int VAO;
 	unsigned int dataVBO;
 
-	std::vector<uint64_t> data;
+    unsigned int numVertices;
 
     glm::mat4 model;
 
 	std::vector<int> voxels;
 	void store(int x, int y, int z, char v);
 	char load(int x, int y, int z);
-	void init();
+	void init(std::vector<uint64_t> &data);
 	void generateVoxels();
 	void render();
 };

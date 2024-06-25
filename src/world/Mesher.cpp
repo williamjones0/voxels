@@ -39,7 +39,7 @@ uint64_t createVertex(int x, int y, int z, int colour, int normal, int ao) {
            ((uint64_t) ao << 37);
 }
 
-void meshChunk(Chunk *chunk, int worldSize) {
+void meshChunk(Chunk *chunk, int worldSize, std::vector<uint64_t> &data) {
     std::vector<int> &voxels = chunk->voxels;
     std::vector<int> positions;
     std::vector<float> colours;
@@ -462,15 +462,16 @@ void meshChunk(Chunk *chunk, int worldSize) {
                 ((uint64_t)normals[i] << 34) |
                 ((uint64_t)ao[i] << 37);
 
-        chunk->data.push_back(vertex);
+        data.push_back(vertex);
     }
+
+    chunk->numVertices = positions.size();
 
     unsigned long long totalSize = 0;
 //    totalSize += positions.capacity() * sizeof(positions[0]);
 //    totalSize += normals.capacity() * sizeof(normals[0]);
 //    totalSize += colours.capacity() * sizeof(colours[0]);
 //    totalSize += ao.capacity() * sizeof(ao[0]);
-    totalSize += chunk->data.capacity() * sizeof(uint64_t);
     totalSize += chunk->voxels.capacity() * sizeof(int);
     std::cout << "totalSize: " << totalSize << std::endl;
 

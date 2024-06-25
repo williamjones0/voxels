@@ -18,6 +18,8 @@ add_executable(${PROJECT_NAME}
   "src/opengl/Shader.h" "src/core/Camera.cpp" "src/util/PerlinNoise.hpp"  "src/world/Mesher.hpp" "src/world/Chunk.cpp"
         src/util/Util.cpp
         src/world/Mesher.cpp
+        src/world/WorldMesh.cpp
+        src/world/WorldMesh.hpp
 )
 
 add_subdirectory(lib/submodules/glfw)
