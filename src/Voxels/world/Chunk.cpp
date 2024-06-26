@@ -1,10 +1,10 @@
-#include <world/Chunk.hpp>
+#include "Chunk.hpp"
 
 #include <glad/glad.h>
 
-#include <util/PerlinNoise.hpp>
-#include <world/Mesher.hpp>
-#include <util/Util.hpp>
+#include "../util/PerlinNoise.hpp"
+#include "Mesher.hpp"
+#include "../util/Util.hpp"
 #include <glm/ext/matrix_transform.hpp>
 #include <iostream>
 

@@ -7,14 +7,14 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/string_cast.hpp>
 #include <glm/gtc/type_ptr.hpp>
-#include <util/PerlinNoise.hpp>
+#include "util/PerlinNoise.hpp"
 
 #include <iostream>
-#include <opengl/Shader.h>
-#include <core/Camera.hpp>
-#include <world/Mesher.hpp>
-#include <world/Chunk.hpp>
-#include <world/WorldMesh.hpp>
+#include "opengl/Shader.h"
+#include "core/Camera.hpp"
+#include "world/Mesher.hpp"
+#include "world/Chunk.hpp"
+#include "world/WorldMesh.hpp"
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
@@ -86,8 +86,9 @@ void GLAPIENTRY MessageCallback(
 int main() {
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_OPENGL_DEBUG_CONTEXT, GLFW_TRUE);
 
     GLFWwindow* window = glfwCreateWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Voxels", NULL, NULL);
     if (window == NULL) {
@@ -114,13 +115,14 @@ int main() {
 
     // Enable debug output
     glEnable(GL_DEBUG_OUTPUT);
+    glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
     glDebugMessageCallback(MessageCallback, 0);
 
     glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
 
     glEnable(GL_DEPTH_TEST);
 
-    Shader shader("../../../res/shaders/vert.glsl", "../../../res/shaders/frag.glsl");
+    Shader shader("../../../../../data/shaders/vert.glsl", "../../../../../data/shaders/frag.glsl");
 
     WorldMesh worldMesh;
 
@@ -216,10 +218,10 @@ int main() {
 //            chunk.render();
 //        }
 
-        glBindBuffer(GL_DRAW_INDIRECT_BUFFER, drawCmdBuffer);
-        glBindVertexArray(worldMesh.VAO);
-        glMultiDrawArraysIndirect(GL_TRIANGLES, 0, NUM_CHUNKS, 0);
-        glBindVertexArray(0);
+        //glBindVertexArray(worldMesh.VAO);
+        //glBindBuffer(GL_ARRAY_BUFFER, worldMesh.dataVBO);
+        //glBindBuffer(GL_DRAW_INDIRECT_BUFFER, drawCmdBuffer);
+        //glMultiDrawArraysIndirect(GL_TRIANGLES, 0, NUM_CHUNKS, sizeof(DrawArraysIndirectCommand));
 
         // std::cout << "Frame time: " << deltaTime << "\t FPS: " << (1.0f / deltaTime) << std::endl;
 

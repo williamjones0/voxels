@@ -1,4 +1,4 @@
-#include <core/Camera.hpp>
+#include "Camera.hpp"
 
 Camera::Camera(glm::vec3 position, float yaw, float pitch) : position(position), yaw(yaw), pitch(pitch) {
 	updateCameraVectors();

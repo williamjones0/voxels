@@ -2,7 +2,7 @@
 
 #include <vector>
 #include <cstdint>
-#include <world/Chunk.hpp>
+#include "Chunk.hpp"
 
 static inline int vertexAO(uint8_t side1, uint8_t side2, uint8_t corner);
 

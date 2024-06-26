@@ -1,10 +1,10 @@
-#include <world/Mesher.hpp>
+#include "Mesher.hpp"
 
 #include <cstring>
 #include <iostream>
 
-#include <util/PerlinNoise.hpp>
-#include <util/Util.hpp>
+#include "../util/PerlinNoise.hpp"
+#include "../util/Util.hpp"
 
 #define FRONT_FACE 0
 #define BACK_FACE 18
@@ -472,7 +472,7 @@ void meshChunk(Chunk *chunk, int worldSize, std::vector<uint64_t> &data) {
 //    totalSize += normals.capacity() * sizeof(normals[0]);
 //    totalSize += colours.capacity() * sizeof(colours[0]);
 //    totalSize += ao.capacity() * sizeof(ao[0]);
-    totalSize += chunk->voxels.capacity() * sizeof(int);
+//    totalSize += chunk->voxels.capacity() * sizeof(int);
     std::cout << "totalSize: " << totalSize << std::endl;
 
 //    std::cout << "chunk data size: " << chunk->data.capacity() * sizeof(uint64_t) << std::endl;
