@@ -9,9 +9,9 @@ public:
     WorldMesh();
 
     unsigned int VAO;
-    unsigned int dataVBO;
+    unsigned int VBO;
 
-    std::vector<uint64_t> data;
+    std::vector<uint32_t> data;
 
     void createBuffers();
 };

@@ -104,7 +104,7 @@ int main() {
 
     glfwSetErrorCallback(glfw_error_callback);
 
-    // glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     glfwSwapInterval(1);
 
@@ -126,7 +126,7 @@ int main() {
 
     WorldMesh worldMesh;
 
-    const int WORLD_SIZE = 32;
+    const int WORLD_SIZE = 2;
 
     const int NUM_AXIS_CHUNKS = WORLD_SIZE / CHUNK_SIZE;
     const int NUM_CHUNKS = NUM_AXIS_CHUNKS * NUM_AXIS_CHUNKS;
@@ -154,11 +154,22 @@ int main() {
 //                std::cout << std::endl;
 //            }
 
-//            std::cout << std::endl;
+//            std::cout << std::endl
         }
     }
 
     worldMesh.createBuffers();
+
+    for (int i = 0; i < worldMesh.data.size(); ++i) {
+        std::cout << worldMesh.data[i] << " ";
+        if (i % 3 == 0) {
+            std::cout << "\n";
+        }
+
+        if (i % 18 == 0) {
+            std::cout << "\n";
+        }
+    }
 
     std::vector<DrawArraysIndirectCommand> commands;
     std::vector<float> cmb;
@@ -178,19 +189,21 @@ int main() {
     }
 
     GLuint drawCmdBuffer;
-    glGenBuffers(1, &drawCmdBuffer);
-    glBindBuffer(GL_DRAW_INDIRECT_BUFFER, drawCmdBuffer);
-    glObjectLabel(GL_BUFFER, drawCmdBuffer, 13, "drawCmdBuffer");
-    glBufferData(GL_DRAW_INDIRECT_BUFFER, commands.size() * sizeof(DrawArraysIndirectCommand), &commands, GL_STATIC_DRAW);
-    glBindBuffer(GL_DRAW_INDIRECT_BUFFER, 0);
+    glCreateBuffers(1, &drawCmdBuffer);
+
+    glNamedBufferStorage(drawCmdBuffer,
+        sizeof(DrawArraysIndirectCommand) * commands.size(),
+        (const void*)commands.data(),
+        GL_DYNAMIC_STORAGE_BIT);
 
     GLuint chunkModelBuffer;
-    glGenBuffers(1, &chunkModelBuffer);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, chunkModelBuffer);
-    glObjectLabel(GL_BUFFER, chunkModelBuffer, 16, "chunkModelBuffer");
-    glBufferData(GL_SHADER_STORAGE_BUFFER, cmb.size() * sizeof(float), &cmb, GL_STATIC_DRAW);
+    glCreateBuffers(1, &chunkModelBuffer);
+
+    glNamedBufferStorage(chunkModelBuffer,
+        sizeof(float) * cmb.size(),
+        (const void*)cmb.data(),
+        GL_DYNAMIC_STORAGE_BIT);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, chunkModelBuffer);
-    glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 
     // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
@@ -212,16 +225,10 @@ int main() {
         shader.setMat4("view", camera.calculateViewMatrix());
         shader.setMat4("projection", projection);
 
-//        for (int i = 0; i < NUM_CHUNKS; ++i) {
-//            Chunk chunk = chunks[i];
-//            shader.setMat4("model", chunk.model);
-//            chunk.render();
-//        }
-
-        //glBindVertexArray(worldMesh.VAO);
-        //glBindBuffer(GL_ARRAY_BUFFER, worldMesh.dataVBO);
-        //glBindBuffer(GL_DRAW_INDIRECT_BUFFER, drawCmdBuffer);
-        //glMultiDrawArraysIndirect(GL_TRIANGLES, 0, NUM_CHUNKS, sizeof(DrawArraysIndirectCommand));
+        glBindVertexArray(worldMesh.VAO);
+        glBindBuffer(GL_ARRAY_BUFFER, worldMesh.VBO);
+        glBindBuffer(GL_DRAW_INDIRECT_BUFFER, drawCmdBuffer);
+        glMultiDrawArraysIndirect(GL_TRIANGLES, 0, NUM_CHUNKS, sizeof(DrawArraysIndirectCommand));
 
         // std::cout << "Frame time: " << deltaTime << "\t FPS: " << (1.0f / deltaTime) << std::endl;
 

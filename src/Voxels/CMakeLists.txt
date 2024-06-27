@@ -20,7 +20,7 @@ add_executable(Voxels
     world/Chunk.cpp
     world/Mesher.cpp
     world/WorldMesh.cpp
-)
+ "test.cpp")
 
 add_dependencies(Voxels copy_data)
 

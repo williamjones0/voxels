@@ -1,7 +1,7 @@
 #version 460 core
 #extension GL_ARB_gpu_shader_int64 : enable
 
-layout (location = 0) in uint64_t aData;
+layout (location = 0) in uint aData;
 layout (location = 1) in vec3 aPos;
 layout (location = 2) in float aAo;
 
@@ -9,9 +9,16 @@ out vec3 ourColor;
 flat out int normal;
 out float fragAo;
 
-uniform mat4 model;
 uniform mat4 view;
 uniform mat4 projection;
+
+struct ChunkModel {
+    mat4 model;
+};
+
+layout (binding = 0, std430) buffer ChunkModelBuffer {
+    ChunkModel Models[];
+} chunkModelBuffer;
 
 vec3 get_color(uint type) {
     switch (type) {
@@ -21,13 +28,15 @@ vec3 get_color(uint type) {
 }
 
 void main() {
-    float x = float(aData & 2047u);
-    float y = float((aData >> 11) & 2047u);
-    float z = float((aData >> 22) & 2047u);
-    float ao = float((aData >> 37) & 3u);
+    ChunkModel chunkModel = chunkModelBuffer.Models[gl_DrawID];
+    float x = float(aData & 31u);
+    float y = float((aData >> 5) & 31u);
+    float z = float((aData >> 10) & 31u);
+    float ao = float((aData >> 19) & 3u);
 
-    gl_Position = projection * view * model * vec4(x, y, z, 1.0);
-    ourColor = get_color(uint((aData >> 33) & 1u));
-    normal = int((aData >> 34) & 7u);
+    gl_Position = projection * view * chunkModel.model * vec4(x, y + 10 * gl_DrawID, z, 1.0);
+    ourColor = vec3(gl_DrawID / 4.0f, gl_DrawID / 4.0f, gl_DrawID / 4.0f);
+    // ourColor = get_color(uint((aData >> 15) & 1u));
+    normal = int((aData >> 16) & 7u);
     fragAo = clamp(float(ao) / 3.0, 0.5, 1.0);
 }

@@ -4,29 +4,28 @@
 #include <vector>
 #include <glm/glm.hpp>
 
-#define CHUNK_SIZE 16
-#define CHUNK_HEIGHT 128
+#define CHUNK_SIZE 1
+#define CHUNK_HEIGHT 4
 
 class Chunk {
 public:
-	Chunk(int cx, int cz);
+    Chunk(int cx, int cz);
 
-	const int cx;
-	const int cz;
-	int minY;
-	int maxY;
+    const int cx;
+    const int cz;
+    int minY;
+    int maxY;
 
-	unsigned int VAO;
-	unsigned int dataVBO;
+    unsigned int VAO;
+    unsigned int dataVBO;
 
     unsigned int numVertices;
 
     glm::mat4 model;
 
-	std::vector<int> voxels;
-	void store(int x, int y, int z, char v);
-	char load(int x, int y, int z);
-	void init(std::vector<uint64_t> &data);
-	void generateVoxels();
-	void render();
+    std::vector<int> voxels;
+    void store(int x, int y, int z, char v);
+    char load(int x, int y, int z);
+    void init(std::vector<uint32_t> &data);
+    void generateVoxels();
 };

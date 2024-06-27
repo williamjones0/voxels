@@ -3,17 +3,18 @@
 void WorldMesh::createBuffers() {
     std::cout << "data size: " << data.size() << std::endl;
 
-    glGenVertexArrays(1, &VAO);
-    glBindVertexArray(VAO);
+    glCreateBuffers(1, &VBO);
+    glNamedBufferStorage(VBO, sizeof(uint32_t) * data.size(), &data[0], GL_DYNAMIC_STORAGE_BIT);
 
-    glGenBuffers(1, &dataVBO);
-    glBindBuffer(GL_ARRAY_BUFFER, dataVBO);
-    glBufferData(GL_ARRAY_BUFFER, data.size() * sizeof(uint64_t), &data[0], GL_STATIC_DRAW);
-    glVertexAttribLPointer(0, 1, GL_DOUBLE, sizeof(uint64_t), (void*)0);
-    glEnableVertexAttribArray(0);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glCreateVertexArrays(1, &VAO);
 
-    glBindVertexArray(0);
+    glVertexArrayVertexBuffer(VAO, 0, VBO, 0, sizeof(uint32_t));
+
+    glEnableVertexArrayAttrib(VAO, 0);
+
+    glVertexArrayAttribFormat(VAO, 0, 1, GL_FLOAT, GL_FALSE, 0);
+
+    glVertexArrayAttribBinding(VAO, 0, 0);
 }
 
 WorldMesh::WorldMesh() {}

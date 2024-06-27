@@ -30,16 +30,16 @@ int dirToIndex(int i, int j, int k) {
     return (i + 1) * 9 + (j + 1) * 3 + k + 1;
 }
 
-uint64_t createVertex(int x, int y, int z, int colour, int normal, int ao) {
-    return (uint64_t) x |
-           ((uint64_t) y << 11) |
-           ((uint64_t) z << 22) |
+uint32_t createVertex(int x, int y, int z, int colour, int normal, int ao) {
+    return (uint32_t) x |
+           ((uint32_t) y << 11) |
+           ((uint32_t) z << 22) |
            (colour < 33) |
-           ((uint64_t) normal << 34) |
-           ((uint64_t) ao << 37);
+           ((uint32_t) normal << 34) |
+           ((uint32_t) ao << 37);
 }
 
-void meshChunk(Chunk *chunk, int worldSize, std::vector<uint64_t> &data) {
+void meshChunk(Chunk *chunk, int worldSize, std::vector<uint32_t> &data) {
     std::vector<int> &voxels = chunk->voxels;
     std::vector<int> positions;
     std::vector<float> colours;
@@ -446,7 +446,7 @@ void meshChunk(Chunk *chunk, int worldSize, std::vector<uint64_t> &data) {
     }
 
     for (int i = 0; i < positions.size() / 3; ++i) {
-        uint64_t colour;
+        uint32_t colour;
         if (colours[3 * i] == 0.278f) {
             colour = 0;
         }
@@ -454,13 +454,25 @@ void meshChunk(Chunk *chunk, int worldSize, std::vector<uint64_t> &data) {
             colour = 1;
         }
 
-        uint64_t vertex =
-                (uint64_t)positions[3 * i] |
-                ((uint64_t)positions[3 * i + 1] << 11) |
-                ((uint64_t)positions[3 * i + 2] << 22) |
-                (colour << 33) |
-                ((uint64_t)normals[i] << 34) |
-                ((uint64_t)ao[i] << 37);
+        uint32_t vertex =
+                (uint32_t)positions[3 * i] |
+                ((uint32_t)positions[3 * i + 1] << 5) |
+                ((uint32_t)positions[3 * i + 2] << 10) |
+                (colour << 15) |
+                ((uint32_t)normals[i] << 16) |
+                ((uint32_t)ao[i] << 19);
+
+        uint32_t n = vertex;
+        std::cout << "vertex: " << vertex << "\n";
+        std::cout << "x: " << positions[3 * i] << "\ty: " << positions[3 * i + 1] << "\tz: " << positions[3 * i + 2] <<
+            "\tcol: " << colour << "\tnor: " << normals[i] << "\tao: " << ao[i] << "\n";
+
+        std::cout << "x: " << (n & 15)
+            << "\ty: " << ((n >> 5) & 15)
+            << "\tz: " << ((n >> 10) & 15)
+            << "\tcol: " << ((n >> 15) & 1)
+            << "\tnor: " << ((n >> 16) & 7)
+            << "\tao: " << ((n >> 19) & 3) << "\n";
 
         data.push_back(vertex);
     }
