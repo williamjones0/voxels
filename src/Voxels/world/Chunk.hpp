@@ -4,8 +4,8 @@
 #include <vector>
 #include <glm/glm.hpp>
 
-#define CHUNK_SIZE 1
-#define CHUNK_HEIGHT 4
+#define CHUNK_SIZE 16
+#define CHUNK_HEIGHT 128
 
 class Chunk {
 public:

@@ -463,21 +463,25 @@ void meshChunk(Chunk *chunk, int worldSize, std::vector<uint32_t> &data) {
                 ((uint32_t)ao[i] << 19);
 
         uint32_t n = vertex;
-        std::cout << "vertex: " << vertex << "\n";
-        std::cout << "x: " << positions[3 * i] << "\ty: " << positions[3 * i + 1] << "\tz: " << positions[3 * i + 2] <<
-            "\tcol: " << colour << "\tnor: " << normals[i] << "\tao: " << ao[i] << "\n";
+        // std::cout << "vertex: " << vertex << "\n";
 
-        std::cout << "x: " << (n & 15)
-            << "\ty: " << ((n >> 5) & 15)
-            << "\tz: " << ((n >> 10) & 15)
-            << "\tcol: " << ((n >> 15) & 1)
-            << "\tnor: " << ((n >> 16) & 7)
-            << "\tao: " << ((n >> 19) & 3) << "\n";
+        //std::cout << "x: " << (n & 15)
+        //    << "\ty: " << ((n >> 5) & 15)
+        //    << "\tz: " << ((n >> 10) & 15)
+        //    << "\tcol: " << ((n >> 15) & 1)
+        //    << "\tnor: " << ((n >> 16) & 7)
+        //    << "\tao: " << ((n >> 19) & 3) << "\n";
 
-        data.push_back(vertex);
+        // data.push_back(vertex);
+        data.push_back((int)positions[3 * i]);
+        data.push_back((int)positions[3 * i + 1]);
+        data.push_back((int)positions[3 * i + 2]);
+        data.push_back((int)colour);
+        data.push_back((int)normals[i]);
+        data.push_back((int)ao[i]);
     }
 
-    chunk->numVertices = positions.size();
+    chunk->numVertices = positions.size() / 3;
 
     unsigned long long totalSize = 0;
 //    totalSize += positions.capacity() * sizeof(positions[0]);

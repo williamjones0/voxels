@@ -1,5 +1,6 @@
 #version 330 core
-out vec4 FragColor;  
+out vec4 FragColor;
+
 in vec3 ourColor;
 flat in int normal;
 in float fragAo;

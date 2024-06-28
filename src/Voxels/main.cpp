@@ -126,7 +126,7 @@ int main() {
 
     WorldMesh worldMesh;
 
-    const int WORLD_SIZE = 2;
+    const int WORLD_SIZE = 1024;
 
     const int NUM_AXIS_CHUNKS = WORLD_SIZE / CHUNK_SIZE;
     const int NUM_CHUNKS = NUM_AXIS_CHUNKS * NUM_AXIS_CHUNKS;
@@ -159,17 +159,6 @@ int main() {
     }
 
     worldMesh.createBuffers();
-
-    for (int i = 0; i < worldMesh.data.size(); ++i) {
-        std::cout << worldMesh.data[i] << " ";
-        if (i % 3 == 0) {
-            std::cout << "\n";
-        }
-
-        if (i % 18 == 0) {
-            std::cout << "\n";
-        }
-    }
 
     std::vector<DrawArraysIndirectCommand> commands;
     std::vector<float> cmb;
