@@ -126,7 +126,7 @@ int main() {
 
     WorldMesh worldMesh;
 
-    const int WORLD_SIZE = 1024;
+    const int WORLD_SIZE = 128;
 
     const int NUM_AXIS_CHUNKS = WORLD_SIZE / CHUNK_SIZE;
     const int NUM_CHUNKS = NUM_AXIS_CHUNKS * NUM_AXIS_CHUNKS;

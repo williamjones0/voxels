@@ -5,7 +5,7 @@
 #include <glm/glm.hpp>
 
 #define CHUNK_SIZE 16
-#define CHUNK_HEIGHT 128
+#define CHUNK_HEIGHT 32
 
 class Chunk {
 public:

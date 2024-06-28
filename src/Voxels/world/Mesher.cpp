@@ -472,13 +472,7 @@ void meshChunk(Chunk *chunk, int worldSize, std::vector<uint32_t> &data) {
         //    << "\tnor: " << ((n >> 16) & 7)
         //    << "\tao: " << ((n >> 19) & 3) << "\n";
 
-        // data.push_back(vertex);
-        data.push_back((int)positions[3 * i]);
-        data.push_back((int)positions[3 * i + 1]);
-        data.push_back((int)positions[3 * i + 2]);
-        data.push_back((int)colour);
-        data.push_back((int)normals[i]);
-        data.push_back((int)ao[i]);
+        data.push_back(vertex);
     }
 
     chunk->numVertices = positions.size() / 3;

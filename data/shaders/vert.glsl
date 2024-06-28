@@ -1,9 +1,6 @@
 #version 460 core
 
-layout (location = 0) in vec3 aPos;
-layout (location = 1) in float aColor;
-layout (location = 2) in float aNormal;
-layout (location = 3) in float aAo;
+layout (location = 0) in uint aData;
 
 out vec3 ourColor;
 flat out int normal;
@@ -29,15 +26,15 @@ vec3 get_color(uint type) {
 
 void main() {
     ChunkModel chunkModel = chunkModelBuffer.Models[gl_DrawID];
-    float x = aPos.x; // float(aData & 31u);
-    float y = aPos.y; // float((aData >> 5) & 31u);
-    float z = aPos.z; // float((aData >> 10) & 31u);
-    float ao = aAo; // float((aData >> 19) & 3u);
+    float x = float(aData & 31u);
+    float y = float((aData >> 5) & 31u);
+    float z = float((aData >> 10) & 31u);
+    float ao = float((aData >> 19) & 3u);
 
     gl_Position = projection * view * chunkModel.model * vec4(x, y, z, 1.0);
-    ourColor = get_color(uint(aColor));
-    //ourColor = vec3(gl_DrawID / 4.0f, gl_DrawID / 4.0f, gl_DrawID / 4.0f);
-    // ourColor = get_color(uint((aData >> 15) & 1u));
-    normal = int(aNormal); //int((aData >> 16) & 7u);
+    // ourColor = get_color(uint(aColor));
+    // ourColor = vec3(gl_DrawID / 4.0f, gl_DrawID / 4.0f, gl_DrawID / 4.0f);
+    ourColor = get_color(uint((aData >> 15) & 1u));
+    normal = int((aData >> 16) & 7u);
     fragAo = clamp(float(ao) / 3.0, 0.5, 1.0);
 }
