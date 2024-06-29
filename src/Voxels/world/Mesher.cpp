@@ -2,6 +2,7 @@
 
 #include <cstring>
 #include <iostream>
+#include <chrono>
 
 #include "../util/PerlinNoise.hpp"
 #include "../util/Util.hpp"
@@ -164,75 +165,89 @@ void meshChunk(Chunk *chunk, int worldSize, std::vector<uint32_t> &data) {
             0.278, 0.600, 0.141
     };
 
+    volatile long long int presenceTime = 0;
+    volatile long long int voxelAoTime = 0;
+    volatile long long int aoPushTime = 0;
+    volatile long long int addVertexTime = 0;
+
     for (int y = 0; y < CHUNK_HEIGHT - 1; ++y) {
         for (int z = 1; z < CHUNK_SIZE + 1; ++z) {
             for (int x = 1; x < CHUNK_SIZE + 1; ++x) {
                 int voxel = voxels[getVoxelIndex(x, y, z, CHUNK_SIZE + 2)];
                 if (voxel != 0) {
+                    auto start = std::chrono::high_resolution_clock::now();
                     // Ambient occlusion (computed first so that quads can be flipped if necessary)
                     // (-1, -1, -1) to (1, 1, 1)
-                    std::vector<bool> presence;
-
+                    std::array<bool, 27> presence;
+                    int index = 0;
                     for (int i = -1; i <= 1; ++i) {
                         for (int j = -1; j <= 1; ++j) {
                             for (int k = -1; k <= 1; ++k) {
-                                presence.push_back(inBounds(x + i, y + j, z + k, CHUNK_SIZE + 2, CHUNK_HEIGHT)
-                                                   && voxels[getVoxelIndex(x + i, y + j, z + k, CHUNK_SIZE + 2)] != 0);
+                                presence[index] = inBounds(x + i, y + j, z + k, CHUNK_SIZE + 2, CHUNK_HEIGHT)
+                                    && voxels[getVoxelIndex(x + i, y + j, z + k, CHUNK_SIZE + 2)] != 0;
+                                ++index;
                             }
                         }
                     }
 
-                    std::vector<int> voxelAo;
+                    presenceTime += std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count();
+
+                    start = std::chrono::high_resolution_clock::now();
+                    std::array<int, 20> voxelAo;
 
                     // Top
-                    voxelAo.push_back(vertexAO(presence[dirToIndex(0, +1, -1)], presence[dirToIndex(-1, +1, 0)],
+                    voxelAo[0] = (vertexAO(presence[dirToIndex(0, +1, -1)], presence[dirToIndex(-1, +1, 0)],
                                                presence[dirToIndex(-1, +1, -1)]));  // bottom left   a00
-                    voxelAo.push_back(vertexAO(presence[dirToIndex(0, +1, -1)], presence[dirToIndex(+1, +1, 0)],
+                    voxelAo[1] = (vertexAO(presence[dirToIndex(0, +1, -1)], presence[dirToIndex(+1, +1, 0)],
                                                presence[dirToIndex(+1, +1, -1)]));  // bottom right  a10
-                    voxelAo.push_back(vertexAO(presence[dirToIndex(0, +1, +1)], presence[dirToIndex(+1, +1, 0)],
+                    voxelAo[2] = (vertexAO(presence[dirToIndex(0, +1, +1)], presence[dirToIndex(+1, +1, 0)],
                                                presence[dirToIndex(+1, +1, +1)]));  // top right     a11
-                    voxelAo.push_back(vertexAO(presence[dirToIndex(0, +1, +1)], presence[dirToIndex(-1, +1, 0)],
+                    voxelAo[3] = (vertexAO(presence[dirToIndex(0, +1, +1)], presence[dirToIndex(-1, +1, 0)],
                                                presence[dirToIndex(-1, +1, +1)]));  // top left      a01
 
                     // Left
-                    voxelAo.push_back(vertexAO(presence[dirToIndex(-1, 0, +1)], presence[dirToIndex(-1, -1, 0)],
+                    voxelAo[4] = (vertexAO(presence[dirToIndex(-1, 0, +1)], presence[dirToIndex(-1, -1, 0)],
                                                presence[dirToIndex(-1, -1, +1)]));  // bottom left
-                    voxelAo.push_back(vertexAO(presence[dirToIndex(-1, 0, -1)], presence[dirToIndex(-1, -1, 0)],
+                    voxelAo[5] = (vertexAO(presence[dirToIndex(-1, 0, -1)], presence[dirToIndex(-1, -1, 0)],
                                                presence[dirToIndex(-1, -1, -1)]));  // bottom right
-                    voxelAo.push_back(vertexAO(presence[dirToIndex(-1, 0, -1)], presence[dirToIndex(-1, +1, 0)],
+                    voxelAo[6] = (vertexAO(presence[dirToIndex(-1, 0, -1)], presence[dirToIndex(-1, +1, 0)],
                                                presence[dirToIndex(-1, +1, -1)]));  // top right
-                    voxelAo.push_back(vertexAO(presence[dirToIndex(-1, 0, +1)], presence[dirToIndex(-1, +1, 0)],
+                    voxelAo[7] = (vertexAO(presence[dirToIndex(-1, 0, +1)], presence[dirToIndex(-1, +1, 0)],
                                                presence[dirToIndex(-1, +1, +1)]));  // top left
 
                     // Right
-                    voxelAo.push_back(vertexAO(presence[dirToIndex(+1, 0, -1)], presence[dirToIndex(+1, -1, 0)],
+                    voxelAo[8] = (vertexAO(presence[dirToIndex(+1, 0, -1)], presence[dirToIndex(+1, -1, 0)],
                                                presence[dirToIndex(+1, -1, -1)]));  // bottom left
-                    voxelAo.push_back(vertexAO(presence[dirToIndex(+1, 0, +1)], presence[dirToIndex(+1, -1, 0)],
+                    voxelAo[9] = (vertexAO(presence[dirToIndex(+1, 0, +1)], presence[dirToIndex(+1, -1, 0)],
                                                presence[dirToIndex(+1, -1, +1)]));  // bottom right
-                    voxelAo.push_back(vertexAO(presence[dirToIndex(+1, 0, +1)], presence[dirToIndex(+1, +1, 0)],
+                    voxelAo[10] = (vertexAO(presence[dirToIndex(+1, 0, +1)], presence[dirToIndex(+1, +1, 0)],
                                                presence[dirToIndex(+1, +1, +1)]));  // top right
-                    voxelAo.push_back(vertexAO(presence[dirToIndex(+1, 0, -1)], presence[dirToIndex(+1, +1, 0)],
+                    voxelAo[11] = (vertexAO(presence[dirToIndex(+1, 0, -1)], presence[dirToIndex(+1, +1, 0)],
                                                presence[dirToIndex(+1, +1, -1)]));  // top left
 
                     // Front
-                    voxelAo.push_back(vertexAO(presence[dirToIndex(-1, 0, -1)], presence[dirToIndex(0, -1, -1)],
+                    voxelAo[12] = (vertexAO(presence[dirToIndex(-1, 0, -1)], presence[dirToIndex(0, -1, -1)],
                                                presence[dirToIndex(-1, -1, -1)]));  // bottom left
-                    voxelAo.push_back(vertexAO(presence[dirToIndex(+1, 0, -1)], presence[dirToIndex(0, -1, -1)],
+                    voxelAo[13] = (vertexAO(presence[dirToIndex(+1, 0, -1)], presence[dirToIndex(0, -1, -1)],
                                                presence[dirToIndex(+1, -1, -1)]));  // bottom right
-                    voxelAo.push_back(vertexAO(presence[dirToIndex(+1, 0, -1)], presence[dirToIndex(0, +1, -1)],
+                    voxelAo[14] = (vertexAO(presence[dirToIndex(+1, 0, -1)], presence[dirToIndex(0, +1, -1)],
                                                presence[dirToIndex(+1, +1, -1)]));  // top right
-                    voxelAo.push_back(vertexAO(presence[dirToIndex(-1, 0, -1)], presence[dirToIndex(0, +1, -1)],
+                    voxelAo[15] = (vertexAO(presence[dirToIndex(-1, 0, -1)], presence[dirToIndex(0, +1, -1)],
                                                presence[dirToIndex(-1, +1, -1)]));  // top left
 
                     // Back
-                    voxelAo.push_back(vertexAO(presence[dirToIndex(+1, 0, +1)], presence[dirToIndex(0, -1, +1)],
+                    voxelAo[16] = (vertexAO(presence[dirToIndex(+1, 0, +1)], presence[dirToIndex(0, -1, +1)],
                                                presence[dirToIndex(+1, -1, +1)]));  // bottom left
-                    voxelAo.push_back(vertexAO(presence[dirToIndex(-1, 0, +1)], presence[dirToIndex(0, -1, +1)],
+                    voxelAo[17] = (vertexAO(presence[dirToIndex(-1, 0, +1)], presence[dirToIndex(0, -1, +1)],
                                                presence[dirToIndex(-1, -1, +1)]));  // bottom right
-                    voxelAo.push_back(vertexAO(presence[dirToIndex(-1, 0, +1)], presence[dirToIndex(0, +1, +1)],
+                    voxelAo[18] = (vertexAO(presence[dirToIndex(-1, 0, +1)], presence[dirToIndex(0, +1, +1)],
                                                presence[dirToIndex(-1, +1, +1)]));  // top right
-                    voxelAo.push_back(vertexAO(presence[dirToIndex(+1, 0, +1)], presence[dirToIndex(0, +1, +1)],
+                    voxelAo[19] = (vertexAO(presence[dirToIndex(+1, 0, +1)], presence[dirToIndex(0, +1, +1)],
                                                presence[dirToIndex(+1, +1, +1)]));  // top left
+
+                    voxelAoTime += std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count();
+
+                    start = std::chrono::high_resolution_clock::now();
 
                     // Top
                     if (voxel != 2) {
@@ -329,6 +344,10 @@ void meshChunk(Chunk *chunk, int worldSize, std::vector<uint32_t> &data) {
                             ao.push_back(voxelAo[17]);
                         }
                     }
+
+                    aoPushTime += std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count();
+
+                    start = std::chrono::high_resolution_clock::now();
 
                     // Add vertices
                     int *translated_vertices = new int[VERTICES_LENGTH];
@@ -440,10 +459,19 @@ void meshChunk(Chunk *chunk, int worldSize, std::vector<uint32_t> &data) {
 
                     delete[] translated_vertices;
                     delete[] translated_flipped_vertices;
+
+                    addVertexTime += std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count();
                 }
             }
         }
     }
+
+    std::cout << "presenceTime: " << presenceTime << "us\n";
+    std::cout << "voxelAoTime: " << voxelAoTime << "us\n";
+    std::cout << "aoPushTime: " << aoPushTime << "us\n";
+    std::cout << "addVertexTime: " << addVertexTime << "us\n";
+
+    totalMesherTime += presenceTime + voxelAoTime + aoPushTime + addVertexTime;
 
     for (int i = 0; i < positions.size() / 3; ++i) {
         uint32_t colour;
@@ -473,9 +501,16 @@ void meshChunk(Chunk *chunk, int worldSize, std::vector<uint32_t> &data) {
         //    << "\tao: " << ((n >> 19) & 3) << "\n";
 
         data.push_back(vertex);
+        //data.push_back((int)positions[3 * i]);
+        //data.push_back((int)positions[3 * i + 1]);
+        //data.push_back((int)positions[3 * i + 2]);
+        //data.push_back((int)colour);
+        //data.push_back((int)normals[i]);
+        //data.push_back((int)ao[i]);
     }
 
     chunk->numVertices = positions.size() / 3;
+    std::cout << "numVertices: " << chunk->numVertices << std::endl;
 
     unsigned long long totalSize = 0;
 //    totalSize += positions.capacity() * sizeof(positions[0]);

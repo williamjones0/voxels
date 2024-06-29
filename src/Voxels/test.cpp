@@ -132,9 +132,15 @@
 //        firstIndex += 3;
 //    }
 //
+//    //GLuint drawCmdBuffer;
+//    //glGenBuffers(1, &drawCmdBuffer);
+//    //glBindBuffer(GL_DRAW_INDIRECT_BUFFER, drawCmdBuffer);
+//    //glObjectLabel(GL_BUFFER, drawCmdBuffer, 13, "drawCmdBuffer");
+//    //glBufferData(GL_DRAW_INDIRECT_BUFFER, commands.size() * sizeof(DrawArraysIndirectCommand), &commands, GL_STATIC_DRAW);
+//    //glBindBuffer(GL_DRAW_INDIRECT_BUFFER, 0);
+//
 //    GLuint drawCmdBuffer;
 //    glCreateBuffers(1, &drawCmdBuffer);
-//
 //    glNamedBufferStorage(drawCmdBuffer,
 //        sizeof(DrawArraysIndirectCommand) * commands.size(),
 //        (const void *)commands.data(),

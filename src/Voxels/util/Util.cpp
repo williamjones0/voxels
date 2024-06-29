@@ -30,3 +30,5 @@ void debugPrint(std::vector<T>& vec, int stride) {
 		}
 	}
 }
+
+long long int totalMesherTime = 0;

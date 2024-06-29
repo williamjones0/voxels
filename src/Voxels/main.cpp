@@ -15,6 +15,7 @@
 #include "world/Mesher.hpp"
 #include "world/Chunk.hpp"
 #include "world/WorldMesh.hpp"
+#include "util/Util.hpp"
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
@@ -158,6 +159,8 @@ int main() {
         }
     }
 
+    std::cout << "totalMesherTime: " << totalMesherTime << std::endl;
+
     worldMesh.createBuffers();
 
     std::vector<DrawArraysIndirectCommand> commands;
@@ -219,7 +222,7 @@ int main() {
         glBindBuffer(GL_DRAW_INDIRECT_BUFFER, drawCmdBuffer);
         glMultiDrawArraysIndirect(GL_TRIANGLES, 0, NUM_CHUNKS, sizeof(DrawArraysIndirectCommand));
 
-        // std::cout << "Frame time: " << deltaTime << "\t FPS: " << (1.0f / deltaTime) << std::endl;
+        std::cout << "Frame time: " << deltaTime << "\t FPS: " << (1.0f / deltaTime) << std::endl;
 
         glfwPollEvents();
         glfwSwapBuffers(window);
