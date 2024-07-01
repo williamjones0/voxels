@@ -16,6 +16,7 @@
 #include "world/Chunk.hpp"
 #include "world/WorldMesh.hpp"
 #include "util/Util.hpp"
+#include "util/Flags.h"
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
@@ -37,8 +38,6 @@ const double PI = 3.1415926535;
 #define TOP_FACE 90
 
 #define VERTICES_LENGTH 108
-
-#define CHUNK_SIZE_SHIFT 4
 
 typedef struct {
     unsigned int count;
@@ -198,6 +197,9 @@ int main() {
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, chunkModelBuffer);
 
     // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+    shader.use();
+    shader.setInt("chunkSizeShift", CHUNK_SIZE_SHIFT);
+    shader.setInt("chunkHeightShift", CHUNK_HEIGHT_SHIFT);
 
     while (!glfwWindowShouldClose(window)) {
         float currentFrame = static_cast<float>(glfwGetTime());
@@ -222,7 +224,7 @@ int main() {
         glBindBuffer(GL_DRAW_INDIRECT_BUFFER, drawCmdBuffer);
         glMultiDrawArraysIndirect(GL_TRIANGLES, 0, NUM_CHUNKS, sizeof(DrawArraysIndirectCommand));
 
-        std::cout << "Frame time: " << deltaTime << "\t FPS: " << (1.0f / deltaTime) << std::endl;
+        // std::cout << "Frame time: " << deltaTime << "\t FPS: " << (1.0f / deltaTime) << std::endl;
 
         glfwPollEvents();
         glfwSwapBuffers(window);

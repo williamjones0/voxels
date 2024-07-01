@@ -3,9 +3,7 @@
 #include <cstdint>
 #include <vector>
 #include <glm/glm.hpp>
-
-#define CHUNK_SIZE 16
-#define CHUNK_HEIGHT 32
+#include "../util/Flags.h"
 
 class Chunk {
 public:
@@ -26,6 +24,10 @@ public:
     std::vector<int> voxels;
     void store(int x, int y, int z, char v);
     char load(int x, int y, int z);
+#ifdef VERTEX_PACKING
     void init(std::vector<uint32_t> &data);
+#else
+    void init(std::vector<float> &data);
+#endif
     void generateVoxels();
 };

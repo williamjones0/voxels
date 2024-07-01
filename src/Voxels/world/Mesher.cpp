@@ -3,9 +3,11 @@
 #include <cstring>
 #include <iostream>
 #include <chrono>
+#include <bitset>
 
 #include "../util/PerlinNoise.hpp"
 #include "../util/Util.hpp"
+#include "../util/Flags.h"
 
 #define FRONT_FACE 0
 #define BACK_FACE 18
@@ -40,7 +42,11 @@ uint32_t createVertex(int x, int y, int z, int colour, int normal, int ao) {
            ((uint32_t) ao << 37);
 }
 
+#ifdef VERTEX_PACKING
 void meshChunk(Chunk *chunk, int worldSize, std::vector<uint32_t> &data) {
+#else
+void meshChunk(Chunk *chunk, int worldSize, std::vector<float> &data) {
+#endif
     std::vector<int> &voxels = chunk->voxels;
     std::vector<int> positions;
     std::vector<float> colours;
@@ -484,29 +490,47 @@ void meshChunk(Chunk *chunk, int worldSize, std::vector<uint32_t> &data) {
 
         uint32_t vertex =
                 (uint32_t)positions[3 * i] |
-                ((uint32_t)positions[3 * i + 1] << 5) |
-                ((uint32_t)positions[3 * i + 2] << 10) |
-                (colour << 15) |
-                ((uint32_t)normals[i] << 16) |
-                ((uint32_t)ao[i] << 19);
+                ((uint32_t)positions[3 * i + 1] << (CHUNK_SIZE_SHIFT + 1)) |
+                ((uint32_t)positions[3 * i + 2] << (CHUNK_SIZE_SHIFT + CHUNK_HEIGHT_SHIFT + 2)) |
+                (colour << (2 * CHUNK_SIZE_SHIFT + CHUNK_HEIGHT_SHIFT + 3)) |
+                ((uint32_t)normals[i] << (2 * CHUNK_SIZE_SHIFT + CHUNK_HEIGHT_SHIFT + 4)) |
+                ((uint32_t)ao[i] << (2 * CHUNK_SIZE_SHIFT + CHUNK_HEIGHT_SHIFT + 7));
 
-        uint32_t n = vertex;
-        // std::cout << "vertex: " << vertex << "\n";
+      //  uint32_t n = vertex;
+      //  std::cout << "vertex: " << std::bitset<32>(n) << "\n";
 
-        //std::cout << "x: " << (n & 15)
-        //    << "\ty: " << ((n >> 5) & 15)
-        //    << "\tz: " << ((n >> 10) & 15)
-        //    << "\tcol: " << ((n >> 15) & 1)
-        //    << "\tnor: " << ((n >> 16) & 7)
-        //    << "\tao: " << ((n >> 19) & 3) << "\n";
+      //  std::cout << "x: " << positions[3 * i]
+				  //<< "\ty: " << positions[3 * i + 1]
+				  //<< "\tz: " << positions[3 * i + 2]
+				  //<< "\tcol: " << colour
+				  //<< "\tnor: " << normals[i]
+				  //<< "\tao: " << ao[i] << "\n";
 
+      //  std::cout << "x: " << (n & CHUNK_SIZE_MASK)
+      //      << "\ty: " << ((n >> (CHUNK_SIZE_SHIFT + 1)) & CHUNK_HEIGHT_MASK)
+      //      << "\tz: " << ((n >> (CHUNK_SIZE_SHIFT + CHUNK_HEIGHT_SHIFT + 2)) & CHUNK_SIZE_MASK)
+      //      << "\tcol: " << ((n >> (2 * CHUNK_SIZE_SHIFT + CHUNK_HEIGHT_SHIFT + 3)) & 1)
+      //      << "\tnor: " << ((n >> (2 * CHUNK_SIZE_SHIFT + CHUNK_HEIGHT_SHIFT + 4)) & 7)
+      //      << "\tao: " << ((n >> (2 * CHUNK_SIZE_SHIFT + CHUNK_HEIGHT_SHIFT + 7)) & 3) << "\n";
+
+      //  uint32_t x_test = n;
+      //  uint32_t y_test = (n >> (CHUNK_SIZE_SHIFT + 1));
+      //  uint32_t z_test = (n >> (CHUNK_SIZE_SHIFT + CHUNK_HEIGHT_SHIFT + 2));
+      //  std::cout << "x: " << std::bitset<32>(x_test) << "\ty: " << std::bitset<32>(y_test) << "\tz: " << std::bitset<32>(z_test) << "\n";
+      //  std::cout << "m: " << std::bitset<32>(CHUNK_SIZE_MASK) << "\tn: " << std::bitset<32>(CHUNK_HEIGHT_MASK) << "\to: " << std::bitset<32>(CHUNK_SIZE_MASK) << "\n";
+
+      //  std::cout << "\n";
+
+#ifdef VERTEX_PACKING
         data.push_back(vertex);
-        //data.push_back((int)positions[3 * i]);
-        //data.push_back((int)positions[3 * i + 1]);
-        //data.push_back((int)positions[3 * i + 2]);
-        //data.push_back((int)colour);
-        //data.push_back((int)normals[i]);
-        //data.push_back((int)ao[i]);
+#else
+        data.push_back((float)positions[3 * i]);
+        data.push_back((float)positions[3 * i + 1]);
+        data.push_back((float)positions[3 * i + 2]);
+        data.push_back((float)colour);
+        data.push_back((float)normals[i]);
+        data.push_back((float)ao[i]);
+#endif
     }
 
     chunk->numVertices = positions.size() / 3;

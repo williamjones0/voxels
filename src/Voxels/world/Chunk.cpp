@@ -5,6 +5,7 @@
 #include "../util/PerlinNoise.hpp"
 #include "Mesher.hpp"
 #include "../util/Util.hpp"
+#include "../util/Flags.h"
 #include <glm/ext/matrix_transform.hpp>
 #include <iostream>
 
@@ -20,11 +21,26 @@ char Chunk::load(int x, int y, int z) {
     return voxels[getVoxelIndex(x, y, z, CHUNK_SIZE)];
 }
 
+#ifdef VERTEX_PACKING
 void Chunk::init(std::vector<uint32_t> &data) {
+#else
+void Chunk::init(std::vector<float> &data) {
+#endif
     model = glm::translate(glm::mat4(1.0f), glm::vec3(cx * CHUNK_SIZE, 0, cz * CHUNK_SIZE));
 
     voxels = std::vector<int>((CHUNK_SIZE + 2) * (CHUNK_SIZE + 2) * CHUNK_HEIGHT);
     generateVoxels();
+
+    //// print voxels
+    //for (int y = 0; y < CHUNK_HEIGHT; ++y) {
+    //    for (int z = 0; z < CHUNK_SIZE + 2; ++z) {
+    //        for (int x = 0; x < CHUNK_SIZE + 2; ++x) {
+    //            std::cout << (int)voxels[getVoxelIndex(x, y, z, CHUNK_SIZE + 2)] << " ";
+    //        }
+    //        std::cout << std::endl;
+    //    }
+    //    std::cout << std::endl;
+    //}
 
     meshChunk(this, 32, data);
 }
@@ -41,6 +57,11 @@ void Chunk::generateVoxels() {
             const double noise = clamp(perlin.octave2D_01((noise_x * 0.01), (noise_z * 0.01), 4), 0.0, 1.0 - EPSILON);
             int y = noise * CHUNK_HEIGHT;
             y = std::min(std::max(0, y), CHUNK_HEIGHT - 1);
+
+            if (x != -1 && x != CHUNK_SIZE && z != -1 && z != CHUNK_SIZE) {
+                std::cout << y << " ";
+            }
+
             minY = std::min(y, minY);
             maxY = std::max(y, maxY);
             for (int y0 = 0; y0 < y; ++y0) {
@@ -48,5 +69,8 @@ void Chunk::generateVoxels() {
                 voxels[index] = (y0 == y - 1 ? 1 : 2);
             }
         }
+
+		std::cout << std::endl;
     }
+
 }
