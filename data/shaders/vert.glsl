@@ -1,8 +1,8 @@
 #version 460 core
 
-// #define PACKED_DATA
+// #define VERTEX_PACKING
 
-#ifdef PACKED_DATA
+#ifdef VERTEX_PACKING
 layout (location = 0) in uint aData;
 #else
 layout (location = 0) in vec3 aPos;
@@ -40,7 +40,7 @@ vec3 get_color(uint type) {
     }
 }
 
-#ifdef PACKED_DATA
+#ifdef VERTEX_PACKING
 void main() {
     ChunkModel chunkModel = chunkModelBuffer.Models[gl_DrawID];
 
