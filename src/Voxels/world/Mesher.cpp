@@ -541,7 +541,7 @@ void meshChunk(Chunk *chunk, int worldSize, std::vector<float> &data) {
 }
 
 bool boundsCheck(int x, int y, int z, int i, int j, int k, int worldSize, std::vector<int> &voxels) {
-    bool adjInBounds = inBounds(x + i, y + j, z + k, worldSize, CHUNK_HEIGHT);
+    bool adjInBounds = inBounds(x + i, y + j, z + k, worldSize + 2, CHUNK_HEIGHT);
 
     bool isAdjVoxelEmpty = true;
     if (adjInBounds) {

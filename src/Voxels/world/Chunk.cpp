@@ -38,7 +38,7 @@ void Chunk::init(std::vector<float> &data) {
     std::cout << "generateVoxels took " << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() << "us\n";
 
     start = std::chrono::high_resolution_clock::now();
-    meshChunk(this, 32, data);
+    meshChunk(this, WORLD_SIZE, data);
     end = std::chrono::high_resolution_clock::now();
     std::cout << "meshChunk took " << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() << "us\n";
 }
