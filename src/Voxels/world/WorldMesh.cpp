@@ -1,5 +1,8 @@
 #include "WorldMesh.hpp"
-#include "../util/Flags.h"
+
+#include <glad/glad.h>
+
+#include <iostream>
 
 void WorldMesh::createBuffers() {
     std::cout << "data size: " << data.size() << std::endl;

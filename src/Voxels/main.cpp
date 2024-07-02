@@ -7,14 +7,16 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/string_cast.hpp>
 #include <glm/gtc/type_ptr.hpp>
-#include "util/PerlinNoise.hpp"
 
 #include <iostream>
+#include <chrono>
+
 #include "opengl/Shader.h"
 #include "core/Camera.hpp"
 #include "world/Mesher.hpp"
 #include "world/Chunk.hpp"
 #include "world/WorldMesh.hpp"
+#include "util/PerlinNoise.hpp"
 #include "util/Util.hpp"
 #include "util/Flags.h"
 
@@ -23,7 +25,8 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void glfw_error_callback(int error, const char* description);
 void processInput(GLFWwindow* window);
-void putMatrix4f(std::vector<float> &buffer, glm::mat4 m);
+template <glm::length_t C, glm::length_t R, typename T>
+void putMatrix(std::vector<T> &buffer, glm::mat<C, R, T> m);
 
 const unsigned int SCREEN_WIDTH = 1920;
 const unsigned int SCREEN_HEIGHT = 1080;
@@ -126,7 +129,7 @@ int main() {
 
     WorldMesh worldMesh;
 
-    const int WORLD_SIZE = 128;
+    const int WORLD_SIZE = 32;
 
     const int NUM_AXIS_CHUNKS = WORLD_SIZE / CHUNK_SIZE;
     const int NUM_CHUNKS = NUM_AXIS_CHUNKS * NUM_AXIS_CHUNKS;
@@ -134,27 +137,13 @@ int main() {
     for (int cx = 0; cx < NUM_AXIS_CHUNKS; ++cx) {
         for (int cz = 0; cz < NUM_AXIS_CHUNKS; ++cz) {
             Chunk chunk = Chunk(cx, cz);
+
+            auto startTime = std::chrono::high_resolution_clock::now();
             chunk.init(worldMesh.data);
+            auto endTime = std::chrono::high_resolution_clock::now();
+            auto duration = std::chrono::duration_cast<std::chrono::microseconds>(endTime - startTime);
+            std::cout << "Chunk " << cz + cx * NUM_AXIS_CHUNKS << " took " << duration.count() << "us to init" << std::endl << std::endl;
             chunks.push_back(chunk);
-
-//            std::cout << "Chunk " << cz + cx * NUM_AXIS_CHUNKS << ":\n";
-//            std::cout << "positions size: " << chunk.positions.size() << std::endl;
-//            std::cout << "colours size: " << chunk.colours.size() << std::endl;
-//            std::cout << "normals size: " << chunk.normals.size() << std::endl;
-//            std::cout << "ao size: " << chunk.ao.size() << std::endl;
-//            std::cout << glm::to_string(chunk.model) << std::endl;
-
-//            for (int y = 0; y < CHUNK_HEIGHT; ++y) {
-//                for (int z = 0; z < CHUNK_SIZE; ++z) {
-//                    for (int x = 0; x < CHUNK_SIZE; ++x) {
-//                        std::cout << chunk.voxels[y * CHUNK_SIZE * CHUNK_SIZE + z * CHUNK_SIZE + x] << " ";
-//                    }
-//                    std::cout << std::endl;
-//                }
-//                std::cout << std::endl;
-//            }
-
-//            std::cout << std::endl
         }
     }
 
@@ -176,7 +165,7 @@ int main() {
         firstIndex += chunks[i].numVertices;
 
         // Push chunk's model matrix to the vertex buffer
-        putMatrix4f(cmb, chunks[i].model);
+        putMatrix(cmb, chunks[i].model);
     }
 
     GLuint drawCmdBuffer;
@@ -284,21 +273,11 @@ void glfw_error_callback(int error, const char* description) {
     fprintf(stderr, "GLFW error %d: %s\n", error, description);
 }
 
-void putMatrix4f(std::vector<float> &buffer, glm::mat4 m) {
-    buffer.push_back(m[0][0]);
-    buffer.push_back(m[0][1]);
-    buffer.push_back(m[0][2]);
-    buffer.push_back(m[0][3]);
-    buffer.push_back(m[1][0]);
-    buffer.push_back(m[1][1]);
-    buffer.push_back(m[1][2]);
-    buffer.push_back(m[1][3]);
-    buffer.push_back(m[2][0]);
-    buffer.push_back(m[2][1]);
-    buffer.push_back(m[2][2]);
-    buffer.push_back(m[2][3]);
-    buffer.push_back(m[3][0]);
-    buffer.push_back(m[3][1]);
-    buffer.push_back(m[3][2]);
-    buffer.push_back(m[3][3]);
+template <glm::length_t C, glm::length_t R, typename T>
+void putMatrix(std::vector<T> &buffer, glm::mat<C, R, T> m) {
+    for (size_t i = 0; i < C; ++i) {
+        for (size_t j = 0; j < R; ++j) {
+            buffer.push_back(m[i][j]);
+        }
+    }
 }

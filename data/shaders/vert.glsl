@@ -1,6 +1,6 @@
 #version 460 core
 
-#define PACKED_DATA
+// #define PACKED_DATA
 
 #ifdef PACKED_DATA
 layout (location = 0) in uint aData;
@@ -59,16 +59,16 @@ void main() {
 #else
 void main() {
     ChunkModel chunkModel = chunkModelBuffer.Models[gl_DrawID];
-    float x = aPos.x; // float(aData & 31u);
-    float y = aPos.y; // float((aData >> 5) & 31u);
-    float z = aPos.z; // float((aData >> 10) & 31u);
-    float ao = aAo; // float((aData >> 19) & 3u);
+    float x = aPos.x;
+    float y = aPos.y;
+    float z = aPos.z;
+    float ao = aAo;
 
     gl_Position = projection * view * chunkModel.model * vec4(x, y, z, 1.0);
     ourColor = get_color(uint(aColor));
     //ourColor = vec3(gl_DrawID / 4.0f, gl_DrawID / 4.0f, gl_DrawID / 4.0f);
     // ourColor = get_color(uint((aData >> 15) & 1u));
-    normal = int(aNormal); //int((aData >> 16) & 7u);
+    normal = int(aNormal);
     fragAo = clamp(float(ao) / 3.0, 0.5, 1.0);
 }
 #endif

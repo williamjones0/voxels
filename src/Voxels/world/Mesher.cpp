@@ -7,7 +7,6 @@
 
 #include "../util/PerlinNoise.hpp"
 #include "../util/Util.hpp"
-#include "../util/Flags.h"
 
 #define FRONT_FACE 0
 #define BACK_FACE 18
@@ -29,17 +28,14 @@ static inline int vertexAO(uint8_t side1, uint8_t side2, uint8_t corner) {
     return (side1 && side2) ? 0 : (3 - (side1 + side2 + corner));
 }
 
-int dirToIndex(int i, int j, int k) {
-    return (i + 1) * 9 + (j + 1) * 3 + k + 1;
+bool inBounds(int x, int y, int z, int size, int height) {
+    return (0 <= x && x < size)
+        && (0 <= y && y < height)
+        && (0 <= z && z < size);
 }
 
-uint32_t createVertex(int x, int y, int z, int colour, int normal, int ao) {
-    return (uint32_t) x |
-           ((uint32_t) y << 11) |
-           ((uint32_t) z << 22) |
-           (colour < 33) |
-           ((uint32_t) normal << 34) |
-           ((uint32_t) ao << 37);
+int dirToIndex(int i, int j, int k) {
+    return (i + 1) * 9 + (j + 1) * 3 + k + 1;
 }
 
 #ifdef VERTEX_PACKING
@@ -47,6 +43,7 @@ void meshChunk(Chunk *chunk, int worldSize, std::vector<uint32_t> &data) {
 #else
 void meshChunk(Chunk *chunk, int worldSize, std::vector<float> &data) {
 #endif
+    auto startTime = std::chrono::high_resolution_clock::now();
     std::vector<int> &voxels = chunk->voxels;
     std::vector<int> positions;
     std::vector<float> colours;
@@ -176,6 +173,11 @@ void meshChunk(Chunk *chunk, int worldSize, std::vector<float> &data) {
     volatile long long int aoPushTime = 0;
     volatile long long int addVertexTime = 0;
 
+    auto endTime = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(endTime - startTime);
+    std::cout << "Initialisation: " << duration.count() << "us" << std::endl;
+
+    auto loopStart = std::chrono::high_resolution_clock::now();
     for (int y = 0; y < CHUNK_HEIGHT - 1; ++y) {
         for (int z = 1; z < CHUNK_SIZE + 1; ++z) {
             for (int x = 1; x < CHUNK_SIZE + 1; ++x) {
@@ -196,7 +198,7 @@ void meshChunk(Chunk *chunk, int worldSize, std::vector<float> &data) {
                         }
                     }
 
-                    presenceTime += std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count();
+                    presenceTime += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now() - start).count();
 
                     start = std::chrono::high_resolution_clock::now();
                     std::array<int, 20> voxelAo;
@@ -251,7 +253,7 @@ void meshChunk(Chunk *chunk, int worldSize, std::vector<float> &data) {
                     voxelAo[19] = (vertexAO(presence[dirToIndex(+1, 0, +1)], presence[dirToIndex(0, +1, +1)],
                                                presence[dirToIndex(+1, +1, +1)]));  // top left
 
-                    voxelAoTime += std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count();
+                    voxelAoTime += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now() - start).count();
 
                     start = std::chrono::high_resolution_clock::now();
 
@@ -351,7 +353,7 @@ void meshChunk(Chunk *chunk, int worldSize, std::vector<float> &data) {
                         }
                     }
 
-                    aoPushTime += std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count();
+                    aoPushTime += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now() - start).count();
 
                     start = std::chrono::high_resolution_clock::now();
 
@@ -466,18 +468,24 @@ void meshChunk(Chunk *chunk, int worldSize, std::vector<float> &data) {
                     delete[] translated_vertices;
                     delete[] translated_flipped_vertices;
 
-                    addVertexTime += std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count();
+                    addVertexTime += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now() - start).count();
                 }
             }
         }
     }
 
-    std::cout << "presenceTime: " << presenceTime << "us\n";
-    std::cout << "voxelAoTime: " << voxelAoTime << "us\n";
-    std::cout << "aoPushTime: " << aoPushTime << "us\n";
-    std::cout << "addVertexTime: " << addVertexTime << "us\n";
+    auto loopEnd = std::chrono::high_resolution_clock::now();
 
-    totalMesherTime += presenceTime + voxelAoTime + aoPushTime + addVertexTime;
+    std::cout << "presenceTime: " << presenceTime / 1000 << "us\n";
+    std::cout << "voxelAoTime: " << voxelAoTime / 1000 << "us\n";
+    std::cout << "aoPushTime: " << aoPushTime / 1000 << "us\n";
+    std::cout << "addVertexTime: " << addVertexTime / 1000 << "us\n";
+
+    totalMesherTime += (presenceTime + voxelAoTime + aoPushTime + addVertexTime) / 1000;
+    std::cout << "Total mesher time: " << (presenceTime + voxelAoTime + aoPushTime + addVertexTime) / 1000 << "us\n";
+    std::cout << "Actual loop time: " << std::chrono::duration_cast<std::chrono::microseconds>(loopEnd - loopStart).count() << "us\n";
+
+    auto start = std::chrono::high_resolution_clock::now();
 
     for (int i = 0; i < positions.size() / 3; ++i) {
         uint32_t colour;
@@ -496,30 +504,24 @@ void meshChunk(Chunk *chunk, int worldSize, std::vector<float> &data) {
                 ((uint32_t)normals[i] << (2 * CHUNK_SIZE_SHIFT + CHUNK_HEIGHT_SHIFT + 4)) |
                 ((uint32_t)ao[i] << (2 * CHUNK_SIZE_SHIFT + CHUNK_HEIGHT_SHIFT + 7));
 
-      //  uint32_t n = vertex;
-      //  std::cout << "vertex: " << std::bitset<32>(n) << "\n";
+        //uint32_t n = vertex;
+        //std::cout << "vertex: " << std::bitset<32>(n) << "\n";
 
-      //  std::cout << "x: " << positions[3 * i]
-				  //<< "\ty: " << positions[3 * i + 1]
-				  //<< "\tz: " << positions[3 * i + 2]
-				  //<< "\tcol: " << colour
-				  //<< "\tnor: " << normals[i]
-				  //<< "\tao: " << ao[i] << "\n";
+        //std::cout << "x: " << positions[3 * i]
+        //        << "\ty: " << positions[3 * i + 1]
+        //        << "\tz: " << positions[3 * i + 2]
+        //        << "\tcol: " << colour
+        //        << "\tnor: " << normals[i]
+        //        << "\tao: " << ao[i] << "\n";
 
-      //  std::cout << "x: " << (n & CHUNK_SIZE_MASK)
-      //      << "\ty: " << ((n >> (CHUNK_SIZE_SHIFT + 1)) & CHUNK_HEIGHT_MASK)
-      //      << "\tz: " << ((n >> (CHUNK_SIZE_SHIFT + CHUNK_HEIGHT_SHIFT + 2)) & CHUNK_SIZE_MASK)
-      //      << "\tcol: " << ((n >> (2 * CHUNK_SIZE_SHIFT + CHUNK_HEIGHT_SHIFT + 3)) & 1)
-      //      << "\tnor: " << ((n >> (2 * CHUNK_SIZE_SHIFT + CHUNK_HEIGHT_SHIFT + 4)) & 7)
-      //      << "\tao: " << ((n >> (2 * CHUNK_SIZE_SHIFT + CHUNK_HEIGHT_SHIFT + 7)) & 3) << "\n";
+        //std::cout << "x: " << (n & CHUNK_SIZE_MASK)
+        //    << "\ty: " << ((n >> (CHUNK_SIZE_SHIFT + 1)) & CHUNK_HEIGHT_MASK)
+        //    << "\tz: " << ((n >> (CHUNK_SIZE_SHIFT + CHUNK_HEIGHT_SHIFT + 2)) & CHUNK_SIZE_MASK)
+        //    << "\tcol: " << ((n >> (2 * CHUNK_SIZE_SHIFT + CHUNK_HEIGHT_SHIFT + 3)) & 1)
+        //    << "\tnor: " << ((n >> (2 * CHUNK_SIZE_SHIFT + CHUNK_HEIGHT_SHIFT + 4)) & 7)
+        //    << "\tao: " << ((n >> (2 * CHUNK_SIZE_SHIFT + CHUNK_HEIGHT_SHIFT + 7)) & 3) << "\n";
 
-      //  uint32_t x_test = n;
-      //  uint32_t y_test = (n >> (CHUNK_SIZE_SHIFT + 1));
-      //  uint32_t z_test = (n >> (CHUNK_SIZE_SHIFT + CHUNK_HEIGHT_SHIFT + 2));
-      //  std::cout << "x: " << std::bitset<32>(x_test) << "\ty: " << std::bitset<32>(y_test) << "\tz: " << std::bitset<32>(z_test) << "\n";
-      //  std::cout << "m: " << std::bitset<32>(CHUNK_SIZE_MASK) << "\tn: " << std::bitset<32>(CHUNK_HEIGHT_MASK) << "\to: " << std::bitset<32>(CHUNK_SIZE_MASK) << "\n";
-
-      //  std::cout << "\n";
+        //std::cout << "\n";
 
 #ifdef VERTEX_PACKING
         data.push_back(vertex);
@@ -533,18 +535,9 @@ void meshChunk(Chunk *chunk, int worldSize, std::vector<float> &data) {
 #endif
     }
 
+    std::cout << "vertex push time: " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count() << "us\n";
+
     chunk->numVertices = positions.size() / 3;
-    std::cout << "numVertices: " << chunk->numVertices << std::endl;
-
-    unsigned long long totalSize = 0;
-//    totalSize += positions.capacity() * sizeof(positions[0]);
-//    totalSize += normals.capacity() * sizeof(normals[0]);
-//    totalSize += colours.capacity() * sizeof(colours[0]);
-//    totalSize += ao.capacity() * sizeof(ao[0]);
-//    totalSize += chunk->voxels.capacity() * sizeof(int);
-    std::cout << "totalSize: " << totalSize << std::endl;
-
-//    std::cout << "chunk data size: " << chunk->data.capacity() * sizeof(uint64_t) << std::endl;
 }
 
 bool boundsCheck(int x, int y, int z, int i, int j, int k, int worldSize, std::vector<int> &voxels) {
