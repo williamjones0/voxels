@@ -13,7 +13,15 @@
 
 #define EPSILON 0.000001
 
-Chunk::Chunk(int cx, int cz) : cx(cx), cz(cz) {};
+Chunk::Chunk(int cx, int cz) : cx(cx), cz(cz) {
+    minY = CHUNK_HEIGHT;
+    maxY = 0;
+    VAO = 0;
+    dataVBO = 0;
+    numVertices = 0;
+    model = glm::mat4(1.0f);
+    voxels = std::vector<int>((CHUNK_SIZE + 2) * (CHUNK_SIZE + 2) * CHUNK_HEIGHT);
+};
 
 void Chunk::store(int x, int y, int z, char v) {
     voxels[getVoxelIndex(x, y, z, CHUNK_SIZE)] = v;

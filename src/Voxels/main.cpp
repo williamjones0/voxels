@@ -20,6 +20,13 @@
 #include "util/Util.hpp"
 #include "util/Flags.h"
 
+typedef struct {
+    unsigned int count;
+    unsigned int instanceCount;
+    unsigned int firstIndex;
+    unsigned int baseInstance;
+} DrawArraysIndirectCommand;
+
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
@@ -27,6 +34,8 @@ void glfw_error_callback(int error, const char* description);
 void processInput(GLFWwindow* window);
 template <glm::length_t C, glm::length_t R, typename T>
 void putMatrix(std::vector<T> &buffer, glm::mat<C, R, T> m);
+bool chunkInFrustum(Chunk chunk);
+void updateDrawCommandBuffer(std::vector<DrawArraysIndirectCommand>& commands, std::vector<Chunk>& chunks, GLuint drawCmdBuffer, void* drawCmdBufferAddress);
 
 const unsigned int SCREEN_WIDTH = 1920;
 const unsigned int SCREEN_HEIGHT = 1080;
@@ -42,12 +51,7 @@ const double PI = 3.1415926535;
 
 #define VERTICES_LENGTH 108
 
-typedef struct {
-    unsigned int count;
-    unsigned int instanceCount;
-    unsigned int firstIndex;
-    unsigned int baseInstance;
-} DrawArraysIndirectCommand;
+glm::vec4 frustum[6];
 
 Camera camera(glm::vec3(-5.0f, 20.0f, 0.0f), 0.0f, 0.0f);
 float lastX = SCREEN_WIDTH / 2.0f;
@@ -151,6 +155,7 @@ int main() {
 
     std::vector<DrawArraysIndirectCommand> commands;
     std::vector<float> cmb;
+
     unsigned int firstIndex = 0;
     for (size_t i = 0; i < NUM_CHUNKS; ++i) {
         DrawArraysIndirectCommand chunkCmd = {
@@ -172,7 +177,12 @@ int main() {
     glNamedBufferStorage(drawCmdBuffer,
         sizeof(DrawArraysIndirectCommand) * commands.size(),
         (const void*)commands.data(),
-        GL_DYNAMIC_STORAGE_BIT);
+        GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT);
+
+    void *drawCmdBufferAddress = glMapNamedBufferRange(drawCmdBuffer,
+        0,
+        sizeof(DrawArraysIndirectCommand) * commands.size(),
+        GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_FLUSH_EXPLICIT_BIT);
 
     GLuint chunkModelBuffer;
     glCreateBuffers(1, &chunkModelBuffer);
@@ -194,16 +204,29 @@ int main() {
         lastFrame = currentFrame;
 
         camera.update(deltaTime);
+
+        glm::mat4 projection = glm::perspective((float)(camera.FOV * PI / 180), (float)SCREEN_WIDTH / (float)SCREEN_HEIGHT, 0.1f, 5000.0f);
+        glm::mat4 view = camera.calculateViewMatrix();
+
+        glm::mat4 projectionT = glm::transpose(projection * view);
+
+        frustum[0] = projectionT[3] + projectionT[0];  // x + w < 0
+        frustum[1] = projectionT[3] - projectionT[0];  // x - w > 0
+        frustum[2] = projectionT[3] + projectionT[1];  // y + w < 0
+        frustum[3] = projectionT[3] - projectionT[1];  // y - w > 0
+        frustum[4] = projectionT[3] + projectionT[2];  // z + w < 0
+        frustum[5] = projectionT[3] - projectionT[2];  // z - w > 0
+
+        updateDrawCommandBuffer(commands, chunks, drawCmdBuffer, drawCmdBufferAddress);
+
         processInput(window);
 
         glClearColor(0.2f, 0.2f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        glm::mat4 projection = glm::perspective((float)(camera.FOV * PI / 180), (float)SCREEN_WIDTH / (float)SCREEN_HEIGHT, 0.1f, 5000.0f);
-
         shader.use();
 
-        shader.setMat4("view", camera.calculateViewMatrix());
+        shader.setMat4("view", view);
         shader.setMat4("projection", projection);
 
         glBindVertexArray(worldMesh.VAO);
@@ -278,4 +301,52 @@ void putMatrix(std::vector<T> &buffer, glm::mat<C, R, T> m) {
             buffer.push_back(m[i][j]);
         }
     }
+}
+
+// Determine whether the given chunk intersects the view frustum
+// TODO: Not fully correct, see https://iquilezles.org/articles/frustumcorrect/
+bool chunkInFrustum(Chunk chunk) {
+    float minX = chunk.cx * CHUNK_SIZE;
+    float maxX = minX + CHUNK_SIZE;
+    float minZ = chunk.cz * CHUNK_SIZE;
+    float maxZ = minZ + CHUNK_SIZE;
+    // Check AABB outside/inside of frustum
+    for (int i = 0; i < 6; ++i) {
+        int out = 0;
+        out += ((glm::dot(frustum[i], glm::vec4(minX, chunk.minY, minZ, 1.0f)) < 0.0) ? 1 : 0);
+        out += ((glm::dot(frustum[i], glm::vec4(maxX, chunk.minY, minZ, 1.0f)) < 0.0) ? 1 : 0);
+        out += ((glm::dot(frustum[i], glm::vec4(minX, chunk.maxY, minZ, 1.0f)) < 0.0) ? 1 : 0);
+        out += ((glm::dot(frustum[i], glm::vec4(maxX, chunk.maxY, minZ, 1.0f)) < 0.0) ? 1 : 0);
+        out += ((glm::dot(frustum[i], glm::vec4(minX, chunk.minY, maxZ, 1.0f)) < 0.0) ? 1 : 0);
+        out += ((glm::dot(frustum[i], glm::vec4(maxX, chunk.minY, maxZ, 1.0f)) < 0.0) ? 1 : 0);
+        out += ((glm::dot(frustum[i], glm::vec4(minX, chunk.maxY, maxZ, 1.0f)) < 0.0) ? 1 : 0);
+        out += ((glm::dot(frustum[i], glm::vec4(maxX, chunk.maxY, maxZ, 1.0f)) < 0.0) ? 1 : 0);
+        std::cout << "out: " << out << std::endl;
+        if (out == 8) return false;
+    }
+
+    return true;
+}
+
+void updateDrawCommandBuffer(std::vector<DrawArraysIndirectCommand> &commands, std::vector<Chunk> &chunks, GLuint drawCmdBuffer, void* drawCmdBufferAddress) {
+    for (int i = 0; i < chunks.size(); i++) {
+        if (chunkInFrustum(chunks[i])) {
+            std::cout << "Drawing chunk " << i << std::endl;
+            commands[i].instanceCount = 1;
+        }
+        else {
+            std::cout << "Culling chunk " << i << std::endl;
+            commands[i].instanceCount = 0;
+        }
+    }
+
+    size_t copySize = commands.size() * sizeof(DrawArraysIndirectCommand);
+    std::memcpy(drawCmdBufferAddress, commands.data(), copySize);
+    glFlushMappedNamedBufferRange(drawCmdBuffer,
+        0,
+        copySize);
+}
+
+glm::vec4 normalizePlane(glm::vec4 p) {
+    return p / length(glm::vec3(p));
 }
