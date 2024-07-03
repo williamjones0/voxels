@@ -34,8 +34,10 @@ void glfw_error_callback(int error, const char* description);
 void processInput(GLFWwindow* window);
 template <glm::length_t C, glm::length_t R, typename T>
 void putMatrix(std::vector<T> &buffer, glm::mat<C, R, T> m);
-bool chunkInFrustum(Chunk chunk);
+bool chunkNotInFrustum(Chunk chunk);
+bool culledXY(float minX, float minY, float minZ, float maxX, float maxY, float maxZ);
 void updateDrawCommandBuffer(std::vector<DrawArraysIndirectCommand>& commands, std::vector<Chunk>& chunks, GLuint drawCmdBuffer, void* drawCmdBufferAddress);
+glm::mat4 mulPerspectiveAffine(glm::mat4 proj, glm::mat4 view);
 
 const unsigned int SCREEN_WIDTH = 1920;
 const unsigned int SCREEN_HEIGHT = 1080;
@@ -52,7 +54,7 @@ const double PI = 3.1415926535;
 #define VERTICES_LENGTH 108
 
 glm::vec4 frustum[6];
-bool doFrustumCulling = false;
+bool doFrustumCulling = true;
 
 Camera camera(glm::vec3(-5.0f, 20.0f, 0.0f), 0.0f, 0.0f);
 float lastX = SCREEN_WIDTH / 2.0f;
@@ -210,7 +212,7 @@ int main() {
         glm::mat4 view = camera.calculateViewMatrix();
 
         if (doFrustumCulling) {
-            glm::mat4 projectionT = glm::transpose(projection * view);
+            glm::mat4 projectionT = projection * view;
 
             frustum[0] = projectionT[3] + projectionT[0];  // x + w < 0
             frustum[1] = projectionT[3] - projectionT[0];  // x - w > 0
@@ -308,40 +310,34 @@ void putMatrix(std::vector<T> &buffer, glm::mat<C, R, T> m) {
     }
 }
 
-// Determine whether the given chunk intersects the view frustum
-// TODO: Not fully correct, see https://iquilezles.org/articles/frustumcorrect/
-bool chunkInFrustum(Chunk chunk) {
-    float minX = chunk.cx * CHUNK_SIZE;
-    float maxX = minX + CHUNK_SIZE;
-    float minZ = chunk.cz * CHUNK_SIZE;
-    float maxZ = minZ + CHUNK_SIZE;
-    // Check AABB outside/inside of frustum
-    for (int i = 0; i < 6; ++i) {
-        int out = 0;
-        out += ((glm::dot(frustum[i], glm::vec4(minX, chunk.minY, minZ, 1.0f)) < 0.0) ? 1 : 0);
-        out += ((glm::dot(frustum[i], glm::vec4(maxX, chunk.minY, minZ, 1.0f)) < 0.0) ? 1 : 0);
-        out += ((glm::dot(frustum[i], glm::vec4(minX, chunk.maxY, minZ, 1.0f)) < 0.0) ? 1 : 0);
-        out += ((glm::dot(frustum[i], glm::vec4(maxX, chunk.maxY, minZ, 1.0f)) < 0.0) ? 1 : 0);
-        out += ((glm::dot(frustum[i], glm::vec4(minX, chunk.minY, maxZ, 1.0f)) < 0.0) ? 1 : 0);
-        out += ((glm::dot(frustum[i], glm::vec4(maxX, chunk.minY, maxZ, 1.0f)) < 0.0) ? 1 : 0);
-        out += ((glm::dot(frustum[i], glm::vec4(minX, chunk.maxY, maxZ, 1.0f)) < 0.0) ? 1 : 0);
-        out += ((glm::dot(frustum[i], glm::vec4(maxX, chunk.maxY, maxZ, 1.0f)) < 0.0) ? 1 : 0);
-        std::cout << "out: " << out << std::endl;
-        if (out == 8) return false;
-    }
+bool chunkNotInFrustum(Chunk chunk) {
+    float xf = (chunk.cx << CHUNK_SIZE_SHIFT) - (float)floor(camera.position.x);
+    float ymin = chunk.minY - (float)floor(camera.position.y), ymax = chunk.maxY - (float)floor(camera.position.y);
+    float zf = (chunk.cz << CHUNK_SIZE_SHIFT) - (float)floor(camera.position.z);
+    return culledXY(xf, ymin, zf, xf + CHUNK_SIZE, ymax + 1, zf + CHUNK_SIZE);
+}
 
-    return true;
+bool culledXY(float minX, float minY, float minZ, float maxX, float maxY, float maxZ) {
+    float nxX = frustum[0].x, nxY = frustum[0].y, nxZ = frustum[0].z, nxW = frustum[0].w;
+    float pxX = frustum[1].x, pxY = frustum[1].y, pxZ = frustum[1].z, pxW = frustum[1].w;
+    float nyX = frustum[2].x, nyY = frustum[2].y, nyZ = frustum[2].z, nyW = frustum[2].w;
+    float pyX = frustum[3].x, pyY = frustum[3].y, pyZ = frustum[3].z, pyW = frustum[3].w;
+
+    return nxX * (nxX < 0 ? minX : maxX) + nxY * (nxY < 0 ? minY : maxY) + nxZ * (nxZ < 0 ? minZ : maxZ) < -nxW
+        || pxX * (pxX < 0 ? minX : maxX) + pxY * (pxY < 0 ? minY : maxY) + pxZ * (pxZ < 0 ? minZ : maxZ) < -pxW
+        || nyX * (nyX < 0 ? minX : maxX) + nyY * (nyY < 0 ? minY : maxY) + nyZ * (nyZ < 0 ? minZ : maxZ) < -nyW
+        || pyX * (pyX < 0 ? minX : maxX) + pyY * (pyY < 0 ? minY : maxY) + pyZ * (pyZ < 0 ? minZ : maxZ) < -pyW;
 }
 
 void updateDrawCommandBuffer(std::vector<DrawArraysIndirectCommand> &commands, std::vector<Chunk> &chunks, GLuint drawCmdBuffer, void* drawCmdBufferAddress) {
     for (int i = 0; i < chunks.size(); i++) {
-        if (chunkInFrustum(chunks[i])) {
-            std::cout << "Drawing chunk " << i << std::endl;
-            commands[i].instanceCount = 1;
-        }
-        else {
+        if (chunkNotInFrustum(chunks[i])) {
             std::cout << "Culling chunk " << i << std::endl;
             commands[i].instanceCount = 0;
+        }
+        else {
+            std::cout << "Drawing chunk " << i << std::endl;
+            commands[i].instanceCount = 1;
         }
     }
 
@@ -352,6 +348,28 @@ void updateDrawCommandBuffer(std::vector<DrawArraysIndirectCommand> &commands, s
         copySize);
 }
 
-glm::vec4 normalizePlane(glm::vec4 p) {
-    return p / length(glm::vec3(p));
+glm::mat4 mulPerspectiveAffine(glm::mat4 proj, glm::mat4 view) {
+    float nm00 = proj[0][0] * view[0][0];
+    float nm01 = proj[1][1] * view[0][1];
+    float nm02 = proj[2][2] * view[0][2];
+    float nm03 = proj[2][3] * view[0][2];
+    float nm10 = proj[0][0] * view[1][0];
+    float nm11 = proj[1][1] * view[1][1];
+    float nm12 = proj[2][2] * view[1][2];
+    float nm13 = proj[2][3] * view[1][2];
+    float nm20 = proj[0][0] * view[2][0];
+    float nm21 = proj[1][1] * view[2][1];
+    float nm22 = proj[2][2] * view[2][2];
+    float nm23 = proj[2][3] * view[2][2];
+    float nm30 = proj[0][0] * view[3][0];
+    float nm31 = proj[1][1] * view[3][1];
+    float nm32 = proj[2][2] * view[3][2] + proj[3][2];
+    float nm33 = proj[2][3] * view[3][2];
+
+    return glm::mat4(
+        nm00, nm10, nm20, nm30,
+        nm01, nm11, nm21, nm31,
+        nm02, nm12, nm22, nm32,
+        nm03, nm13, nm23, nm33
+    );
 }
