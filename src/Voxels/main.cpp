@@ -52,6 +52,7 @@ const double PI = 3.1415926535;
 #define VERTICES_LENGTH 108
 
 glm::vec4 frustum[6];
+bool doFrustumCulling = false;
 
 Camera camera(glm::vec3(-5.0f, 20.0f, 0.0f), 0.0f, 0.0f);
 float lastX = SCREEN_WIDTH / 2.0f;
@@ -208,16 +209,18 @@ int main() {
         glm::mat4 projection = glm::perspective((float)(camera.FOV * PI / 180), (float)SCREEN_WIDTH / (float)SCREEN_HEIGHT, 0.1f, 5000.0f);
         glm::mat4 view = camera.calculateViewMatrix();
 
-        glm::mat4 projectionT = glm::transpose(projection * view);
+        if (doFrustumCulling) {
+            glm::mat4 projectionT = glm::transpose(projection * view);
 
-        frustum[0] = projectionT[3] + projectionT[0];  // x + w < 0
-        frustum[1] = projectionT[3] - projectionT[0];  // x - w > 0
-        frustum[2] = projectionT[3] + projectionT[1];  // y + w < 0
-        frustum[3] = projectionT[3] - projectionT[1];  // y - w > 0
-        frustum[4] = projectionT[3] + projectionT[2];  // z + w < 0
-        frustum[5] = projectionT[3] - projectionT[2];  // z - w > 0
+            frustum[0] = projectionT[3] + projectionT[0];  // x + w < 0
+            frustum[1] = projectionT[3] - projectionT[0];  // x - w > 0
+            frustum[2] = projectionT[3] + projectionT[1];  // y + w < 0
+            frustum[3] = projectionT[3] - projectionT[1];  // y - w > 0
+            frustum[4] = projectionT[3] + projectionT[2];  // z + w < 0
+            frustum[5] = projectionT[3] - projectionT[2];  // z - w > 0
 
-        updateDrawCommandBuffer(commands, chunks, drawCmdBuffer, drawCmdBufferAddress);
+            updateDrawCommandBuffer(commands, chunks, drawCmdBuffer, drawCmdBufferAddress);
+        }
 
         processInput(window);
 
@@ -235,6 +238,8 @@ int main() {
         glMultiDrawArraysIndirect(GL_TRIANGLES, 0, NUM_CHUNKS, sizeof(DrawArraysIndirectCommand));
 
         // std::cout << "Frame time: " << deltaTime << "\t FPS: " << (1.0f / deltaTime) << std::endl;
+        std::string title = "Voxels | FPS: " + std::to_string((int)(1.0f / deltaTime));
+        glfwSetWindowTitle(window, title.c_str());
 
         glfwPollEvents();
         glfwSwapBuffers(window);
