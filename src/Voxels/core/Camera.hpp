@@ -1,6 +1,7 @@
 #pragma once
 
 #include <glm/glm.hpp>
+#include <glm/gtc/quaternion.hpp>
 
 enum MovementMode {
     CONSTANT,
@@ -27,6 +28,8 @@ public:
 
     glm::mat4 calculateViewMatrix();
 
+    glm::quat tmpq = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+
     glm::vec3 position;
     glm::vec3 velocity;
     glm::vec3 front;
@@ -36,6 +39,8 @@ public:
 
     float yaw;
     float pitch;
+
+    float angx, angy, dangx, dangy;
 
     float FOV = 60.0f;
 
