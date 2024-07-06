@@ -6,9 +6,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtx/string_cast.hpp>
-#include <glm/gtx/io.hpp>
 #include <glm/gtc/type_ptr.hpp>
-#include <glm/gtc/quaternion.hpp>
 
 #include <iostream>
 #include <chrono>
@@ -36,13 +34,8 @@ void glfw_error_callback(int error, const char* description);
 void processInput(GLFWwindow* window);
 template <glm::length_t C, glm::length_t R, typename T>
 void putMatrix(std::vector<T> &buffer, glm::mat<C, R, T> m);
-bool chunkNotInFrustum(Chunk chunk);
-bool culledXY(float minX, float minY, float minZ, float maxX, float maxY, float maxZ);
+bool chunkInFrustum(Chunk chunk);
 void updateDrawCommandBuffer(std::vector<DrawArraysIndirectCommand>& commands, std::vector<Chunk>& chunks, GLuint drawCmdBuffer, void* drawCmdBufferAddress);
-glm::mat4 mulPerspectiveAffine(glm::mat4 proj, glm::mat<4, 3, float> view);
-void translateMat4x3(glm::mat<4, 3, float>& m, float x, float y, float z);
-void updateFrustumPlanes(glm::mat4 m);
-glm::mat<4, 3, float> rotation(glm::quat quat);
 
 const unsigned int SCREEN_WIDTH = 1920;
 const unsigned int SCREEN_HEIGHT = 1080;
@@ -58,17 +51,14 @@ const double PI = 3.1415926535;
 
 #define VERTICES_LENGTH 108
 
+glm::vec4 frustum[6];
 bool doFrustumCulling = true;
-float nxX, nxY, nxZ, nxW, pxX, pxY, pxZ, pxW, nyX, nyY, nyZ, nyW, pyX, pyY, pyZ, pyW;
+int visibleChunks = 0;
 
-Camera camera(glm::vec3(5.2f, 150.3f, 10.4f), 160.0f, -75.0f);
+Camera camera(glm::vec3(-5.0f, 20.0f, 0.0f), 0.0f, 0.0f);
 float lastX = SCREEN_WIDTH / 2.0f;
 float lastY = SCREEN_HEIGHT / 2.0f;
 bool firstMouse = true;
-
-float angx, angy, dangx, dangy;
-
-int visibleChunks = 0;
 
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
@@ -220,31 +210,15 @@ int main() {
         glm::mat4 projection = glm::perspective((float)(camera.FOV * PI / 180), (float)SCREEN_WIDTH / (float)SCREEN_HEIGHT, 0.1f, 5000.0f);
         glm::mat4 view = camera.calculateViewMatrix();
 
-        std::cout << "view: " << std::endl;
-        std::cout << view << std::endl;
-
-        //glm::mat<4, 3, float> vMat = rotation(camera.tmpq);
-        //translateMat4x3(vMat,
-        //    (float) -(camera.position.x - floor(camera.position.x)),
-        //    (float) -(camera.position.y - floor(camera.position.y)),
-        //    (float) -(camera.position.z - floor(camera.position.z))
-        //);
-
-        glm::mat<4, 3, float> vMat = glm::mat<4, 3, float>(view);
-
-        glm::mat4 mvpMat = mulPerspectiveAffine(projection, vMat);
         if (doFrustumCulling) {
+            glm::mat4 projectionT = glm::transpose(projection * view);
 
-            std::cout << "tmpq: " << std::endl;
-            std::cout << camera.tmpq << std::endl;
-            std::cout << "vMat: " << std::endl;
-            std::cout << vMat << std::endl;
-            std::cout << "pMat: " << std::endl;
-            std::cout << projection << std::endl;
-            std::cout << "mvpMat: " << std::endl;
-            std::cout << mvpMat << std::endl;
-
-            updateFrustumPlanes(mvpMat);
+            frustum[0] = projectionT[3] + projectionT[0];  // x + w < 0
+            frustum[1] = projectionT[3] - projectionT[0];  // x - w > 0
+            frustum[2] = projectionT[3] + projectionT[1];  // y + w < 0
+            frustum[3] = projectionT[3] - projectionT[1];  // y - w > 0
+            frustum[4] = projectionT[3] + projectionT[2];  // z + w < 0
+            frustum[5] = projectionT[3] - projectionT[2];  // z - w > 0
 
             updateDrawCommandBuffer(commands, chunks, drawCmdBuffer, drawCmdBufferAddress);
         }
@@ -256,14 +230,6 @@ int main() {
 
         shader.use();
 
-        glm::mat4 vMat4 = glm::mat4(
-            vMat[0][0], vMat[0][1], vMat[0][2], 0,
-            vMat[1][0], vMat[1][1], vMat[1][2], 0,
-            vMat[2][0], vMat[2][1], vMat[2][2], 0,
-            vMat[3][0], vMat[3][1], vMat[3][2], 0
-        );
-
-        shader.setMat4("mvp", mvpMat);
         shader.setMat4("view", view);
         shader.setMat4("projection", projection);
 
@@ -275,10 +241,8 @@ int main() {
         // std::cout << "Frame time: " << deltaTime << "\t FPS: " << (1.0f / deltaTime) << std::endl;
         std::string title = "Voxels | FPS: " + std::to_string((int)(1.0f / deltaTime)) +
             " | X: " + std::to_string(camera.position.x) +
-            " | Y: " + std::to_string(camera.position.y) +
-            " | Z: " + std::to_string(camera.position.z) +
-            " | yaw: " + std::to_string(camera.yaw * PI / 180) +
-            " | pitch: " + std::to_string(camera.pitch * PI / 180) +
+            ", Y: " + std::to_string(camera.position.y) +
+            ", Z: " + std::to_string(camera.position.z) +
             " | chunks: " + std::to_string(visibleChunks);
 
         glfwSetWindowTitle(window, title.c_str());
@@ -326,11 +290,6 @@ void mouse_callback(GLFWwindow* window, double xposIn, double yposIn) {
     float ypos = static_cast<float>(yposIn);
 
     if (firstMouse) {
-        float deltaX = xpos - lastX;
-        float deltaY = ypos - lastY;
-        dangx += deltaY;
-        dangy += deltaX;
-
         lastX = xpos;
         lastY = ypos;
         firstMouse = false;
@@ -362,31 +321,39 @@ void putMatrix(std::vector<T> &buffer, glm::mat<C, R, T> m) {
     }
 }
 
-bool chunkNotInFrustum(Chunk chunk) {
-    float xf = (chunk.cx << CHUNK_SIZE_SHIFT) - (float)floor(camera.position.x);
-    float ymin = chunk.minY - (float)floor(camera.position.y), ymax = chunk.maxY - (float)floor(camera.position.y);
-    float zf = (chunk.cz << CHUNK_SIZE_SHIFT) - (float)floor(camera.position.z);
-    return culledXY(xf, ymin, zf, xf + CHUNK_SIZE, ymax + 1, zf + CHUNK_SIZE);
+// Determine whether the given chunk intersects the view frustum
+// TODO: Not fully correct, see https://iquilezles.org/articles/frustumcorrect/
+bool chunkInFrustum(Chunk chunk) {
+    float minX = chunk.cx * CHUNK_SIZE;
+    float maxX = minX + CHUNK_SIZE;
+    float minZ = chunk.cz * CHUNK_SIZE;
+    float maxZ = minZ + CHUNK_SIZE;
+    // Check AABB outside/inside of frustum
+    for (int i = 0; i < 6; ++i) {
+        int out = 0;
+        out += ((glm::dot(frustum[i], glm::vec4(minX, chunk.minY, minZ, 1.0f)) < 0.0) ? 1 : 0);
+        out += ((glm::dot(frustum[i], glm::vec4(maxX, chunk.minY, minZ, 1.0f)) < 0.0) ? 1 : 0);
+        out += ((glm::dot(frustum[i], glm::vec4(minX, chunk.maxY, minZ, 1.0f)) < 0.0) ? 1 : 0);
+        out += ((glm::dot(frustum[i], glm::vec4(maxX, chunk.maxY, minZ, 1.0f)) < 0.0) ? 1 : 0);
+        out += ((glm::dot(frustum[i], glm::vec4(minX, chunk.minY, maxZ, 1.0f)) < 0.0) ? 1 : 0);
+        out += ((glm::dot(frustum[i], glm::vec4(maxX, chunk.minY, maxZ, 1.0f)) < 0.0) ? 1 : 0);
+        out += ((glm::dot(frustum[i], glm::vec4(minX, chunk.maxY, maxZ, 1.0f)) < 0.0) ? 1 : 0);
+        out += ((glm::dot(frustum[i], glm::vec4(maxX, chunk.maxY, maxZ, 1.0f)) < 0.0) ? 1 : 0);
+        if (out == 8) return false;
+    }
+
+    return true;
 }
 
-bool culledXY(float minX, float minY, float minZ, float maxX, float maxY, float maxZ) {
-    return nxX * (nxX < 0 ? minX : maxX) + nxY * (nxY < 0 ? minY : maxY) + nxZ * (nxZ < 0 ? minZ : maxZ) < -nxW
-        || pxX * (pxX < 0 ? minX : maxX) + pxY * (pxY < 0 ? minY : maxY) + pxZ * (pxZ < 0 ? minZ : maxZ) < -pxW
-        || nyX * (nyX < 0 ? minX : maxX) + nyY * (nyY < 0 ? minY : maxY) + nyZ * (nyZ < 0 ? minZ : maxZ) < -nyW
-        || pyX * (pyX < 0 ? minX : maxX) + pyY * (pyY < 0 ? minY : maxY) + pyZ * (pyZ < 0 ? minZ : maxZ) < -pyW;
-}
-
-void updateDrawCommandBuffer(std::vector<DrawArraysIndirectCommand> &commands, std::vector<Chunk> &chunks, GLuint drawCmdBuffer, void* drawCmdBufferAddress) {
+void updateDrawCommandBuffer(std::vector<DrawArraysIndirectCommand> &commands, std::vector<Chunk> &chunks, GLuint drawCmdBuffer, void *drawCmdBufferAddress) {
     visibleChunks = 0;
     for (int i = 0; i < chunks.size(); i++) {
-        if (chunkNotInFrustum(chunks[i])) {
-            // std::cout << "Culling chunk " << i << std::endl;
-            commands[i].instanceCount = 0;
-        }
-        else {
-            // std::cout << "Drawing chunk " << i << std::endl;
+        if (chunkInFrustum(chunks[i])) {
             commands[i].instanceCount = 1;
             visibleChunks++;
+        }
+        else {
+            commands[i].instanceCount = 0;
         }
     }
 
@@ -395,91 +362,4 @@ void updateDrawCommandBuffer(std::vector<DrawArraysIndirectCommand> &commands, s
     glFlushMappedNamedBufferRange(drawCmdBuffer,
         0,
         copySize);
-}
-
-glm::mat4 mulPerspectiveAffine(glm::mat4 proj, glm::mat<4, 3, float> view) {
-    float nm00 = proj[0][0] * view[0][0];
-    float nm01 = proj[1][1] * view[0][1];
-    float nm02 = proj[2][2] * view[0][2];
-    float nm03 = proj[2][3] * view[0][2];
-    float nm10 = proj[0][0] * view[1][0];
-    float nm11 = proj[1][1] * view[1][1];
-    float nm12 = proj[2][2] * view[1][2];
-    float nm13 = proj[2][3] * view[1][2];
-    float nm20 = proj[0][0] * view[2][0];
-    float nm21 = proj[1][1] * view[2][1];
-    float nm22 = proj[2][2] * view[2][2];
-    float nm23 = proj[2][3] * view[2][2];
-    float nm30 = proj[0][0] * view[3][0];
-    float nm31 = proj[1][1] * view[3][1];
-    float nm32 = proj[2][2] * view[3][2] + proj[3][2];
-    float nm33 = proj[2][3] * view[3][2];
-
-    return glm::mat4(
-        nm00, nm01, nm02, nm03,
-        nm10, nm11, nm12, nm13,
-        nm20, nm21, nm22, nm23,
-        nm30, nm31, nm32, nm33
-    );
-}
-
-void translateMat4x3(glm::mat<4, 3, float>& m, float x, float y, float z) {
-    m[3][0] = m[0][0] * x + m[1][0] * y + m[2][0] * z + m[3][0];
-    m[3][1] = m[0][1] * x + m[1][1] * y + m[2][1] * z + m[3][1];
-    m[3][2] = m[0][2] * x + m[1][2] * y + m[2][2] * z + m[3][2];
-}
-
-void updateFrustumPlanes(glm::mat4 m) {
-    nxX = m[0][3] + m[0][0];
-    nxY = m[1][3] + m[1][0];
-    nxZ = m[2][3] + m[2][0];
-    nxW = m[3][3] + m[3][0];
-    pxX = m[0][3] - m[0][0];
-    pxY = m[1][3] - m[1][0];
-    pxZ = m[2][3] - m[2][0];
-    pxW = m[3][3] - m[3][0];
-    nyX = m[0][3] + m[0][1];
-    nyY = m[1][3] + m[1][1];
-    nyZ = m[2][3] + m[2][1];
-    nyW = m[3][3] + m[3][1];
-    pyX = m[0][3] - m[0][1];
-    pyY = m[1][3] - m[1][1];
-    pyZ = m[2][3] - m[2][1];
-    pyW = m[3][3] - m[3][1];
-
-    std::cout << "nxX: " << nxX << ", nxY: " << nxY << ", nxZ: " << nxZ << ", nxW: " << nxW << std::endl;
-    std::cout << "pxX: " << pxX << ", pxY: " << pxY << ", pxZ: " << pxZ << ", pxW: " << pxW << std::endl;
-    std::cout << "nyX: " << nyX << ", nyY: " << nyY << ", nyZ: " << nyZ << ", nyW: " << nyW << std::endl;
-    std::cout << "pyX: " << pyX << ", pyY: " << pyY << ", pyZ: " << pyZ << ", pyW: " << pyW << std::endl;
-    std::cout << std::endl;
-}
-
-glm::mat<4, 3, float> rotation(glm::quat quat) {
-    float w2 = quat.w * quat.w;
-    float x2 = quat.x * quat.x;
-    float y2 = quat.y * quat.y;
-    float z2 = quat.z * quat.z;
-    float zw = quat.z * quat.w;
-    float xy = quat.x * quat.y;
-    float xz = quat.x * quat.z;
-    float yw = quat.y * quat.w;
-    float yz = quat.y * quat.z;
-    float xw = quat.x * quat.w;
-
-    float m00 = w2 + x2 - z2 - y2;
-    float m01 = xy + zw + zw + xy;
-    float m02 = xz - yw + xz - yw;
-    float m10 = -zw + xy - zw + xy;
-    float m11 = y2 - z2 + w2 - x2;
-    float m12 = yz + yz + xw + xw;
-    float m20 = yw + xz + xz + yw;
-    float m21 = yz + yz - xw - xw;
-    float m22 = z2 - y2 - x2 + w2;
-
-    return glm::mat<4, 3, float>(
-        m00, m01, m02,
-        m10, m11, m12,
-        m20, m21, m22,
-        0, 0, 0
-    );
 }

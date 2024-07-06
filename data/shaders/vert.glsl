@@ -17,7 +17,6 @@ out float fragAo;
 
 uniform mat4 view;
 uniform mat4 projection;
-uniform mat4 mvp;
 
 // Vertex packing format uniforms
 uniform int chunkSizeShift;
@@ -52,7 +51,7 @@ void main() {
     normal = int((aData >> (2 * chunkSizeShift + chunkHeightShift + 4)) & 7u);
     float ao = float((aData >> (2 * chunkSizeShift + chunkHeightShift + 7)) & 3u);
 
-    gl_Position = mvp * chunkModel.model * vec4(x, y, z, 1.0);
+    gl_Position = projection * view * chunkModel.model * vec4(x, y, z, 1.0);
     // ourColor = get_color(uint(aColor));
     // ourColor = vec3(gl_DrawID / 4.0f, gl_DrawID / 4.0f, gl_DrawID / 4.0f);
     fragAo = clamp(float(ao) / 3.0, 0.5, 1.0);

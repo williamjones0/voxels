@@ -7,7 +7,7 @@
 
 #include "../util/Flags.h"
 
-const int WORLD_SIZE = 64;
+const int WORLD_SIZE = 256;
 
 const int CHUNK_SIZE_SHIFT = 4;
 const int CHUNK_HEIGHT_SHIFT = 7;
