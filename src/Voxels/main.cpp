@@ -151,7 +151,6 @@ int main() {
 
     Shader shader("../../../../../data/shaders/vert.glsl", "../../../../../data/shaders/frag.glsl");
     Shader drawCommandShader("../../../../../data/shaders/drawcmd_comp.glsl");
-    Shader clearShader("../../../../../data/shaders/clear_comp.glsl");
 
     WorldMesh worldMesh;
 
@@ -258,9 +257,7 @@ int main() {
         processInput(window);
 
         // Clear command count buffer
-        clearShader.use();
-        glDispatchCompute(1, 1, 1);
-        glMemoryBarrier(GL_COMMAND_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT);
+        glClearNamedBufferData(commandCountBuffer, GL_R32UI, GL_RED, GL_UNSIGNED_INT, NULL);
 
         // Generate draw commands
         drawCommandShader.use();
