@@ -27,6 +27,26 @@ typedef struct {
     unsigned int baseInstance;
 } DrawArraysIndirectCommand;
 
+typedef struct {
+    unsigned int count;
+    unsigned int instanceCount;
+    unsigned int firstIndex;
+    unsigned int baseInstance;
+    unsigned int chunkIndex;
+} ChunkDrawCommand;
+
+typedef struct {
+    glm::mat4 model;
+    int cx;
+    int cz;
+    int minY;
+    int maxY;
+    unsigned int numVertices;
+    unsigned int firstIndex;
+    unsigned int _pad0;
+    unsigned int _pad1;
+} ChunkData;
+
 void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
@@ -34,8 +54,6 @@ void glfw_error_callback(int error, const char* description);
 void processInput(GLFWwindow* window);
 template <glm::length_t C, glm::length_t R, typename T>
 void putMatrix(std::vector<T> &buffer, glm::mat<C, R, T> m);
-bool chunkInFrustum(Chunk chunk);
-void updateDrawCommandBuffer(std::vector<DrawArraysIndirectCommand>& commands, std::vector<Chunk>& chunks, GLuint drawCmdBuffer, void* drawCmdBufferAddress);
 
 const unsigned int SCREEN_WIDTH = 1920;
 const unsigned int SCREEN_HEIGHT = 1080;
@@ -132,15 +150,18 @@ int main() {
     glEnable(GL_DEPTH_TEST);
 
     Shader shader("../../../../../data/shaders/vert.glsl", "../../../../../data/shaders/frag.glsl");
+    Shader drawCommandShader("../../../../../data/shaders/drawcmd_comp.glsl");
+    Shader clearShader("../../../../../data/shaders/clear_comp.glsl");
 
     WorldMesh worldMesh;
 
     const int NUM_AXIS_CHUNKS = WORLD_SIZE / CHUNK_SIZE;
     const int NUM_CHUNKS = NUM_AXIS_CHUNKS * NUM_AXIS_CHUNKS;
+    unsigned int firstIndex = 0;
     std::vector<Chunk> chunks;
     for (int cx = 0; cx < NUM_AXIS_CHUNKS; ++cx) {
         for (int cz = 0; cz < NUM_AXIS_CHUNKS; ++cz) {
-            Chunk chunk = Chunk(cx, cz);
+            Chunk chunk = Chunk(cx, cz, firstIndex);
 
             auto startTime = std::chrono::high_resolution_clock::now();
             chunk.init(worldMesh.data);
@@ -148,6 +169,7 @@ int main() {
             auto duration = std::chrono::duration_cast<std::chrono::microseconds>(endTime - startTime);
             std::cout << "Chunk " << cz + cx * NUM_AXIS_CHUNKS << " took " << duration.count() << "us to init" << std::endl << std::endl;
             chunks.push_back(chunk);
+            firstIndex += chunk.numVertices;
         }
     }
 
@@ -155,45 +177,60 @@ int main() {
 
     worldMesh.createBuffers();
 
-    std::vector<DrawArraysIndirectCommand> commands;
-    std::vector<float> cmb;
+    std::vector<ChunkData> chunkData;
 
-    unsigned int firstIndex = 0;
     for (size_t i = 0; i < NUM_CHUNKS; ++i) {
-        DrawArraysIndirectCommand chunkCmd = {
-                .count = static_cast<unsigned int>(chunks[i].numVertices),
-                .instanceCount = 1,
-                .firstIndex = firstIndex,
-                .baseInstance = 0
+        ChunkData cd = {
+            .model = chunks[i].model,
+            .cx = chunks[i].cx,
+            .cz = chunks[i].cz,
+            .minY = chunks[i].minY,
+            .maxY = chunks[i].maxY,
+            .numVertices = chunks[i].numVertices,
+            .firstIndex = chunks[i].firstIndex,
+            ._pad0 = 0,
+            ._pad1 = 0,
         };
-        commands.push_back(chunkCmd);
-        firstIndex += chunks[i].numVertices;
-
-        // Push chunk's model matrix to the vertex buffer
-        putMatrix(cmb, chunks[i].model);
+        chunkData.push_back(cd);
     }
 
-    GLuint drawCmdBuffer;
-    glCreateBuffers(1, &drawCmdBuffer);
+    // Chunk draw command shader buffers
+    GLuint chunkDrawCmdBuffer;
+    glCreateBuffers(1, &chunkDrawCmdBuffer);
 
-    glNamedBufferStorage(drawCmdBuffer,
-        sizeof(DrawArraysIndirectCommand) * commands.size(),
-        (const void*)commands.data(),
-        GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT);
+    glNamedBufferStorage(chunkDrawCmdBuffer,
+        sizeof(ChunkDrawCommand) * NUM_CHUNKS,
+        NULL,
+        NULL);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, chunkDrawCmdBuffer);
 
-    void *drawCmdBufferAddress = glMapNamedBufferRange(drawCmdBuffer,
-        0,
-        sizeof(DrawArraysIndirectCommand) * commands.size(),
-        GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT | GL_MAP_FLUSH_EXPLICIT_BIT);
+    GLuint chunkDataBuffer;
+    glCreateBuffers(1, &chunkDataBuffer);
 
-    GLuint chunkModelBuffer;
-    glCreateBuffers(1, &chunkModelBuffer);
+    glNamedBufferStorage(chunkDataBuffer,
+        sizeof(ChunkData) * chunkData.size(),
+        (const void*)chunkData.data(),
+        NULL);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, chunkDataBuffer);
 
-    glNamedBufferStorage(chunkModelBuffer,
-        sizeof(float) * cmb.size(),
-        (const void*)cmb.data(),
+    GLuint commandCountBuffer;
+    glCreateBuffers(1, &commandCountBuffer);
+
+    glNamedBufferStorage(commandCountBuffer,
+        sizeof(unsigned int),
+        NULL,
+        NULL);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, commandCountBuffer);
+    glBindBuffer(GL_PARAMETER_BUFFER, commandCountBuffer);
+
+    GLuint verticesBuffer;
+    glCreateBuffers(1, &verticesBuffer);
+
+    glNamedBufferStorage(verticesBuffer,
+        sizeof(uint32_t) * worldMesh.data.size(),
+        (const void*)worldMesh.data.data(),
         GL_DYNAMIC_STORAGE_BIT);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, chunkModelBuffer);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, verticesBuffer);
 
     // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
     shader.use();
@@ -210,21 +247,29 @@ int main() {
         glm::mat4 projection = glm::perspective((float)(camera.FOV * PI / 180), (float)SCREEN_WIDTH / (float)SCREEN_HEIGHT, 0.1f, 5000.0f);
         glm::mat4 view = camera.calculateViewMatrix();
 
-        if (doFrustumCulling) {
-            glm::mat4 projectionT = glm::transpose(projection * view);
-
-            frustum[0] = projectionT[3] + projectionT[0];  // x + w < 0
-            frustum[1] = projectionT[3] - projectionT[0];  // x - w > 0
-            frustum[2] = projectionT[3] + projectionT[1];  // y + w < 0
-            frustum[3] = projectionT[3] - projectionT[1];  // y - w > 0
-            frustum[4] = projectionT[3] + projectionT[2];  // z + w < 0
-            frustum[5] = projectionT[3] - projectionT[2];  // z - w > 0
-
-            updateDrawCommandBuffer(commands, chunks, drawCmdBuffer, drawCmdBufferAddress);
-        }
+        glm::mat4 projectionT = glm::transpose(projection * view);
+        frustum[0] = projectionT[3] + projectionT[0];  // x + w < 0
+        frustum[1] = projectionT[3] - projectionT[0];  // x - w > 0
+        frustum[2] = projectionT[3] + projectionT[1];  // y + w < 0
+        frustum[3] = projectionT[3] - projectionT[1];  // y - w > 0
+        frustum[4] = projectionT[3] + projectionT[2];  // z + w < 0
+        frustum[5] = projectionT[3] - projectionT[2];  // z - w > 0
 
         processInput(window);
 
+        // Clear command count buffer
+        clearShader.use();
+        glDispatchCompute(1, 1, 1);
+        glMemoryBarrier(GL_COMMAND_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT);
+
+        // Generate draw commands
+        drawCommandShader.use();
+        drawCommandShader.setVec4Array("frustum", frustum, 6);
+
+        glDispatchCompute(NUM_CHUNKS / 1, 1, 1);
+        glMemoryBarrier(GL_COMMAND_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT);
+
+        // Render
         glClearColor(0.2f, 0.2f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -234,16 +279,14 @@ int main() {
         shader.setMat4("projection", projection);
 
         glBindVertexArray(worldMesh.VAO);
-        glBindBuffer(GL_ARRAY_BUFFER, worldMesh.VBO);
-        glBindBuffer(GL_DRAW_INDIRECT_BUFFER, drawCmdBuffer);
-        glMultiDrawArraysIndirect(GL_TRIANGLES, 0, NUM_CHUNKS, sizeof(DrawArraysIndirectCommand));
+        glBindBuffer(GL_DRAW_INDIRECT_BUFFER, chunkDrawCmdBuffer);
+        glMultiDrawArraysIndirectCount(GL_TRIANGLES, 0, 0, NUM_CHUNKS, sizeof(ChunkDrawCommand));
 
         // std::cout << "Frame time: " << deltaTime << "\t FPS: " << (1.0f / deltaTime) << std::endl;
         std::string title = "Voxels | FPS: " + std::to_string((int)(1.0f / deltaTime)) +
             " | X: " + std::to_string(camera.position.x) +
             ", Y: " + std::to_string(camera.position.y) +
-            ", Z: " + std::to_string(camera.position.z) +
-            " | chunks: " + std::to_string(visibleChunks);
+            ", Z: " + std::to_string(camera.position.z);
 
         glfwSetWindowTitle(window, title.c_str());
 
@@ -319,47 +362,4 @@ void putMatrix(std::vector<T> &buffer, glm::mat<C, R, T> m) {
             buffer.push_back(m[i][j]);
         }
     }
-}
-
-// Determine whether the given chunk intersects the view frustum
-// TODO: Not fully correct, see https://iquilezles.org/articles/frustumcorrect/
-bool chunkInFrustum(Chunk chunk) {
-    float minX = chunk.cx * CHUNK_SIZE;
-    float maxX = minX + CHUNK_SIZE;
-    float minZ = chunk.cz * CHUNK_SIZE;
-    float maxZ = minZ + CHUNK_SIZE;
-    // Check AABB outside/inside of frustum
-    for (int i = 0; i < 6; ++i) {
-        int out = 0;
-        out += ((glm::dot(frustum[i], glm::vec4(minX, chunk.minY, minZ, 1.0f)) < 0.0) ? 1 : 0);
-        out += ((glm::dot(frustum[i], glm::vec4(maxX, chunk.minY, minZ, 1.0f)) < 0.0) ? 1 : 0);
-        out += ((glm::dot(frustum[i], glm::vec4(minX, chunk.maxY, minZ, 1.0f)) < 0.0) ? 1 : 0);
-        out += ((glm::dot(frustum[i], glm::vec4(maxX, chunk.maxY, minZ, 1.0f)) < 0.0) ? 1 : 0);
-        out += ((glm::dot(frustum[i], glm::vec4(minX, chunk.minY, maxZ, 1.0f)) < 0.0) ? 1 : 0);
-        out += ((glm::dot(frustum[i], glm::vec4(maxX, chunk.minY, maxZ, 1.0f)) < 0.0) ? 1 : 0);
-        out += ((glm::dot(frustum[i], glm::vec4(minX, chunk.maxY, maxZ, 1.0f)) < 0.0) ? 1 : 0);
-        out += ((glm::dot(frustum[i], glm::vec4(maxX, chunk.maxY, maxZ, 1.0f)) < 0.0) ? 1 : 0);
-        if (out == 8) return false;
-    }
-
-    return true;
-}
-
-void updateDrawCommandBuffer(std::vector<DrawArraysIndirectCommand> &commands, std::vector<Chunk> &chunks, GLuint drawCmdBuffer, void *drawCmdBufferAddress) {
-    visibleChunks = 0;
-    for (int i = 0; i < chunks.size(); i++) {
-        if (chunkInFrustum(chunks[i])) {
-            commands[i].instanceCount = 1;
-            visibleChunks++;
-        }
-        else {
-            commands[i].instanceCount = 0;
-        }
-    }
-
-    size_t copySize = commands.size() * sizeof(DrawArraysIndirectCommand);
-    std::memcpy(drawCmdBufferAddress, commands.data(), copySize);
-    glFlushMappedNamedBufferRange(drawCmdBuffer,
-        0,
-        copySize);
 }

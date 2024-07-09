@@ -7,7 +7,7 @@
 
 #include "../util/Flags.h"
 
-const int WORLD_SIZE = 256;
+const int WORLD_SIZE = 128;
 
 const int CHUNK_SIZE_SHIFT = 4;
 const int CHUNK_HEIGHT_SHIFT = 7;
@@ -18,7 +18,7 @@ const int CHUNK_HEIGHT_MASK = (1 << (CHUNK_HEIGHT_SHIFT + 1)) - 1;
 
 class Chunk {
 public:
-    Chunk(int cx, int cz);
+    Chunk(int cx, int cz, unsigned int firstIndex);
 
     const int cx;
     const int cz;
@@ -29,6 +29,7 @@ public:
     unsigned int dataVBO;
 
     unsigned int numVertices;
+    unsigned int firstIndex;
 
     glm::mat4 model;
 

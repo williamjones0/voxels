@@ -2,14 +2,25 @@
 
 // #define VERTEX_PACKING
 
-#ifdef VERTEX_PACKING
-layout (location = 0) in uint aData;
-#else
-layout (location = 0) in vec3 aPos;
-layout (location = 1) in float aColor;
-layout (location = 2) in float aNormal;
-layout (location = 3) in float aAo;
-#endif
+struct Chunk {
+    mat4 model;
+    int cx;
+    int cz;
+    int minY;
+    int maxY;
+    uint numVertices;
+    uint firstIndex;
+    uint _pad0;
+    uint _pad1;
+};
+
+struct ChunkDrawCommand {
+    uint count;
+    uint instanceCount;
+    uint firstIndex;
+    uint baseInstance;
+    uint chunkIndex;
+};
 
 out vec3 ourColor;
 flat out int normal;
@@ -29,9 +40,17 @@ struct ChunkModel {
     mat4 model;
 };
 
-layout (binding = 0, std430) buffer ChunkModelBuffer {
-    ChunkModel Models[];
-} chunkModelBuffer;
+layout (binding = 0) readonly buffer DrawCommands {
+    ChunkDrawCommand drawCommands[];
+};
+
+layout (binding = 1) readonly buffer Chunks {
+    Chunk chunks[];
+};
+
+layout (binding = 3) readonly buffer Vertices {
+    uint vertices[];
+};
 
 vec3 get_color(uint type) {
     switch (type) {
@@ -40,35 +59,20 @@ vec3 get_color(uint type) {
     }
 }
 
-#ifdef VERTEX_PACKING
 void main() {
-    ChunkModel chunkModel = chunkModelBuffer.Models[gl_DrawID];
+    ChunkDrawCommand drawCommand = drawCommands[gl_DrawID];
+    Chunk chunk = chunks[drawCommand.chunkIndex];
 
-    float x = float(aData & chunkSizeMask);
-    float y = float((aData >> (chunkSizeShift + 1)) & chunkHeightMask);
-    float z = float((aData >> (chunkSizeShift + chunkHeightShift + 2)) & chunkSizeMask);
-    ourColor = get_color(uint((aData >> (2 * chunkSizeShift + chunkHeightShift + 3)) & 1u));
-    normal = int((aData >> (2 * chunkSizeShift + chunkHeightShift + 4)) & 7u);
-    float ao = float((aData >> (2 * chunkSizeShift + chunkHeightShift + 7)) & 3u);
+    uint vertex = vertices[gl_VertexID];
+    float x = float(vertex & chunkSizeMask);
+    float y = float((vertex >> (chunkSizeShift + 1)) & chunkHeightMask);
+    float z = float((vertex >> (chunkSizeShift + chunkHeightShift + 2)) & chunkSizeMask);
+    ourColor = get_color(uint((vertex >> (2 * chunkSizeShift + chunkHeightShift + 3)) & 1u));
+    normal = int((vertex >> (2 * chunkSizeShift + chunkHeightShift + 4)) & 7u);
+    float ao = float((vertex >> (2 * chunkSizeShift + chunkHeightShift + 7)) & 3u);
 
-    gl_Position = projection * view * chunkModel.model * vec4(x, y, z, 1.0);
+    gl_Position = projection * view * chunk.model * vec4(x, y, z, 1.0);
     // ourColor = get_color(uint(aColor));
     // ourColor = vec3(gl_DrawID / 4.0f, gl_DrawID / 4.0f, gl_DrawID / 4.0f);
     fragAo = clamp(float(ao) / 3.0, 0.5, 1.0);
 }
-#else
-void main() {
-    ChunkModel chunkModel = chunkModelBuffer.Models[gl_DrawID];
-    float x = aPos.x;
-    float y = aPos.y;
-    float z = aPos.z;
-    float ao = aAo;
-
-    gl_Position = projection * view * chunkModel.model * vec4(x, y, z, 1.0);
-    ourColor = get_color(uint(aColor));
-    //ourColor = vec3(gl_DrawID / 4.0f, gl_DrawID / 4.0f, gl_DrawID / 4.0f);
-    // ourColor = get_color(uint((aData >> 15) & 1u));
-    normal = int(aNormal);
-    fragAo = clamp(float(ao) / 3.0, 0.5, 1.0);
-}
-#endif

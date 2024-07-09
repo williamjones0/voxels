@@ -13,7 +13,7 @@
 
 #define EPSILON 0.000001
 
-Chunk::Chunk(int cx, int cz) : cx(cx), cz(cz) {
+Chunk::Chunk(int cx, int cz, unsigned int firstIndex) : cx(cx), cz(cz), firstIndex(firstIndex) {
     minY = CHUNK_HEIGHT;
     maxY = 0;
     VAO = 0;
