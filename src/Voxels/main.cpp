@@ -10,6 +10,7 @@
 
 #include <iostream>
 #include <chrono>
+#include <set>
 
 #include "opengl/Shader.h"
 #include "core/Camera.hpp"
@@ -78,8 +79,12 @@ float lastX = SCREEN_WIDTH / 2.0f;
 float lastY = SCREEN_HEIGHT / 2.0f;
 bool firstMouse = true;
 
+std::set<int> lastFrameKeyPresses;
+
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
+
+bool wireframe = false;
 
 void GLAPIENTRY MessageCallback(
     GLenum source,
@@ -312,6 +317,23 @@ void processInput(GLFWwindow* window) {
         camera.processKeyboard(UP, deltaTime);
     if (glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS)
         camera.processKeyboard(DOWN, deltaTime);
+
+    if (glfwGetKey(window, GLFW_KEY_T) == GLFW_PRESS) {
+        if (!lastFrameKeyPresses.contains(GLFW_KEY_T)) {
+            if (wireframe) {
+                glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+            }
+            else {
+                glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+            }
+            wireframe = !wireframe;
+        }
+
+        lastFrameKeyPresses.insert(GLFW_KEY_T);
+    }
+    else {
+        lastFrameKeyPresses.erase(GLFW_KEY_T);
+    }
 
     if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
         camera.movementSpeed = 100.0f;
