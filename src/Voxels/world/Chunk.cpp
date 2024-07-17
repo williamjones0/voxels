@@ -56,20 +56,62 @@ void Chunk::generateVoxels() {
     const siv::PerlinNoise::seed_type s = seed;
     const siv::PerlinNoise perlin{ s };
 
+    int heightMap[CHUNK_SIZE + 2][CHUNK_SIZE + 2];
+    heightMap[0][0] = clamp(perlin.octave2D_01((cx * CHUNK_SIZE * 0.01), (cz * CHUNK_SIZE * 0.01), 4), 0.0, 1.0 - EPSILON) * CHUNK_HEIGHT;
+
     for (int z = -1; z < CHUNK_SIZE + 1; ++z) {
         for (int x = -1; x < CHUNK_SIZE + 1; ++x) {
             int noise_x = cx * CHUNK_SIZE + x + 1;
             int noise_z = cz * CHUNK_SIZE + z + 1;
-            const double noise = clamp(perlin.octave2D_01((noise_x * 0.01), (noise_z * 0.01), 4), 0.0, 1.0 - EPSILON);
-            int y = noise * CHUNK_HEIGHT;
+
+            // Calculate adjacent noise values in the +x and +z directions
+            const double noise10 = clamp(perlin.octave2D_01(((noise_x + 1) * 0.01), (noise_z * 0.01), 4), 0.0, 1.0 - EPSILON);
+            const double noise01 = clamp(perlin.octave2D_01((noise_x * 0.01), ((noise_z + 1) * 0.01), 4), 0.0, 1.0 - EPSILON);
+
+            if (x != CHUNK_SIZE) {
+                heightMap[x + 2][z + 1] = noise10 * CHUNK_HEIGHT;
+            }
+            if (z != CHUNK_SIZE) {
+                heightMap[x + 1][z + 2] = noise01 * CHUNK_HEIGHT;
+            }
+
+            int y = heightMap[x + 1][z + 1];
             y = std::min(std::max(0, y), CHUNK_HEIGHT - 1);
 
             minY = std::min(y, minY);
             maxY = std::max(y, maxY);
+
+            // Lowest visible height is the minimum of the current height and the adjacent heights
+            int lowestVisibleHeight = y;
+            if (x != -1) {
+                lowestVisibleHeight = std::min(lowestVisibleHeight, heightMap[x][z + 1]);
+            }
+            if (x != CHUNK_SIZE) {
+                lowestVisibleHeight = std::min(lowestVisibleHeight, heightMap[x + 2][z + 1]);
+            }
+            if (z != -1) {
+                lowestVisibleHeight = std::min(lowestVisibleHeight, heightMap[x + 1][z]);
+            }
+            if (z != CHUNK_SIZE) {
+                lowestVisibleHeight = std::min(lowestVisibleHeight, heightMap[x + 1][z + 2]);
+            }
+
             for (int y0 = 0; y0 < y; ++y0) {
                 int index = getVoxelIndex(x + 1, y0, z + 1, CHUNK_SIZE + 2);
-                voxels[index] = (y0 == y - 1 ? 1 : 2);
+
+                int voxelType;
+                if (y0 == y - 1) {
+                    voxelType = 1;
+                } else if (y0 < lowestVisibleHeight) {
+                    voxelType = 3;
+                } else {
+                    voxelType = 2;
+                }
+                voxels[index] = voxelType;
             }
         }
     }
+
+    minY = std::max(0, minY - 1);
+    maxY = std::min(CHUNK_HEIGHT, maxY + 1);
 }
