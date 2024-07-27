@@ -5,21 +5,27 @@
 #include <iostream>
 
 void WorldMesh::createBuffers() {
-    std::cout << "data size: " << data.size() << std::endl;
+    std::cout << "positionsAndTypes size: " << positionsAndTypes.size() << std::endl;
 
 #ifdef VERTEX_PACKING
-    glCreateBuffers(1, &VBO);
-    glNamedBufferStorage(VBO, sizeof(uint32_t) * data.size(), &data[0], GL_DYNAMIC_STORAGE_BIT);
+    glCreateBuffers(1, &ptVBO);
+    glNamedBufferStorage(ptVBO, sizeof(uint32_t) * positionsAndTypes.size(), &positionsAndTypes[0], GL_DYNAMIC_STORAGE_BIT);
+
+	glCreateBuffers(1, &saVBO);
+	glNamedBufferStorage(saVBO, sizeof(uint32_t) * sidesAndAoFactors.size(), &sidesAndAoFactors[0], GL_DYNAMIC_STORAGE_BIT);
 
     glCreateVertexArrays(1, &VAO);
 
-    glVertexArrayVertexBuffer(VAO, 0, VBO, 0, sizeof(uint32_t));
+    glVertexArrayVertexBuffer(VAO, 0, ptVBO, 0, sizeof(uint32_t));
+	glVertexArrayVertexBuffer(VAO, 1, saVBO, 0, sizeof(uint32_t));
 
     glEnableVertexArrayAttrib(VAO, 0);
 
     glVertexArrayAttribFormat(VAO, 0, 1, GL_FLOAT, GL_FALSE, 0);
+	glVertexArrayAttribFormat(VAO, 1, 1, GL_FLOAT, GL_FALSE, 0);
 
     glVertexArrayAttribBinding(VAO, 0, 0);
+	glVertexArrayAttribBinding(VAO, 1, 1);
 #else
     glCreateBuffers(1, &VBO);
     glNamedBufferStorage(VBO, sizeof(float) * data.size(), &data[0], GL_DYNAMIC_STORAGE_BIT);

@@ -7,6 +7,7 @@
 #include <chrono>
 
 #include "Mesher.hpp"
+#include "GreedyMesher.hpp"
 #include "../util/PerlinNoise.hpp"
 #include "../util/Util.hpp"
 #include "../util/Flags.h"
@@ -20,7 +21,7 @@ Chunk::Chunk(int cx, int cz, unsigned int firstIndex) : cx(cx), cz(cz), firstInd
     dataVBO = 0;
     numVertices = 0;
     model = glm::mat4(1.0f);
-    voxels = std::vector<int>((CHUNK_SIZE + 2) * (CHUNK_SIZE + 2) * CHUNK_HEIGHT);
+    voxels = std::vector<int>((CHUNK_SIZE + 2) * (CHUNK_SIZE + 2) * (CHUNK_HEIGHT + 2));
 };
 
 void Chunk::store(int x, int y, int z, char v) {
@@ -32,21 +33,24 @@ char Chunk::load(int x, int y, int z) {
 }
 
 #ifdef VERTEX_PACKING
-void Chunk::init(std::vector<uint32_t> &data) {
+void Chunk::init(WorldMesh &worldMesh) {
 #else
 void Chunk::init(std::vector<float> &data) {
 #endif
     auto start = std::chrono::high_resolution_clock::now();
     model = glm::translate(glm::mat4(1.0f), glm::vec3(cx * CHUNK_SIZE, 0, cz * CHUNK_SIZE));
 
-    voxels = std::vector<int>((CHUNK_SIZE + 2) * (CHUNK_SIZE + 2) * CHUNK_HEIGHT);
+    voxels = std::vector<int>((CHUNK_SIZE + 2) * (CHUNK_SIZE + 2) * (CHUNK_HEIGHT + 2));
     generateVoxels();
 
     auto end = std::chrono::high_resolution_clock::now();
     std::cout << "generateVoxels took " << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() << "us\n";
 
     start = std::chrono::high_resolution_clock::now();
-    meshChunk(this, WORLD_SIZE, data);
+    //meshChunk(this, WORLD_SIZE, data);
+    GreedyMesher mesher = GreedyMesher(minY, maxY, CHUNK_SIZE, CHUNK_SIZE, this, worldMesh);
+    mesher.mesh();
+
     end = std::chrono::high_resolution_clock::now();
     std::cout << "meshChunk took " << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() << "us\n";
 }
@@ -75,7 +79,7 @@ void Chunk::generateVoxels() {
                 heightMap[x + 1][z + 2] = noise01 * CHUNK_HEIGHT;
             }
 
-            int y = heightMap[x + 1][z + 1];
+            int y = 2; // heightMap[x + 1][z + 1];
             y = std::min(std::max(0, y), CHUNK_HEIGHT - 1);
 
             minY = std::min(y, minY);
@@ -96,8 +100,8 @@ void Chunk::generateVoxels() {
                 lowestVisibleHeight = std::min(lowestVisibleHeight, heightMap[x + 1][z + 2]);
             }
 
-            for (int y0 = 0; y0 < y; ++y0) {
-                int index = getVoxelIndex(x + 1, y0, z + 1, CHUNK_SIZE + 2);
+            for (int y0 = -1; y0 <= y; ++y0) {
+                int index = getVoxelIndex(x + 1, y0 + 1, z + 1, CHUNK_SIZE + 2);
 
                 int voxelType;
                 if (y0 == y - 1) {
@@ -111,7 +115,4 @@ void Chunk::generateVoxels() {
             }
         }
     }
-
-    minY = std::max(0, minY - 1);
-    maxY = std::min(CHUNK_HEIGHT, maxY + 1);
 }

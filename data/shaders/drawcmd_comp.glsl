@@ -16,7 +16,7 @@ struct Chunk {
     uint _pad1;
 };
 
-struct ChunkDrawCommand {
+struct ChunkDrawArraysCommand {
     uint count;
     uint instanceCount;
     uint firstIndex;
@@ -24,8 +24,17 @@ struct ChunkDrawCommand {
     uint chunkIndex;
 };
 
+struct ChunkDrawElementsCommand {
+	uint count;
+	uint instanceCount;
+	uint firstIndex;
+	uint baseVertex;
+	uint baseInstance;
+	uint chunkIndex;
+};
+
 layout (binding = 0) writeonly buffer DrawCommands {
-    ChunkDrawCommand drawCommands[];
+    ChunkDrawElementsCommand drawCommands[];
 };
 
 layout (binding = 1) readonly buffer Chunks {
@@ -72,12 +81,13 @@ void main() {
     Chunk chunk = chunks[index];
     bool visible = isVisible(chunk.cx, chunk.cz, chunk.minY, chunk.maxY);
 
-    if (visible) {
+    if (true) {
         uint dci = atomicAdd(commandCount, 1);
 
         drawCommands[dci].count = chunk.numVertices;
         drawCommands[dci].instanceCount = 1;
         drawCommands[dci].firstIndex = chunk.firstIndex;
+        drawCommands[dci].baseVertex = 0;
         drawCommands[dci].baseInstance = 0;
         drawCommands[dci].chunkIndex = index;
     }

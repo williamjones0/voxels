@@ -6,11 +6,12 @@
 #include <vector>
 
 #include "../util/Flags.h"
+#include "WorldMesh.hpp"
 
-const int WORLD_SIZE = 128;
+const int WORLD_SIZE = 4;
 
-const int CHUNK_SIZE_SHIFT = 4;
-const int CHUNK_HEIGHT_SHIFT = 7;
+const int CHUNK_SIZE_SHIFT = 2;
+const int CHUNK_HEIGHT_SHIFT = 2;
 const int CHUNK_SIZE = 1 << CHUNK_SIZE_SHIFT;
 const int CHUNK_HEIGHT = 1 << CHUNK_HEIGHT_SHIFT;
 const int CHUNK_SIZE_MASK = (1 << (CHUNK_SIZE_SHIFT + 1)) - 1;
@@ -37,7 +38,7 @@ public:
     void store(int x, int y, int z, char v);
     char load(int x, int y, int z);
 #ifdef VERTEX_PACKING
-    void init(std::vector<uint32_t> &data);
+    void init(WorldMesh &worldMesh);
 #else
     void init(std::vector<float> &data);
 #endif

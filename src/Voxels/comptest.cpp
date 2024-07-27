@@ -28,7 +28,7 @@
 //    unsigned int firstIndex;
 //    unsigned int baseInstance;
 //    unsigned int chunkIndex;
-//} ChunkDrawCommand;
+//} ChunkDrawArraysCommand;
 //
 //typedef struct {
 //    glm::mat4 model;
@@ -173,7 +173,7 @@
 //    glCreateBuffers(1, &chunkDrawCmdBuffer);
 //
 //    glNamedBufferStorage(chunkDrawCmdBuffer,
-//        sizeof(ChunkDrawCommand) * NUM_CHUNKS,
+//        sizeof(ChunkDrawArraysCommand) * NUM_CHUNKS,
 //        NULL,
 //        GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT);
 //    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, chunkDrawCmdBuffer);

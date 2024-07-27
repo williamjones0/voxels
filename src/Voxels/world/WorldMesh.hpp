@@ -9,13 +9,13 @@ public:
     WorldMesh();
 
     unsigned int VAO;
-    unsigned int VBO;
+    unsigned int ptVBO;
+	unsigned int saVBO;
 
-#ifdef VERTEX_PACKING
-    std::vector<uint32_t> data;
-#else
-    std::vector<float> data;
-#endif
+    std::vector<uint32_t> positionsAndTypes;
+	std::vector<uint32_t> sidesAndAoFactors;
+
+    std::vector<int> indices;
 
     void createBuffers();
 };

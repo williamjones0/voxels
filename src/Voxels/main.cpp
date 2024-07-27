@@ -34,7 +34,16 @@ typedef struct {
     unsigned int firstIndex;
     unsigned int baseInstance;
     unsigned int chunkIndex;
-} ChunkDrawCommand;
+} ChunkDrawArraysCommand;
+
+typedef struct {
+    unsigned int count;
+    unsigned int instanceCount;
+    unsigned int firstIndex;
+    unsigned int baseVertex;
+    unsigned int baseInstance;
+    unsigned int chunkIndex;
+} ChunkDrawElementsCommand;
 
 typedef struct {
     glm::mat4 model;
@@ -168,7 +177,7 @@ int main() {
             Chunk chunk = Chunk(cx, cz, firstIndex);
 
             auto startTime = std::chrono::high_resolution_clock::now();
-            chunk.init(worldMesh.data);
+            chunk.init(worldMesh);
             auto endTime = std::chrono::high_resolution_clock::now();
             auto duration = std::chrono::duration_cast<std::chrono::microseconds>(endTime - startTime);
             std::cout << "Chunk " << cz + cx * NUM_AXIS_CHUNKS << " took " << duration.count() << "us to init" << std::endl << std::endl;
@@ -203,10 +212,11 @@ int main() {
     glCreateBuffers(1, &chunkDrawCmdBuffer);
 
     glNamedBufferStorage(chunkDrawCmdBuffer,
-        sizeof(ChunkDrawCommand) * NUM_CHUNKS,
+        sizeof(ChunkDrawElementsCommand) * NUM_CHUNKS,
         NULL,
         NULL);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, chunkDrawCmdBuffer);
+    glObjectLabel(GL_BUFFER, chunkDrawCmdBuffer, -1, "Chunk Draw Command Buffer");
 
     GLuint chunkDataBuffer;
     glCreateBuffers(1, &chunkDataBuffer);
@@ -216,6 +226,7 @@ int main() {
         (const void*)chunkData.data(),
         NULL);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, chunkDataBuffer);
+    glObjectLabel(GL_BUFFER, chunkDataBuffer, -1, "Chunk Data Buffer");
 
     GLuint commandCountBuffer;
     glCreateBuffers(1, &commandCountBuffer);
@@ -226,15 +237,38 @@ int main() {
         NULL);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, commandCountBuffer);
     glBindBuffer(GL_PARAMETER_BUFFER, commandCountBuffer);
+    glObjectLabel(GL_BUFFER, commandCountBuffer, -1, "Command Count Buffer");
 
-    GLuint verticesBuffer;
-    glCreateBuffers(1, &verticesBuffer);
+    GLuint positionsAndTypesBuffer;
+    glCreateBuffers(1, &positionsAndTypesBuffer);
 
-    glNamedBufferStorage(verticesBuffer,
-        sizeof(uint32_t) * worldMesh.data.size(),
-        (const void*)worldMesh.data.data(),
+    glNamedBufferStorage(positionsAndTypesBuffer,
+        sizeof(uint32_t) * worldMesh.positionsAndTypes.size(),
+        (const void*)worldMesh.positionsAndTypes.data(),
         GL_DYNAMIC_STORAGE_BIT);
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, verticesBuffer);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, positionsAndTypesBuffer);
+    glObjectLabel(GL_BUFFER, positionsAndTypesBuffer, -1, "Positions and Types Buffer");
+
+    GLuint sidesAndAoFactorsBuffer;
+    glCreateBuffers(1, &sidesAndAoFactorsBuffer);
+
+    glNamedBufferStorage(sidesAndAoFactorsBuffer,
+        sizeof(uint32_t) * worldMesh.sidesAndAoFactors.size(),
+        (const void *)worldMesh.sidesAndAoFactors.data(),
+        GL_DYNAMIC_STORAGE_BIT);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, sidesAndAoFactorsBuffer);
+    glObjectLabel(GL_BUFFER, sidesAndAoFactorsBuffer, -1, "Sides and AO Factors Buffer");
+
+    GLuint indicesBuffer;
+    glCreateBuffers(1, &indicesBuffer);
+
+    glNamedBufferStorage(indicesBuffer,
+        sizeof(int) * worldMesh.indices.size(),
+        (const void *)worldMesh.indices.data(),
+        GL_DYNAMIC_STORAGE_BIT);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 5, indicesBuffer);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indicesBuffer);
+    glObjectLabel(GL_BUFFER, indicesBuffer, -1, "Indices Buffer");
 
     // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
     shader.use();
@@ -282,7 +316,8 @@ int main() {
 
         glBindVertexArray(worldMesh.VAO);
         glBindBuffer(GL_DRAW_INDIRECT_BUFFER, chunkDrawCmdBuffer);
-        glMultiDrawArraysIndirectCount(GL_TRIANGLES, 0, 0, NUM_CHUNKS, sizeof(ChunkDrawCommand));
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, indicesBuffer);
+        glMultiDrawElementsIndirectCount(GL_TRIANGLES, GL_UNSIGNED_INT, 0, 0, NUM_CHUNKS, sizeof(ChunkDrawElementsCommand));
 
         // std::cout << "Frame time: " << deltaTime << "\t FPS: " << (1.0f / deltaTime) << std::endl;
         std::string title = "Voxels | FPS: " + std::to_string((int)(1.0f / deltaTime)) +
