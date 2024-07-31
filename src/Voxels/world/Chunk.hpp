@@ -7,7 +7,7 @@
 
 #include "../util/Flags.h"
 
-const int WORLD_SIZE = 128;
+const int WORLD_SIZE = 1024;
 
 const int CHUNK_SIZE_SHIFT = 4;
 const int CHUNK_HEIGHT_SHIFT = 7;
@@ -18,10 +18,15 @@ const int CHUNK_HEIGHT_MASK = (1 << (CHUNK_HEIGHT_SHIFT + 1)) - 1;
 
 class Chunk {
 public:
-    Chunk(int cx, int cz, unsigned int firstIndex);
+    Chunk(void);
+    Chunk(int cx, int cz);
+    Chunk(const Chunk &other); // Copy constructor
+    Chunk &operator=(const Chunk &other); // Copy assignment operator
+    Chunk(Chunk &&other) noexcept; // Move constructor
+    Chunk &operator=(Chunk &&other) noexcept; // Move assignment operator
 
-    const int cx;
-    const int cz;
+    int cx;
+    int cz;
     int minY;
     int maxY;
 

@@ -26,4 +26,4 @@ add_dependencies(Voxels copy_data)
 
 target_include_directories(Voxels PRIVATE include)
 
-target_link_libraries(Voxels PRIVATE glad glfw imgui glm cgltf stb_image spdlog TracyClient)
+target_link_libraries(Voxels PRIVATE glad glfw imgui glm cgltf stb_image spdlog)

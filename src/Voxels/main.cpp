@@ -11,6 +11,7 @@
 #include <iostream>
 #include <chrono>
 #include <set>
+#include <thread>
 
 #include "opengl/Shader.h"
 #include "core/Camera.hpp"
@@ -162,19 +163,63 @@ int main() {
     const int NUM_AXIS_CHUNKS = WORLD_SIZE / CHUNK_SIZE;
     const int NUM_CHUNKS = NUM_AXIS_CHUNKS * NUM_AXIS_CHUNKS;
     unsigned int firstIndex = 0;
-    std::vector<Chunk> chunks;
-    for (int cx = 0; cx < NUM_AXIS_CHUNKS; ++cx) {
-        for (int cz = 0; cz < NUM_AXIS_CHUNKS; ++cz) {
-            Chunk chunk = Chunk(cx, cz, firstIndex);
+    std::vector<Chunk> chunks(NUM_CHUNKS);
 
-            auto startTime = std::chrono::high_resolution_clock::now();
-            chunk.init(worldMesh.data);
-            auto endTime = std::chrono::high_resolution_clock::now();
-            auto duration = std::chrono::duration_cast<std::chrono::microseconds>(endTime - startTime);
-            std::cout << "Chunk " << cz + cx * NUM_AXIS_CHUNKS << " took " << duration.count() << "us to init" << std::endl << std::endl;
-            chunks.push_back(chunk);
-            firstIndex += chunk.numVertices;
-        }
+    unsigned int numThreads = std::thread::hardware_concurrency();
+    std::cout << "Number of threads: " << numThreads << std::endl;
+
+    int numChunksPerThread = NUM_CHUNKS / numThreads;
+    int numThreadsWithOneMoreChunk = NUM_CHUNKS - (numChunksPerThread * numThreads);
+
+    std::vector<std::thread> threads;
+    std::vector<std::vector<uint32_t>> chunkVertices(numThreads);
+    for (int threadIndex = 0; threadIndex < numThreads; ++threadIndex) {
+        threads.push_back(std::thread([threadIndex, numChunksPerThread, numThreadsWithOneMoreChunk, &chunkVertices, &chunks, &worldMesh]() {
+            int start = std::min(threadIndex, numThreadsWithOneMoreChunk) * (numChunksPerThread + 1) + std::max(0, threadIndex - numThreadsWithOneMoreChunk) * numChunksPerThread;
+            int end = start + numChunksPerThread;
+            if (threadIndex < numThreadsWithOneMoreChunk) {
+                end++;
+            }
+
+            for (int i = start; i < end; ++i) {
+                int cx = i / NUM_AXIS_CHUNKS;
+                int cz = i % NUM_AXIS_CHUNKS;
+                Chunk chunk = Chunk(cx, cz);
+
+                auto startTime = std::chrono::high_resolution_clock::now();
+                chunk.init(chunkVertices[threadIndex]);
+                auto endTime = std::chrono::high_resolution_clock::now();
+                auto duration = std::chrono::duration_cast<std::chrono::microseconds>(endTime - startTime);
+                // std::cout << "Chunk " << cz + cx * NUM_AXIS_CHUNKS << " took " << duration.count() << "us to init" << std::endl << std::endl;
+				chunks[i] = chunk;
+            }
+        }));
+    }
+
+    for (int i = 0; i < numThreads; ++i) {
+        threads[i].join();
+    }
+
+    for (int i = 0; i < numThreads; ++i) {
+        worldMesh.data.insert(worldMesh.data.end(), chunkVertices[i].begin(), chunkVertices[i].end());
+    }
+
+   // for (int cx = 0; cx < NUM_AXIS_CHUNKS; ++cx) {
+   //     for (int cz = 0; cz < NUM_AXIS_CHUNKS; ++cz) {
+   //         Chunk chunk = Chunk(cx, cz);
+
+   //         auto startTime = std::chrono::high_resolution_clock::now();
+   //         chunk.init(worldMesh.data);
+   //         auto endTime = std::chrono::high_resolution_clock::now();
+   //         auto duration = std::chrono::duration_cast<std::chrono::microseconds>(endTime - startTime);
+   //         std::cout << "Chunk " << cz + cx * NUM_AXIS_CHUNKS << " took " << duration.count() << "us to init" << std::endl << std::endl;
+			//chunks[cz + cx * NUM_AXIS_CHUNKS] = chunk;
+   //     }
+   // }
+
+    for (int i = 0; i < NUM_CHUNKS; ++i) {
+        chunks[i].firstIndex = firstIndex;
+        firstIndex += chunks[i].numVertices;
     }
 
     std::cout << "totalMesherTime: " << totalMesherTime << std::endl;

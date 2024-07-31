@@ -13,15 +13,55 @@
 
 #define EPSILON 0.000001
 
-Chunk::Chunk(int cx, int cz, unsigned int firstIndex) : cx(cx), cz(cz), firstIndex(firstIndex) {
-    minY = CHUNK_HEIGHT;
-    maxY = 0;
-    VAO = 0;
-    dataVBO = 0;
-    numVertices = 0;
-    model = glm::mat4(1.0f);
-    voxels = std::vector<int>((CHUNK_SIZE + 2) * (CHUNK_SIZE + 2) * CHUNK_HEIGHT);
-};
+Chunk::Chunk(void) : cx(0), cz(0), minY(CHUNK_HEIGHT), maxY(0), VAO(0), dataVBO(0), numVertices(0), firstIndex(0), model(glm::mat4(1.0f)), voxels((CHUNK_SIZE + 2) *(CHUNK_SIZE + 2) *CHUNK_HEIGHT) {}
+
+Chunk::Chunk(int cx, int cz) : cx(cx), cz(cz), minY(CHUNK_HEIGHT), maxY(0), VAO(0), dataVBO(0), numVertices(0), firstIndex(0), model(glm::mat4(1.0f)), voxels((CHUNK_SIZE + 2) *(CHUNK_SIZE + 2) *CHUNK_HEIGHT) {}
+
+Chunk::Chunk(const Chunk &other) : cx(other.cx), cz(other.cz), minY(other.minY), maxY(other.maxY), VAO(other.VAO), dataVBO(other.dataVBO), numVertices(other.numVertices), firstIndex(other.firstIndex), model(other.model), voxels(other.voxels) {}
+
+Chunk &Chunk::operator=(const Chunk &other) {
+    if (this != &other) {
+        cx = other.cx;
+        cz = other.cz;
+        minY = other.minY;
+        maxY = other.maxY;
+        VAO = other.VAO;
+        dataVBO = other.dataVBO;
+        numVertices = other.numVertices;
+        firstIndex = other.firstIndex;
+        model = other.model;
+        voxels = other.voxels;
+    }
+    return *this;
+}
+
+Chunk::Chunk(Chunk &&other) noexcept : cx(other.cx), cz(other.cz), minY(other.minY), maxY(other.maxY), VAO(other.VAO), dataVBO(other.dataVBO), numVertices(other.numVertices), firstIndex(other.firstIndex), model(std::move(other.model)), voxels(std::move(other.voxels)) {
+    other.VAO = 0;
+    other.dataVBO = 0;
+    other.numVertices = 0;
+    other.firstIndex = 0;
+}
+
+Chunk &Chunk::operator=(Chunk &&other) noexcept {
+    if (this != &other) {
+        cx = other.cx;
+        cz = other.cz;
+        minY = other.minY;
+        maxY = other.maxY;
+        VAO = other.VAO;
+        dataVBO = other.dataVBO;
+        numVertices = other.numVertices;
+        firstIndex = other.firstIndex;
+        model = std::move(other.model);
+        voxels = std::move(other.voxels);
+
+        other.VAO = 0;
+        other.dataVBO = 0;
+        other.numVertices = 0;
+        other.firstIndex = 0;
+    }
+    return *this;
+}
 
 void Chunk::store(int x, int y, int z, char v) {
     voxels[getVoxelIndex(x, y, z, CHUNK_SIZE)] = v;
@@ -43,12 +83,12 @@ void Chunk::init(std::vector<float> &data) {
     generateVoxels();
 
     auto end = std::chrono::high_resolution_clock::now();
-    std::cout << "generateVoxels took " << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() << "us\n";
+    //std::cout << "generateVoxels took " << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() << "us\n";
 
     start = std::chrono::high_resolution_clock::now();
     meshChunk(this, WORLD_SIZE, data);
     end = std::chrono::high_resolution_clock::now();
-    std::cout << "meshChunk took " << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() << "us\n";
+    //std::cout << "meshChunk took " << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() << "us\n";
 }
 
 void Chunk::generateVoxels() {

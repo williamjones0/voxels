@@ -175,7 +175,7 @@ void meshChunk(Chunk *chunk, int worldSize, std::vector<float> &data) {
 
     auto endInitTime = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(endInitTime - startTime);
-    std::cout << "Initialisation: " << duration.count() << "us" << std::endl;
+    //std::cout << "Initialisation: " << duration.count() << "us" << std::endl;
 
     auto loopStart = std::chrono::high_resolution_clock::now();
     for (int y = chunk->minY; y < chunk->maxY; ++y) {
@@ -476,14 +476,14 @@ void meshChunk(Chunk *chunk, int worldSize, std::vector<float> &data) {
 
     auto loopEnd = std::chrono::high_resolution_clock::now();
 
-    std::cout << "presenceTime: " << presenceTime / 1000 << "us\n";
-    std::cout << "voxelAoTime: " << voxelAoTime / 1000 << "us\n";
-    std::cout << "aoPushTime: " << aoPushTime / 1000 << "us\n";
-    std::cout << "addVertexTime: " << addVertexTime / 1000 << "us\n";
+    //std::cout << "presenceTime: " << presenceTime / 1000 << "us\n";
+    //std::cout << "voxelAoTime: " << voxelAoTime / 1000 << "us\n";
+    //std::cout << "aoPushTime: " << aoPushTime / 1000 << "us\n";
+    //std::cout << "addVertexTime: " << addVertexTime / 1000 << "us\n";
 
     totalMesherTime += (presenceTime + voxelAoTime + aoPushTime + addVertexTime) / 1000;
-    std::cout << "Total mesher time: " << (presenceTime + voxelAoTime + aoPushTime + addVertexTime) / 1000 << "us\n";
-    std::cout << "Actual loop time: " << std::chrono::duration_cast<std::chrono::microseconds>(loopEnd - loopStart).count() << "us\n";
+    //std::cout << "Total mesher time: " << (presenceTime + voxelAoTime + aoPushTime + addVertexTime) / 1000 << "us\n";
+    //std::cout << "Actual loop time: " << std::chrono::duration_cast<std::chrono::microseconds>(loopEnd - loopStart).count() << "us\n";
 
     auto start = std::chrono::high_resolution_clock::now();
 
@@ -534,12 +534,12 @@ void meshChunk(Chunk *chunk, int worldSize, std::vector<float> &data) {
 #endif
     }
 
-    std::cout << "vertex push time: " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count() << "us\n";
+    //std::cout << "vertex push time: " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count() << "us\n";
 
     chunk->numVertices = positions.size() / 3;
 
     auto endTime = std::chrono::high_resolution_clock::now();
-    std::cout << "meshChunk in-function time: " << std::chrono::duration_cast<std::chrono::microseconds>(endTime - startTime).count() << "us\n";
+    //std::cout << "meshChunk in-function time: " << std::chrono::duration_cast<std::chrono::microseconds>(endTime - startTime).count() << "us\n";
 }
 
 bool boundsCheck(int x, int y, int z, int i, int j, int k, int worldSize, std::vector<int> &voxels) {
