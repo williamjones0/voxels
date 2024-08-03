@@ -11,7 +11,7 @@ float get_shade(int type) {
     case 1: return 0.5;
     case 2: return 0.4;
     case 3: return 0.6;
-    case 4: return 0.1;
+    case 4: return 0.3;
     case 5: return 0.9;
   }
 }

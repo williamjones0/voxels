@@ -76,19 +76,8 @@ void Chunk::init(std::vector<uint32_t> &data) {
 #else
 void Chunk::init(std::vector<float> &data) {
 #endif
-    auto start = std::chrono::high_resolution_clock::now();
     model = glm::translate(glm::mat4(1.0f), glm::vec3(cx * CHUNK_SIZE, 0, cz * CHUNK_SIZE));
-
     voxels = std::vector<int>((CHUNK_SIZE + 2) * (CHUNK_SIZE + 2) * CHUNK_HEIGHT);
-    generateVoxels();
-
-    auto end = std::chrono::high_resolution_clock::now();
-    //std::cout << "generateVoxels took " << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() << "us\n";
-
-    start = std::chrono::high_resolution_clock::now();
-    meshChunk(this, WORLD_SIZE, data);
-    end = std::chrono::high_resolution_clock::now();
-    //std::cout << "meshChunk took " << std::chrono::duration_cast<std::chrono::microseconds>(end - start).count() << "us\n";
 }
 
 void Chunk::generateVoxels() {
@@ -149,6 +138,10 @@ void Chunk::generateVoxels() {
                 }
                 voxels[index] = voxelType;
             }
+
+            voxels[getVoxelIndex(x + 1, CHUNK_HEIGHT / 2, z + 1, CHUNK_SIZE + 2)] = 1;
+
+            maxY = std::max(maxY, CHUNK_HEIGHT / 2);
         }
     }
 

@@ -201,7 +201,8 @@ void meshChunk(Chunk *chunk, int worldSize, std::vector<float> &data) {
                     presenceTime += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now() - start).count();
 
                     start = std::chrono::high_resolution_clock::now();
-                    std::array<int, 20> voxelAo;
+
+                    std::array<int, 24> voxelAo;
 
                     // Top
                     voxelAo[0] = (vertexAO(presence[dirToIndex(0, +1, -1)], presence[dirToIndex(-1, +1, 0)],
@@ -213,44 +214,54 @@ void meshChunk(Chunk *chunk, int worldSize, std::vector<float> &data) {
                     voxelAo[3] = (vertexAO(presence[dirToIndex(0, +1, +1)], presence[dirToIndex(-1, +1, 0)],
                         presence[dirToIndex(-1, +1, +1)]));  // top left      a01
 
+                    // Bottom
+                    voxelAo[4] = (vertexAO(presence[dirToIndex(0, -1, -1)], presence[dirToIndex(-1, -1, 0)],
+                        presence[dirToIndex(-1, -1, -1)]));  // bottom left
+                    voxelAo[5] = (vertexAO(presence[dirToIndex(0, -1, -1)], presence[dirToIndex(+1, -1, 0)],
+                        presence[dirToIndex(+1, -1, -1)]));  // bottom right
+                    voxelAo[6] = (vertexAO(presence[dirToIndex(0, -1, +1)], presence[dirToIndex(+1, -1, 0)],
+                        presence[dirToIndex(+1, -1, +1)]));  // top right
+                    voxelAo[7] = (vertexAO(presence[dirToIndex(0, -1, +1)], presence[dirToIndex(-1, -1, 0)],
+                        presence[dirToIndex(-1, -1, +1)]));  // top left
+
                     // Left
-                    voxelAo[4] = (vertexAO(presence[dirToIndex(-1, 0, +1)], presence[dirToIndex(-1, -1, 0)],
+                    voxelAo[8] = (vertexAO(presence[dirToIndex(-1, 0, +1)], presence[dirToIndex(-1, -1, 0)],
                         presence[dirToIndex(-1, -1, +1)]));  // bottom left
-                    voxelAo[5] = (vertexAO(presence[dirToIndex(-1, 0, -1)], presence[dirToIndex(-1, -1, 0)],
+                    voxelAo[9] = (vertexAO(presence[dirToIndex(-1, 0, -1)], presence[dirToIndex(-1, -1, 0)],
                         presence[dirToIndex(-1, -1, -1)]));  // bottom right
-                    voxelAo[6] = (vertexAO(presence[dirToIndex(-1, 0, -1)], presence[dirToIndex(-1, +1, 0)],
+                    voxelAo[10] = (vertexAO(presence[dirToIndex(-1, 0, -1)], presence[dirToIndex(-1, +1, 0)],
                         presence[dirToIndex(-1, +1, -1)]));  // top right
-                    voxelAo[7] = (vertexAO(presence[dirToIndex(-1, 0, +1)], presence[dirToIndex(-1, +1, 0)],
+                    voxelAo[11] = (vertexAO(presence[dirToIndex(-1, 0, +1)], presence[dirToIndex(-1, +1, 0)],
                         presence[dirToIndex(-1, +1, +1)]));  // top left
 
                     // Right
-                    voxelAo[8] = (vertexAO(presence[dirToIndex(+1, 0, -1)], presence[dirToIndex(+1, -1, 0)],
+                    voxelAo[12] = (vertexAO(presence[dirToIndex(+1, 0, -1)], presence[dirToIndex(+1, -1, 0)],
                         presence[dirToIndex(+1, -1, -1)]));  // bottom left
-                    voxelAo[9] = (vertexAO(presence[dirToIndex(+1, 0, +1)], presence[dirToIndex(+1, -1, 0)],
+                    voxelAo[13] = (vertexAO(presence[dirToIndex(+1, 0, +1)], presence[dirToIndex(+1, -1, 0)],
                         presence[dirToIndex(+1, -1, +1)]));  // bottom right
-                    voxelAo[10] = (vertexAO(presence[dirToIndex(+1, 0, +1)], presence[dirToIndex(+1, +1, 0)],
+                    voxelAo[14] = (vertexAO(presence[dirToIndex(+1, 0, +1)], presence[dirToIndex(+1, +1, 0)],
                         presence[dirToIndex(+1, +1, +1)]));  // top right
-                    voxelAo[11] = (vertexAO(presence[dirToIndex(+1, 0, -1)], presence[dirToIndex(+1, +1, 0)],
+                    voxelAo[15] = (vertexAO(presence[dirToIndex(+1, 0, -1)], presence[dirToIndex(+1, +1, 0)],
                         presence[dirToIndex(+1, +1, -1)]));  // top left
 
                     // Front
-                    voxelAo[12] = (vertexAO(presence[dirToIndex(-1, 0, -1)], presence[dirToIndex(0, -1, -1)],
+                    voxelAo[16] = (vertexAO(presence[dirToIndex(-1, 0, -1)], presence[dirToIndex(0, -1, -1)],
                         presence[dirToIndex(-1, -1, -1)]));  // bottom left
-                    voxelAo[13] = (vertexAO(presence[dirToIndex(+1, 0, -1)], presence[dirToIndex(0, -1, -1)],
+                    voxelAo[17] = (vertexAO(presence[dirToIndex(+1, 0, -1)], presence[dirToIndex(0, -1, -1)],
                         presence[dirToIndex(+1, -1, -1)]));  // bottom right
-                    voxelAo[14] = (vertexAO(presence[dirToIndex(+1, 0, -1)], presence[dirToIndex(0, +1, -1)],
+                    voxelAo[18] = (vertexAO(presence[dirToIndex(+1, 0, -1)], presence[dirToIndex(0, +1, -1)],
                         presence[dirToIndex(+1, +1, -1)]));  // top right
-                    voxelAo[15] = (vertexAO(presence[dirToIndex(-1, 0, -1)], presence[dirToIndex(0, +1, -1)],
+                    voxelAo[19] = (vertexAO(presence[dirToIndex(-1, 0, -1)], presence[dirToIndex(0, +1, -1)],
                         presence[dirToIndex(-1, +1, -1)]));  // top left
 
                     // Back
-                    voxelAo[16] = (vertexAO(presence[dirToIndex(+1, 0, +1)], presence[dirToIndex(0, -1, +1)],
+                    voxelAo[20] = (vertexAO(presence[dirToIndex(+1, 0, +1)], presence[dirToIndex(0, -1, +1)],
                         presence[dirToIndex(+1, -1, +1)]));  // bottom left
-                    voxelAo[17] = (vertexAO(presence[dirToIndex(-1, 0, +1)], presence[dirToIndex(0, -1, +1)],
+                    voxelAo[21] = (vertexAO(presence[dirToIndex(-1, 0, +1)], presence[dirToIndex(0, -1, +1)],
                         presence[dirToIndex(-1, -1, +1)]));  // bottom right
-                    voxelAo[18] = (vertexAO(presence[dirToIndex(-1, 0, +1)], presence[dirToIndex(0, +1, +1)],
+                    voxelAo[22] = (vertexAO(presence[dirToIndex(-1, 0, +1)], presence[dirToIndex(0, +1, +1)],
                         presence[dirToIndex(-1, +1, +1)]));  // top right
-                    voxelAo[19] = (vertexAO(presence[dirToIndex(+1, 0, +1)], presence[dirToIndex(0, +1, +1)],
+                    voxelAo[23] = (vertexAO(presence[dirToIndex(+1, 0, +1)], presence[dirToIndex(0, +1, +1)],
                         presence[dirToIndex(+1, +1, +1)]));  // top left
 
                     voxelAoTime += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now() - start).count();
@@ -258,7 +269,7 @@ void meshChunk(Chunk *chunk, int worldSize, std::vector<float> &data) {
                     start = std::chrono::high_resolution_clock::now();
 
                     // Top
-                    if (voxel != 2) {
+                    if (boundsCheck(x, y, z, 0, 1, 0, worldSize, voxels)) {
                         if (voxelAo[0] + voxelAo[2] <= voxelAo[3] + voxelAo[1]) {
                             // Flip
                             ao.push_back(voxelAo[0]);
@@ -277,79 +288,98 @@ void meshChunk(Chunk *chunk, int worldSize, std::vector<float> &data) {
                         }
                     }
 
+                    // Bottom
+                    if (boundsCheck(x, y, z, 0, -1, 0, worldSize, voxels)) {
+                        if (voxelAo[4] + voxelAo[6] > voxelAo[7] + voxelAo[5]) {
+                            ao.push_back(voxelAo[4]);
+                            ao.push_back(voxelAo[5]);
+                            ao.push_back(voxelAo[7]);
+                            ao.push_back(voxelAo[7]);
+                            ao.push_back(voxelAo[5]);
+                            ao.push_back(voxelAo[6]);
+                        } else {
+                            ao.push_back(voxelAo[4]);
+                            ao.push_back(voxelAo[5]);
+                            ao.push_back(voxelAo[6]);
+                            ao.push_back(voxelAo[6]);
+                            ao.push_back(voxelAo[7]);
+                            ao.push_back(voxelAo[4]);
+                        }
+                    }
+
                     // Left
                     if (boundsCheck(x, y, z, -1, 0, 0, worldSize, voxels)) {
-                        if (voxelAo[4] + voxelAo[6] > voxelAo[7] + voxelAo[5]) {
-                            ao.push_back(voxelAo[7]);
-                            ao.push_back(voxelAo[6]);
-                            ao.push_back(voxelAo[4]);
-                            ao.push_back(voxelAo[4]);
-                            ao.push_back(voxelAo[6]);
-                            ao.push_back(voxelAo[5]);
+                        if (voxelAo[8] + voxelAo[10] > voxelAo[11] + voxelAo[9]) {
+                            ao.push_back(voxelAo[11]);
+                            ao.push_back(voxelAo[10]);
+                            ao.push_back(voxelAo[8]);
+                            ao.push_back(voxelAo[8]);
+                            ao.push_back(voxelAo[10]);
+                            ao.push_back(voxelAo[9]);
                         } else {
-                            ao.push_back(voxelAo[7]);
-                            ao.push_back(voxelAo[6]);
-                            ao.push_back(voxelAo[5]);
-                            ao.push_back(voxelAo[5]);
-                            ao.push_back(voxelAo[4]);
-                            ao.push_back(voxelAo[7]);
+                            ao.push_back(voxelAo[11]);
+                            ao.push_back(voxelAo[10]);
+                            ao.push_back(voxelAo[9]);
+                            ao.push_back(voxelAo[9]);
+                            ao.push_back(voxelAo[8]);
+                            ao.push_back(voxelAo[11]);
                         }
                     }
 
                     // Right
                     if (boundsCheck(x, y, z, 1, 0, 0, worldSize, voxels)) {
-                        if (voxelAo[8] + voxelAo[10] > voxelAo[11] + voxelAo[9]) {
-                            ao.push_back(voxelAo[10]);
-                            ao.push_back(voxelAo[11]);
-                            ao.push_back(voxelAo[9]);
-                            ao.push_back(voxelAo[9]);
-                            ao.push_back(voxelAo[11]);
-                            ao.push_back(voxelAo[8]);
+                        if (voxelAo[12] + voxelAo[14] > voxelAo[15] + voxelAo[13]) {
+                            ao.push_back(voxelAo[14]);
+                            ao.push_back(voxelAo[15]);
+                            ao.push_back(voxelAo[13]);
+                            ao.push_back(voxelAo[13]);
+                            ao.push_back(voxelAo[15]);
+                            ao.push_back(voxelAo[12]);
                         } else {
-                            ao.push_back(voxelAo[10]);
-                            ao.push_back(voxelAo[11]);
-                            ao.push_back(voxelAo[8]);
-                            ao.push_back(voxelAo[8]);
-                            ao.push_back(voxelAo[9]);
-                            ao.push_back(voxelAo[10]);
+                            ao.push_back(voxelAo[14]);
+                            ao.push_back(voxelAo[15]);
+                            ao.push_back(voxelAo[12]);
+                            ao.push_back(voxelAo[12]);
+                            ao.push_back(voxelAo[13]);
+                            ao.push_back(voxelAo[14]);
                         }
                     }
 
                     // Front
                     if (boundsCheck(x, y, z, 0, 0, -1, worldSize, voxels)) {
-                        if (voxelAo[12] + voxelAo[14] > voxelAo[15] + voxelAo[13]) {
-                            ao.push_back(voxelAo[12]);
-                            ao.push_back(voxelAo[13]);
-                            ao.push_back(voxelAo[15]);
-                            ao.push_back(voxelAo[15]);
-                            ao.push_back(voxelAo[13]);
-                            ao.push_back(voxelAo[14]);
+                        if (voxelAo[16] + voxelAo[18] > voxelAo[19] + voxelAo[17]) {
+                            ao.push_back(voxelAo[16]);
+                            ao.push_back(voxelAo[17]);
+                            ao.push_back(voxelAo[19]);
+                            ao.push_back(voxelAo[19]);
+                            ao.push_back(voxelAo[17]);
+                            ao.push_back(voxelAo[18]);
                         } else {
-                            ao.push_back(voxelAo[12]);
-                            ao.push_back(voxelAo[13]);
-                            ao.push_back(voxelAo[14]);
-                            ao.push_back(voxelAo[14]);
-                            ao.push_back(voxelAo[15]);
-                            ao.push_back(voxelAo[12]);
+                            ao.push_back(voxelAo[16]);
+                            ao.push_back(voxelAo[17]);
+                            ao.push_back(voxelAo[18]);
+                            ao.push_back(voxelAo[18]);
+                            ao.push_back(voxelAo[19]);
+                            ao.push_back(voxelAo[16]);
                         }
                     }
 
                     // Back
                     if (boundsCheck(x, y, z, 0, 0, 1, worldSize, voxels)) {
-                        if (voxelAo[16] + voxelAo[18] > voxelAo[19] + voxelAo[17]) {
-                            ao.push_back(voxelAo[17]);
-                            ao.push_back(voxelAo[16]);
-                            ao.push_back(voxelAo[18]);
-                            ao.push_back(voxelAo[18]);
-                            ao.push_back(voxelAo[16]);
-                            ao.push_back(voxelAo[19]);
+                        if (voxelAo[20] + voxelAo[22] > voxelAo[23] + voxelAo[21]) {
+                            ao.push_back(voxelAo[21]);
+                            ao.push_back(voxelAo[20]);
+                            ao.push_back(voxelAo[22]);
+                            ao.push_back(voxelAo[22]);
+                            ao.push_back(voxelAo[20]);
+                            ao.push_back(voxelAo[23]);
                         } else {
-                            ao.push_back(voxelAo[17]);
-                            ao.push_back(voxelAo[16]);
-                            ao.push_back(voxelAo[19]);
-                            ao.push_back(voxelAo[19]);
-                            ao.push_back(voxelAo[18]);
-                            ao.push_back(voxelAo[17]);
+                            ao.push_back(voxelAo[21]);
+                            ao.push_back(voxelAo[20]);
+                            ao.push_back(voxelAo[23]);
+                            ao.push_back(voxelAo[23]);
+                            ao.push_back(voxelAo[22]);
+                            ao.push_back(voxelAo[21]);
                         }
                     }
 
@@ -375,7 +405,7 @@ void meshChunk(Chunk *chunk, int worldSize, std::vector<float> &data) {
                     }
 
                     // Top face
-                    if (voxel != 2) {
+                    if (boundsCheck(x, y, z, 0, 1, 0, worldSize, voxels)) {
                         if (voxelAo[0] + voxelAo[2] <= voxelAo[3] + voxelAo[1]) {
                             positions.insert(positions.end(), &translated_flipped_vertices[TOP_FACE],
                                 &translated_flipped_vertices[TOP_FACE + 18]);
@@ -389,9 +419,28 @@ void meshChunk(Chunk *chunk, int worldSize, std::vector<float> &data) {
                         colours.insert(colours.end(), &green_face[0], &green_face[18]);
                     }
 
+                    // Bottom
+                    if (boundsCheck(x, y, z, 0, -1, 0, worldSize, voxels)) {
+                        if (voxelAo[4] + voxelAo[6] > voxelAo[7] + voxelAo[5]) {
+                            positions.insert(positions.end(), &translated_flipped_vertices[BOTTOM_FACE],
+                                &translated_flipped_vertices[BOTTOM_FACE + 18]);
+                        } else {
+                            positions.insert(positions.end(), &translated_vertices[BOTTOM_FACE],
+                                &translated_vertices[BOTTOM_FACE + 18]);
+                        }
+                        for (int i = 0; i < 6; i++) {
+                            normals.push_back(BOTTOM_NORMAL);
+                        }
+                        if (voxel == 1) {
+                            colours.insert(colours.end(), &green_face[0], &green_face[18]);
+                        } else {
+                            colours.insert(colours.end(), &red_face[0], &red_face[18]);
+                        }
+                    }
+
                     // Left
                     if (boundsCheck(x, y, z, -1, 0, 0, worldSize, voxels)) {
-                        if (voxelAo[4] + voxelAo[6] > voxelAo[7] + voxelAo[5]) {
+                        if (voxelAo[8] + voxelAo[10] > voxelAo[11] + voxelAo[9]) {
                             positions.insert(positions.end(), &translated_flipped_vertices[LEFT_FACE],
                                 &translated_flipped_vertices[LEFT_FACE + 18]);
                         } else {
@@ -410,7 +459,7 @@ void meshChunk(Chunk *chunk, int worldSize, std::vector<float> &data) {
 
                     // Right
                     if (boundsCheck(x, y, z, 1, 0, 0, worldSize, voxels)) {
-                        if (voxelAo[8] + voxelAo[10] > voxelAo[11] + voxelAo[9]) {
+                        if (voxelAo[12] + voxelAo[14] > voxelAo[15] + voxelAo[13]) {
                             positions.insert(positions.end(), &translated_flipped_vertices[RIGHT_FACE],
                                 &translated_flipped_vertices[RIGHT_FACE + 18]);
                         } else {
@@ -429,7 +478,7 @@ void meshChunk(Chunk *chunk, int worldSize, std::vector<float> &data) {
 
                     // Front
                     if (boundsCheck(x, y, z, 0, 0, -1, worldSize, voxels)) {
-                        if (voxelAo[12] + voxelAo[14] > voxelAo[15] + voxelAo[13]) {
+                        if (voxelAo[16] + voxelAo[18] > voxelAo[19] + voxelAo[17]) {
                             positions.insert(positions.end(), &translated_flipped_vertices[FRONT_FACE],
                                 &translated_flipped_vertices[FRONT_FACE + 18]);
                         } else {
@@ -448,7 +497,7 @@ void meshChunk(Chunk *chunk, int worldSize, std::vector<float> &data) {
 
                     // Back
                     if (boundsCheck(x, y, z, 0, 0, 1, worldSize, voxels)) {
-                        if (voxelAo[16] + voxelAo[18] > voxelAo[19] + voxelAo[17]) {
+                        if (voxelAo[20] + voxelAo[22] > voxelAo[23] + voxelAo[21]) {
                             positions.insert(positions.end(), &translated_flipped_vertices[BACK_FACE],
                                 &translated_flipped_vertices[BACK_FACE + 18]);
                         } else {
