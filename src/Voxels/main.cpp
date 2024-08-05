@@ -57,8 +57,8 @@ void processInput(GLFWwindow* window);
 template <glm::length_t C, glm::length_t R, typename T>
 void putMatrix(std::vector<T> &buffer, glm::mat<C, R, T> m);
 
-const unsigned int SCREEN_WIDTH = 1920;
-const unsigned int SCREEN_HEIGHT = 1080;
+const unsigned int SCREEN_WIDTH = 2560;
+const unsigned int SCREEN_HEIGHT = 1600;
 
 const double PI = 3.1415926535;
 
@@ -210,7 +210,7 @@ int main() {
 
             auto startTime = std::chrono::high_resolution_clock::now();
             chunk.init(worldMesh.data);
-            chunk.generateVoxels();
+            chunk.generateVoxels3D();
             meshChunk(&chunk, WORLD_SIZE, worldMesh.data);
 
             auto endTime = std::chrono::high_resolution_clock::now();

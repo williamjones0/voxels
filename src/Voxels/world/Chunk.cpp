@@ -13,9 +13,9 @@
 
 #define EPSILON 0.000001
 
-Chunk::Chunk(void) : cx(0), cz(0), minY(CHUNK_HEIGHT), maxY(0), VAO(0), dataVBO(0), numVertices(0), firstIndex(0), model(glm::mat4(1.0f)), voxels((CHUNK_SIZE + 2) *(CHUNK_SIZE + 2) *CHUNK_HEIGHT) {}
+Chunk::Chunk(void) : cx(0), cz(0), minY(CHUNK_HEIGHT), maxY(0), VAO(0), dataVBO(0), numVertices(0), firstIndex(0), model(glm::mat4(1.0f)), voxels((CHUNK_SIZE + 2) * (CHUNK_SIZE + 2) * (CHUNK_HEIGHT + 2)) {}
 
-Chunk::Chunk(int cx, int cz) : cx(cx), cz(cz), minY(CHUNK_HEIGHT), maxY(0), VAO(0), dataVBO(0), numVertices(0), firstIndex(0), model(glm::mat4(1.0f)), voxels((CHUNK_SIZE + 2) *(CHUNK_SIZE + 2) *CHUNK_HEIGHT) {}
+Chunk::Chunk(int cx, int cz) : cx(cx), cz(cz), minY(CHUNK_HEIGHT), maxY(0), VAO(0), dataVBO(0), numVertices(0), firstIndex(0), model(glm::mat4(1.0f)), voxels((CHUNK_SIZE + 2) * (CHUNK_SIZE + 2) * (CHUNK_HEIGHT + 2)) {}
 
 Chunk::Chunk(const Chunk &other) : cx(other.cx), cz(other.cz), minY(other.minY), maxY(other.maxY), VAO(other.VAO), dataVBO(other.dataVBO), numVertices(other.numVertices), firstIndex(other.firstIndex), model(other.model), voxels(other.voxels) {}
 
@@ -77,10 +77,10 @@ void Chunk::init(std::vector<uint32_t> &data) {
 void Chunk::init(std::vector<float> &data) {
 #endif
     model = glm::translate(glm::mat4(1.0f), glm::vec3(cx * CHUNK_SIZE, 0, cz * CHUNK_SIZE));
-    voxels = std::vector<int>((CHUNK_SIZE + 2) * (CHUNK_SIZE + 2) * CHUNK_HEIGHT);
+    voxels = std::vector<int>((CHUNK_SIZE + 2) * (CHUNK_SIZE + 2) * (CHUNK_HEIGHT + 2));
 }
 
-void Chunk::generateVoxels() {
+void Chunk::generateVoxels2D() {
     unsigned int seed = 123456u;
     const siv::PerlinNoise::seed_type s = seed;
     const siv::PerlinNoise perlin{ s };
@@ -147,4 +147,31 @@ void Chunk::generateVoxels() {
 
     minY = std::max(0, minY - 1);
     maxY = std::min(CHUNK_HEIGHT, maxY + 1);
+}
+
+void Chunk::generateVoxels3D() {
+    unsigned int seed = 123456u;
+    const siv::PerlinNoise::seed_type s = seed;
+    const siv::PerlinNoise perlin{ s };
+
+    for (int y = -1; y < CHUNK_HEIGHT + 1; ++y) {
+        for (int z = -1; z < CHUNK_SIZE + 1; ++z) {
+            for (int x = -1; x < CHUNK_SIZE + 1; ++x) {
+                float noise_x = cx * CHUNK_SIZE + x + 1;
+                float noise_y = y + 1;
+                float noise_z = cz * CHUNK_SIZE + z + 1;
+
+                float noise = perlin.octave3D_01(noise_x * 0.01, noise_y * 0.01, noise_z * 0.01, 4);
+
+                if (noise > 0.5) {
+                    voxels[getVoxelIndex(x + 1, y + 1, z + 1, CHUNK_SIZE + 2)] = 1;
+                    minY = std::min(y, minY);
+                    maxY = std::max(y, maxY);
+                }
+            }
+        }
+    }
+
+    minY = std::max(0, minY - 1);
+    maxY = std::min(CHUNK_HEIGHT, maxY + 2);
 }

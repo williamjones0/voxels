@@ -7,10 +7,10 @@
 
 #include "../util/Flags.h"
 
-const int WORLD_SIZE = 64;
+const int WORLD_SIZE = 128;
 
 const int CHUNK_SIZE_SHIFT = 4;
-const int CHUNK_HEIGHT_SHIFT = 7;
+const int CHUNK_HEIGHT_SHIFT = 8;
 const int CHUNK_SIZE = 1 << CHUNK_SIZE_SHIFT;
 const int CHUNK_HEIGHT = 1 << CHUNK_HEIGHT_SHIFT;
 const int CHUNK_SIZE_MASK = (1 << (CHUNK_SIZE_SHIFT + 1)) - 1;
@@ -46,5 +46,6 @@ public:
 #else
     void init(std::vector<float> &data);
 #endif
-    void generateVoxels();
+    void generateVoxels2D();
+    void generateVoxels3D();
 };
