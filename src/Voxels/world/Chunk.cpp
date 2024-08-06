@@ -5,6 +5,8 @@
 
 #include <iostream>
 #include <chrono>
+#include <fstream>
+#include <sstream>
 
 #include "Mesher.hpp"
 #include "../util/PerlinNoise.hpp"
@@ -174,4 +176,39 @@ void Chunk::generateVoxels3D() {
 
     minY = std::max(0, minY - 1);
     maxY = std::min(CHUNK_HEIGHT, maxY + 2);
+}
+
+void Chunk::generateVoxels(std::string path) {
+    std::ifstream infile(path);
+
+    std::string line;
+    int y = 0;
+    int gz = 0;
+    while (std::getline(infile, line)) {
+        if (line.empty()) {
+            y++;
+            gz = 0;
+            continue;
+        }
+
+        if (gz >= cz * CHUNK_SIZE - 1 && gz < (cz + 1) * CHUNK_SIZE + 1) {
+            std::istringstream iss(line);
+            int value;
+            int gx = 0;
+            while (iss >> value) {
+                if (gx >= cx * CHUNK_SIZE - 1 && gx < (cx + 1) * CHUNK_SIZE + 1) {
+                    int x = gx - cx * CHUNK_SIZE;
+                    int z = gz - cz * CHUNK_SIZE;
+                    voxels[getVoxelIndex(x + 1, y + 1, z + 1, CHUNK_SIZE + 2)] = value;
+                }
+                gx++;
+            }
+        }
+        gz++;
+    }
+
+    minY = 0;
+    maxY = std::min(CHUNK_HEIGHT, y + 2);
+
+    infile.close();
 }

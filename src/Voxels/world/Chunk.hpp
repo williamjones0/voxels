@@ -4,13 +4,14 @@
 
 #include <cstdint>
 #include <vector>
+#include <string>
 
 #include "../util/Flags.h"
 
-const int WORLD_SIZE = 128;
+const int WORLD_SIZE = 32;
 
 const int CHUNK_SIZE_SHIFT = 4;
-const int CHUNK_HEIGHT_SHIFT = 8;
+const int CHUNK_HEIGHT_SHIFT = 6;
 const int CHUNK_SIZE = 1 << CHUNK_SIZE_SHIFT;
 const int CHUNK_HEIGHT = 1 << CHUNK_HEIGHT_SHIFT;
 const int CHUNK_SIZE_MASK = (1 << (CHUNK_SIZE_SHIFT + 1)) - 1;
@@ -48,4 +49,5 @@ public:
 #endif
     void generateVoxels2D();
     void generateVoxels3D();
+    void generateVoxels(std::string path);
 };

@@ -210,7 +210,7 @@ int main() {
 
             auto startTime = std::chrono::high_resolution_clock::now();
             chunk.init(worldMesh.data);
-            chunk.generateVoxels3D();
+            chunk.generateVoxels("../../../../../data/levels/level0.txt");
             meshChunk(&chunk, WORLD_SIZE, worldMesh.data);
 
             auto endTime = std::chrono::high_resolution_clock::now();
