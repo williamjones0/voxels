@@ -39,7 +39,7 @@ int dirToIndex(int i, int j, int k) {
 }
 
 #ifdef VERTEX_PACKING
-void meshChunk(Chunk *chunk, int worldSize, std::vector<uint32_t> &data) {
+void meshChunk(Chunk *chunk, int worldSize, WorldMesh &worldMesh, bool reMesh) {
 #else
 void meshChunk(Chunk *chunk, int worldSize, std::vector<float> &data) {
 #endif
@@ -536,6 +536,20 @@ void meshChunk(Chunk *chunk, int worldSize, std::vector<float> &data) {
 
     auto start = std::chrono::high_resolution_clock::now();
 
+    if (reMesh) {
+        int chunkIndex = chunk->cz * worldSize + chunk->cx;
+        int chunkVertexStart = worldMesh.chunkVertexStarts[chunkIndex];
+        int chunkVertexEnd;
+        if (chunkIndex + 1 < worldMesh.chunkVertexStarts.size()) {
+            chunkVertexEnd = worldMesh.chunkVertexStarts[chunkIndex + 1];
+        } else {
+            chunkVertexEnd = worldMesh.data.size();
+        }
+
+        // Clear the old vertices
+        worldMesh.data.erase(worldMesh.data.begin() + chunkVertexStart, worldMesh.data.begin() + chunkVertexEnd);
+    }
+
     for (int i = 0; i < positions.size() / 3; ++i) {
         uint32_t colour;
         if (colours[3 * i] == 0.278f) {
@@ -571,16 +585,32 @@ void meshChunk(Chunk *chunk, int worldSize, std::vector<float> &data) {
 
         //std::cout << "\n";
 
-#ifdef VERTEX_PACKING
-        data.push_back(vertex);
-#else
-        data.push_back((float)positions[3 * i]);
-        data.push_back((float)positions[3 * i + 1]);
-        data.push_back((float)positions[3 * i + 2]);
-        data.push_back((float)colour);
-        data.push_back((float)normals[i]);
-        data.push_back((float)ao[i]);
-#endif
+        if (reMesh) {
+            int chunkIndex = chunk->cz * worldSize + chunk->cx;
+            int chunkVertexStart = worldMesh.chunkVertexStarts[chunkIndex];
+            worldMesh.data.insert(worldMesh.data.begin() + chunkVertexStart + i, vertex);
+        } else {
+            worldMesh.data.push_back(vertex);
+        }
+    }
+
+    if (reMesh) {
+        // Update the chunkVertexStarts
+        int chunkIndex = chunk->cz * worldSize + chunk->cx;
+        int chunkVertexStart = worldMesh.chunkVertexStarts[chunkIndex];
+        int chunkVertexEnd;
+        if (chunkIndex + 1 < worldMesh.chunkVertexStarts.size()) {
+            chunkVertexEnd = worldMesh.chunkVertexStarts[chunkIndex + 1];
+        } else {
+            chunkVertexEnd = worldMesh.data.size();
+        }
+
+        int oldChunkVerticesSize = (chunkVertexEnd - chunkVertexStart);
+        for (int i = chunkIndex + 1; i < worldMesh.chunkVertexStarts.size(); ++i) {
+            worldMesh.chunkVertexStarts[i] += positions.size() / 3 - oldChunkVerticesSize;
+        }
+    } else {
+        worldMesh.chunkVertexStarts.push_back(worldMesh.data.size());
     }
 
     //std::cout << "vertex push time: " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count() << "us\n";

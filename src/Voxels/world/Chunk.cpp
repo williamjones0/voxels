@@ -66,11 +66,11 @@ Chunk &Chunk::operator=(Chunk &&other) noexcept {
 }
 
 void Chunk::store(int x, int y, int z, char v) {
-    voxels[getVoxelIndex(x, y, z, CHUNK_SIZE)] = v;
+    voxels[getVoxelIndex(x + 1, y + 1, z + 1, CHUNK_SIZE + 2)] = v;
 }
 
-char Chunk::load(int x, int y, int z) {
-    return voxels[getVoxelIndex(x, y, z, CHUNK_SIZE)];
+int Chunk::load(int x, int y, int z) {
+    return voxels[getVoxelIndex(x + 1, y + 1, z + 1, CHUNK_SIZE + 2)];
 }
 
 #ifdef VERTEX_PACKING
@@ -134,7 +134,7 @@ void Chunk::generateVoxels2D() {
                 if (y0 == y - 1) {
                     voxelType = 1;
                 } else if (y0 < lowestVisibleHeight) {
-                    voxelType = 3;
+                    voxelType = 2;
                 } else {
                     voxelType = 2;
                 }

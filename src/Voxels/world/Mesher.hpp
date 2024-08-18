@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "Chunk.hpp"
+#include "WorldMesh.hpp"
 #include "../util/Flags.h"
 
 static inline int vertexAO(uint8_t side1, uint8_t side2, uint8_t corner);
@@ -13,7 +14,7 @@ bool inBounds(int x, int y, int z, int size, int height);
 int dirToIndex(int i, int j, int k);
 
 #ifdef VERTEX_PACKING
-void meshChunk(Chunk *chunk, int worldSize, std::vector<uint32_t> &data);
+void meshChunk(Chunk *chunk, int worldSize, WorldMesh &worldMesh, bool reMesh = false);
 #else
 void meshChunk(Chunk *chunk, int worldSize, std::vector<float> &data);
 #endif

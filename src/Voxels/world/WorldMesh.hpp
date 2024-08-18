@@ -17,5 +17,7 @@ public:
     std::vector<float> data;
 #endif
 
+    std::vector<int> chunkVertexStarts;
+
     void createBuffers();
 };

@@ -18,6 +18,7 @@
 #include "world/Mesher.hpp"
 #include "world/Chunk.hpp"
 #include "world/WorldMesh.hpp"
+#include "world/Line.h"
 #include "util/PerlinNoise.hpp"
 #include "util/Util.hpp"
 #include "util/Flags.h"
@@ -53,12 +54,15 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void glfw_error_callback(int error, const char* description);
-void processInput(GLFWwindow* window);
+void processInput(GLFWwindow *window, std::vector<Chunk> &chunks, std::vector<ChunkData> &chunkData, WorldMesh &worldMesh, GLuint verticesBuffer, GLuint chunkDataBuffer);
 template <glm::length_t C, glm::length_t R, typename T>
 void putMatrix(std::vector<T> &buffer, glm::mat<C, R, T> m);
+float intbound(float s, float ds);
+void raycast(float radius, std::vector<Chunk> &chunks, WorldMesh &worldMesh, GLuint verticesBuffer, GLuint chunkDataBuffer);
+void raycast_(float radius, std::vector<Chunk> &chunks, std::vector<ChunkData> &chunkData, WorldMesh &worldMesh, GLuint verticesBuffer, GLuint chunkDataBuffer);
 
-const unsigned int SCREEN_WIDTH = 2560;
-const unsigned int SCREEN_HEIGHT = 1600;
+const unsigned int SCREEN_WIDTH = 2560 * 0.8;
+const unsigned int SCREEN_HEIGHT = 1600 * 0.8;
 
 const double PI = 3.1415926535;
 
@@ -75,12 +79,14 @@ glm::vec4 frustum[6];
 bool doFrustumCulling = true;
 int visibleChunks = 0;
 
-Camera camera(glm::vec3(-5.0f, 20.0f, 0.0f), 0.0f, 0.0f);
+Camera camera(glm::vec3(1.5183858f, 3.0508814f + 1, 3.6004007f), 0.0f, 0.0f);
+// Camera camera(glm::vec3(4.2f, 1.5f, 0.6f), 0.0f, 0.0f);
 float lastX = SCREEN_WIDTH / 2.0f;
 float lastY = SCREEN_HEIGHT / 2.0f;
 bool firstMouse = true;
 
 std::set<int> lastFrameKeyPresses;
+std::set<int> lastFrameMousePresses;
 
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
@@ -157,6 +163,7 @@ int main() {
 
     Shader shader("../../../../../data/shaders/vert.glsl", "../../../../../data/shaders/frag.glsl");
     Shader drawCommandShader("../../../../../data/shaders/drawcmd_comp.glsl");
+    Shader lineShader("../../../../../data/shaders/line_vert.glsl", "../../../../../data/shaders/line_frag.glsl");
 
     WorldMesh worldMesh;
 
@@ -210,8 +217,9 @@ int main() {
 
             auto startTime = std::chrono::high_resolution_clock::now();
             chunk.init(worldMesh.data);
-            chunk.generateVoxels("../../../../../data/levels/level0.txt");
-            meshChunk(&chunk, WORLD_SIZE, worldMesh.data);
+            // chunk.generateVoxels("../../../../../data/levels/level1.txt");
+            chunk.generateVoxels2D();
+            meshChunk(&chunk, WORLD_SIZE, worldMesh);
 
             auto endTime = std::chrono::high_resolution_clock::now();
             auto duration = std::chrono::duration_cast<std::chrono::microseconds>(endTime - startTime);
@@ -262,7 +270,7 @@ int main() {
     glNamedBufferStorage(chunkDataBuffer,
         sizeof(ChunkData) * chunkData.size(),
         (const void*)chunkData.data(),
-        NULL);
+        GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, chunkDataBuffer);
 
     GLuint commandCountBuffer;
@@ -278,10 +286,10 @@ int main() {
     GLuint verticesBuffer;
     glCreateBuffers(1, &verticesBuffer);
 
-    glNamedBufferStorage(verticesBuffer,
+    glNamedBufferData(verticesBuffer,
         sizeof(uint32_t) * worldMesh.data.size(),
         (const void*)worldMesh.data.data(),
-        GL_DYNAMIC_STORAGE_BIT);
+        GL_DYNAMIC_DRAW);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, verticesBuffer);
 
     // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -307,7 +315,7 @@ int main() {
         frustum[4] = projectionT[3] + projectionT[2];  // z + w < 0
         frustum[5] = projectionT[3] - projectionT[2];  // z - w > 0
 
-        processInput(window);
+        processInput(window, chunks, chunkData, worldMesh, verticesBuffer, chunkDataBuffer);
 
         // Clear command count buffer
         glClearNamedBufferData(commandCountBuffer, GL_R32UI, GL_RED, GL_UNSIGNED_INT, NULL);
@@ -332,11 +340,23 @@ int main() {
         glBindBuffer(GL_DRAW_INDIRECT_BUFFER, chunkDrawCmdBuffer);
         glMultiDrawArraysIndirectCount(GL_TRIANGLES, 0, 0, NUM_CHUNKS, sizeof(ChunkDrawCommand));
 
+        Line line(
+            glm::vec3(camera.position.x, camera.position.y, camera.position.z),
+            glm::vec3(camera.position.x, camera.position.y, camera.position.z) + glm::vec3(camera.front.x, camera.front.y, camera.front.z) * 0.4f
+        );
+
+        lineShader.use();
+
+        lineShader.setVec3("color", glm::vec3(1.0f, 0.0f, 0.0f));
+        lineShader.setMat4("mvp", projection * view);
+        line.draw();
+
         // std::cout << "Frame time: " << deltaTime << "\t FPS: " << (1.0f / deltaTime) << std::endl;
         std::string title = "Voxels | FPS: " + std::to_string((int)(1.0f / deltaTime)) +
             " | X: " + std::to_string(camera.position.x) +
             ", Y: " + std::to_string(camera.position.y) +
-            ", Z: " + std::to_string(camera.position.z);
+            ", Z: " + std::to_string(camera.position.z) +
+            "| front: " + glm::to_string(camera.front);
 
         glfwSetWindowTitle(window, title.c_str());
 
@@ -348,7 +368,7 @@ int main() {
     return 0;
 }
 
-void processInput(GLFWwindow* window) {
+void processInput(GLFWwindow* window, std::vector<Chunk> &chunks, std::vector<ChunkData> &chunkData, WorldMesh &worldMesh, GLuint verticesBuffer, GLuint chunkDataBuffer) {
     if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
         glfwSetWindowShouldClose(window, true);
     }
@@ -383,7 +403,18 @@ void processInput(GLFWwindow* window) {
         lastFrameKeyPresses.erase(GLFW_KEY_T);
     }
 
+    // Mouse
     if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS) {
+        if (!lastFrameMousePresses.contains(GLFW_MOUSE_BUTTON_LEFT)) {
+            raycast_(10.0f, chunks, chunkData, worldMesh, verticesBuffer, chunkDataBuffer);
+        }
+
+        lastFrameMousePresses.insert(GLFW_MOUSE_BUTTON_LEFT);
+    } else {
+        lastFrameMousePresses.erase(GLFW_MOUSE_BUTTON_LEFT);
+    }
+
+    if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS) {
         camera.movementSpeed = 100.0f;
     }
     else {
@@ -428,5 +459,345 @@ void putMatrix(std::vector<T> &buffer, glm::mat<C, R, T> m) {
         for (size_t j = 0; j < R; ++j) {
             buffer.push_back(m[i][j]);
         }
+    }
+}
+
+float intbound(float s, float ds) {
+    // Find the smallest positive t such that s + t*ds is an integer.
+    if (ds < 0) {
+        return intbound(-s, -ds);
+    } else {
+        s = fmod(s, 1);
+        // problem is now s + t * ds = 1
+        return (1 - s) / ds;
+    }
+}
+
+void raycast(float radius, std::vector<Chunk> &chunks, WorldMesh &worldMesh, GLuint verticesBuffer, GLuint chunkDataBuffer) {
+    int x = floor(camera.position.x);
+    int y = floor(camera.position.y);
+    int z = floor(camera.position.z);
+
+    float dx = camera.front.x;
+    float dy = camera.front.y;
+    float dz = camera.front.z;
+
+    float stepX = (dx > 0) ? 1 : (dx < 0) ? -1 : 0;
+    float stepY = (dy > 0) ? 1 : (dy < 0) ? -1 : 0;
+    float stepZ = (dz > 0) ? 1 : (dz < 0) ? -1 : 0;
+
+    float tMaxX = (stepX > 0) ? (1 - (camera.position.x - x)) / abs(camera.front.x) : (camera.position.x - x) / abs(camera.front.x); // (x - camera.position.x) / camera.front.x; // intbound(camera.position.x, dx); // (stepX > 0) ? (ceil(x) - x) / dx : (x - floor(x)) / dx;
+    float tMaxY = (stepY > 0) ? (1 - (camera.position.y - y)) / abs(camera.front.y) : (camera.position.y - y) / abs(camera.front.y); // (y - camera.position.y) / camera.front.y; // intbound(camera.position.y, dy); // (stepY > 0) ? (ceil(y) - y) / dy : (y - floor(y)) / dy;
+    float tMaxZ = (stepZ > 0) ? (1 - (camera.position.z - z)) / abs(camera.front.z) : (camera.position.z - z) / abs(camera.front.z); // (z - camera.position.z) / camera.front.z; // intbound(camera.position.z, dz); // (stepZ > 0) ? (ceil(z) - z) / dz : (z - floor(z)) / dz;
+
+    float tDeltaX = (stepX != 0) ? stepX / dx : 0;
+    float tDeltaY = (stepY != 0) ? stepY / dy : 0;
+    float tDeltaZ = (stepZ != 0) ? stepZ / dz : 0;
+
+    glm::vec3 face = glm::vec3(0.0f);
+
+    radius /= sqrt(dx * dx + dy * dy + dz * dz);
+
+    while (
+        (stepX > 0 ? x < WORLD_SIZE : x >= 0) &&
+        (stepY > 0 ? y < CHUNK_HEIGHT : y >= 0) &&
+        (stepZ > 0 ? z < WORLD_SIZE : z >= 0)
+    ) {
+        if (!(x < 0 || y < 0 || z < 0 || x >= WORLD_SIZE || y >= CHUNK_HEIGHT || z >= WORLD_SIZE)) {
+            // Check if voxel is solid
+            int cx = x / CHUNK_SIZE;
+            int cz = z / CHUNK_SIZE;
+
+            Chunk &chunk = chunks[cz + cx * (WORLD_SIZE / CHUNK_SIZE)];
+            int v = chunk.load(x % CHUNK_SIZE, y, z % CHUNK_SIZE);
+            
+            if (v != 0) {
+                std::cout << "Voxel hit at " << x << ", " << y << ", " << z << std::endl;
+                // Change voxel to air
+                chunk.store(x % CHUNK_SIZE, y, z % CHUNK_SIZE, 0);
+
+                // If the voxel is on a chunk boundary, update the neighboring chunk(s)
+                if (x % CHUNK_SIZE == 0 && cx > 0) {
+                    Chunk &negXChunk = chunks[cz + (cx - 1) * (WORLD_SIZE / CHUNK_SIZE)];
+                    negXChunk.store(CHUNK_SIZE - 1, y, z % CHUNK_SIZE, 0);
+                }
+                else if (x % CHUNK_SIZE == CHUNK_SIZE - 1 && cx < WORLD_SIZE / CHUNK_SIZE) {
+                    Chunk &posXChunk = chunks[cz + (cx + 1) * (WORLD_SIZE / CHUNK_SIZE)];
+                    chunk.store(0, y, z % CHUNK_SIZE, 0);
+                }
+
+                if (z % CHUNK_SIZE == 0 && cz > 0) {
+                    Chunk &negZChunk = chunks[cz - 1 + cx * (WORLD_SIZE / CHUNK_SIZE)];
+                    negZChunk.store(x % CHUNK_SIZE, y, CHUNK_SIZE - 1, 0);
+                } else if (z % CHUNK_SIZE == CHUNK_SIZE - 1 && cz < WORLD_SIZE / CHUNK_SIZE) {
+                    Chunk &posZChunk = chunks[cz + 1 + cx * (WORLD_SIZE / CHUNK_SIZE)];
+                    posZChunk.store(x % CHUNK_SIZE, y, 0, 0);
+                }
+
+                // Update chunk
+                // meshChunk(&chunk, WORLD_SIZE, worldMesh, true);
+
+                // TEST mesh all chunks
+                worldMesh.data.clear();
+                for (int cx = 0; cx < WORLD_SIZE / CHUNK_SIZE; ++cx) {
+                    for (int cz = 0; cz < WORLD_SIZE / CHUNK_SIZE; ++cz) {
+                        Chunk &chunk = chunks[cz + cx * (WORLD_SIZE / CHUNK_SIZE)];
+                        meshChunk(&chunk, WORLD_SIZE, worldMesh);
+                    }
+                }
+
+                // Update firstIndex for all chunks
+                int firstIndex = 0;
+                for (int i = 0; i < (WORLD_SIZE / CHUNK_SIZE) * (WORLD_SIZE / CHUNK_SIZE); ++i) {
+                    chunks[i].firstIndex = firstIndex;
+                    firstIndex += chunks[i].numVertices;
+                }
+
+                // Update vertex buffer
+                glNamedBufferData(verticesBuffer, sizeof(uint32_t) * worldMesh.data.size(), (const void *)worldMesh.data.data(), GL_DYNAMIC_DRAW);
+                // glNamedBufferSubData(verticesBuffer, 0, sizeof(uint32_t) * worldMesh.data.size(), worldMesh.data.data());
+
+                // Update chunk data
+                ChunkData cd = {
+                    .model = chunk.model,
+                    .cx = chunk.cx,
+                    .cz = chunk.cz,
+                    .minY = chunk.minY,
+                    .maxY = chunk.maxY,
+                    .numVertices = chunk.numVertices,
+                    .firstIndex = chunk.firstIndex,
+                    ._pad0 = 0,
+                    ._pad1 = 0,
+                };
+
+                int index = cz + cx * (WORLD_SIZE / CHUNK_SIZE);
+                size_t offset = index * sizeof(ChunkData);
+
+                void *chunkDataBufferPtr = glMapNamedBufferRange(chunkDataBuffer, offset, sizeof(ChunkData), GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT);
+
+                if (chunkDataBufferPtr) {
+                    // Perform the memory copy
+                    std::memcpy(chunkDataBufferPtr, &cd, sizeof(ChunkData));
+
+                    // Unmap the buffer after the operation
+                    if (!glUnmapNamedBuffer(chunkDataBuffer)) {
+                        std::cerr << "Failed to unmap buffer!" << std::endl;
+                    }
+                } else {
+                    std::cerr << "Failed to map buffer range!" << std::endl;
+                }
+
+                break;
+            }
+        }
+
+        if (tMaxX < tMaxY) {
+            if (tMaxX < tMaxZ) {
+                if (tMaxX > radius) break;
+
+                x += stepX;
+                tMaxX += tDeltaX;
+
+                face[0] = -stepX;
+                face[1] = 0;
+                face[2] = 0;
+            } else {
+                if (tMaxZ > radius) break;
+
+                z += stepZ;
+                tMaxZ += tDeltaZ;
+
+                face[0] = 0;
+                face[1] = 0;
+                face[2] = -stepZ;
+            }
+        } else {
+            if (tMaxY < tMaxZ) {
+                if (tMaxY > radius) break;
+
+                y += stepY;
+                tMaxY += tDeltaY;
+
+                face[0] = 0;
+                face[1] = -stepY;
+                face[2] = 0;
+            } else {
+                if (tMaxZ > radius) break;
+
+                z += stepZ;
+                tMaxZ += tDeltaZ;
+
+                face[0] = 0;
+                face[1] = 0;
+                face[2] = -stepZ;
+            }
+        }
+    }
+}
+
+int step(float edge, float x) {
+    return x < edge ? 0 : 1;
+}
+
+void raycast_(float radius, std::vector<Chunk> &chunks, std::vector<ChunkData> &chunkData, WorldMesh &worldMesh, GLuint verticesBuffer, GLuint chunkDataBuffer) {
+    float big = 1e30f;
+
+    float ox = camera.position.x;
+    float oy = camera.position.y - 1;
+    float oz = camera.position.z;
+
+    float dx = camera.front.x;
+    float dy = camera.front.y;
+    float dz = camera.front.z;
+
+    int px = (int)floor(ox);
+    int py = (int)floor(oy);
+    int pz = (int)floor(oz);
+
+    float dxi = 1.0f / dx;
+    float dyi = 1.0f / dy;
+    float dzi = 1.0f / dz;
+
+    int sx = dx > 0 ? 1 : -1;
+    int sy = dy > 0 ? 1 : -1;
+    int sz = dz > 0 ? 1 : -1;
+
+    float dtx = std::min(dxi * sx, big);
+    float dty = std::min(dyi * sy, big);
+    float dtz = std::min(dzi * sz, big);
+
+    float tx = abs((px + std::max(sx, 0) - ox) * dxi);
+    float ty = abs((py + std::max(sy, 0) - oy) * dyi);
+    float tz = abs((pz + std::max(sz, 0) - oz) * dzi);
+
+    int maxSteps = 16;
+
+    int cmpx = 0, cmpy = 0, cmpz = 0;
+
+    for (int i = 0; i < maxSteps && py >= 0; i++) {
+        if (i > 0 && py < CHUNK_HEIGHT) {
+            int cx = px / CHUNK_SIZE;
+            int cz = pz / CHUNK_SIZE;
+
+            if (0 <= cx && cx <= (WORLD_SIZE / CHUNK_SIZE - 1) && 0 <= cz && cz <= (WORLD_SIZE / CHUNK_SIZE - 1)) {
+                Chunk &chunk = chunks[cz + cx * (WORLD_SIZE / CHUNK_SIZE)];
+                int v = chunk.load(px % CHUNK_SIZE, py, pz % CHUNK_SIZE);
+
+                if (v != 0) {
+                    std::cout << "Voxel hit at " << px << ", " << py << ", " << pz << std::endl;
+                    // Change voxel to air
+                    chunk.store(px % CHUNK_SIZE, py, pz % CHUNK_SIZE, 0);
+
+                    // If the voxel is on a chunk boundary, update the neighboring chunk(s)
+                    if (px % CHUNK_SIZE == 0 && cx > 0) {
+                        Chunk &negXChunk = chunks[cz + (cx - 1) * (WORLD_SIZE / CHUNK_SIZE)];
+                        negXChunk.store(CHUNK_SIZE, py, pz % CHUNK_SIZE, 0);
+                    } else if (px % CHUNK_SIZE == CHUNK_SIZE - 1 && cx < WORLD_SIZE / CHUNK_SIZE - 1) {
+                        Chunk &posXChunk = chunks[cz + (cx + 1) * (WORLD_SIZE / CHUNK_SIZE)];
+                        posXChunk.store(-1, py, pz % CHUNK_SIZE, 0);
+                    }
+
+                    if (pz % CHUNK_SIZE == 0 && cz > 0) {
+                        Chunk &negZChunk = chunks[cz - 1 + cx * (WORLD_SIZE / CHUNK_SIZE)];
+                        negZChunk.store(px % CHUNK_SIZE, py, CHUNK_SIZE, 0);
+                    } else if (pz % CHUNK_SIZE == CHUNK_SIZE - 1 && cz < WORLD_SIZE / CHUNK_SIZE - 1) {
+                        Chunk &posZChunk = chunks[cz + 1 + cx * (WORLD_SIZE / CHUNK_SIZE)];
+                        posZChunk.store(px % CHUNK_SIZE, py, -1, 0);
+                    }
+
+                    // Update chunk
+                    // meshChunk(&chunk, WORLD_SIZE, worldMesh, true);
+
+                    // TEST mesh all chunks
+                    worldMesh.data.clear();
+                    for (int cx = 0; cx < WORLD_SIZE / CHUNK_SIZE; ++cx) {
+                        for (int cz = 0; cz < WORLD_SIZE / CHUNK_SIZE; ++cz) {
+                            Chunk &chunk = chunks[cz + cx * (WORLD_SIZE / CHUNK_SIZE)];
+                            meshChunk(&chunk, WORLD_SIZE, worldMesh);
+                        }
+                    }
+
+                    // Update firstIndex for all chunks
+                    int firstIndex = 0;
+                    for (int i = 0; i < (WORLD_SIZE / CHUNK_SIZE) * (WORLD_SIZE / CHUNK_SIZE); ++i) {
+                        chunks[i].firstIndex = firstIndex;
+                        firstIndex += chunks[i].numVertices;
+                    }
+
+                    // Update vertex buffer
+                    glNamedBufferData(verticesBuffer, sizeof(uint32_t) * worldMesh.data.size(), (const void *)worldMesh.data.data(), GL_DYNAMIC_DRAW);
+                    // glNamedBufferSubData(verticesBuffer, 0, sizeof(uint32_t) * worldMesh.data.size(), worldMesh.data.data());
+
+                    // Update chunk data
+                    ChunkData cd = {
+                        .model = chunk.model,
+                        .cx = chunk.cx,
+                        .cz = chunk.cz,
+                        .minY = chunk.minY,
+                        .maxY = chunk.maxY,
+                        .numVertices = chunk.numVertices,
+                        .firstIndex = chunk.firstIndex,
+                        ._pad0 = 0,
+                        ._pad1 = 0,
+                    };
+
+                    chunkData[cz + cx * (WORLD_SIZE / CHUNK_SIZE)] = cd;
+
+                    // Update other chunk's firstIndex and numVertices
+                    for (int i = 0; i < (WORLD_SIZE / CHUNK_SIZE) * (WORLD_SIZE / CHUNK_SIZE); ++i) {
+                        chunkData[i].firstIndex = chunks[i].firstIndex;
+                        chunkData[i].numVertices = chunks[i].numVertices;
+                    }
+
+                    //// Update single chunk data
+     //               int index = cz + cx * (WORLD_SIZE / CHUNK_SIZE);
+     //               size_t offset = index * sizeof(ChunkData);
+
+     //               void *chunkDataBufferPtr = glMapNamedBufferRange(chunkDataBuffer, offset, sizeof(ChunkData), GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT);
+
+     //               if (chunkDataBufferPtr) {
+     //                   // Perform the memory copy
+     //                   std::memcpy(chunkDataBufferPtr, &cd, sizeof(ChunkData));
+
+     //                   // Unmap the buffer after the operation
+     //                   if (!glUnmapNamedBuffer(chunkDataBuffer)) {
+     //                       std::cerr << "Failed to unmap buffer!" << std::endl;
+     //                   }
+     //               } else {
+     //                   std::cerr << "Failed to map buffer range!" << std::endl;
+     //               }
+
+                    // Update all chunk data
+                    void *chunkDataBufferPtr = glMapNamedBuffer(chunkDataBuffer, GL_WRITE_ONLY);
+
+                    if (chunkDataBufferPtr) {
+                        // Perform the memory copy
+                        std::memcpy(chunkDataBufferPtr, chunkData.data(), sizeof(ChunkData) * chunkData.size());
+
+                        // Unmap the buffer after the operation
+                        if (!glUnmapNamedBuffer(chunkDataBuffer)) {
+                            std::cerr << "Failed to unmap buffer!" << std::endl;
+                        }
+                    } else {
+                        std::cerr << "Failed to map buffer!" << std::endl;
+                    }
+
+                    break;
+                }
+            }
+        }
+
+        // Advance to next voxel
+        cmpx = step(tx, tz) * step(tx, ty);
+        cmpy = step(ty, tx) * step(ty, tz);
+        cmpz = step(tz, ty) * step(tz, tx);
+
+        tx += dtx * cmpx;
+        ty += dty * cmpy;
+        tz += dtz * cmpz;
+
+        px += sx * cmpx;
+        py += sy * cmpy;
+        pz += sz * cmpz;
     }
 }

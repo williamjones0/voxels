@@ -8,7 +8,7 @@
 
 #include "../util/Flags.h"
 
-const int WORLD_SIZE = 32;
+const int WORLD_SIZE = 128;
 
 const int CHUNK_SIZE_SHIFT = 4;
 const int CHUNK_HEIGHT_SHIFT = 6;
@@ -41,7 +41,7 @@ public:
 
     std::vector<int> voxels;
     void store(int x, int y, int z, char v);
-    char load(int x, int y, int z);
+    int load(int x, int y, int z);
 #ifdef VERTEX_PACKING
     void init(std::vector<uint32_t> &data);
 #else

@@ -72,7 +72,7 @@ void main() {
     Chunk chunk = chunks[index];
     bool visible = isVisible(chunk.cx, chunk.cz, chunk.minY, chunk.maxY);
 
-    if (visible) {
+    if (true) {
         uint dci = atomicAdd(commandCount, 1);
 
         drawCommands[dci].count = chunk.numVertices;

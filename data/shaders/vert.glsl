@@ -1,6 +1,6 @@
 #version 460 core
 
-// #define VERTEX_PACKING
+#define VERTEX_PACKING
 
 struct Chunk {
     mat4 model;

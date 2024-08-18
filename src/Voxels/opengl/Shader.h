@@ -35,19 +35,6 @@ public:
 
 			vertexCode = vertexShaderStream.str();
 			fragmentCode = fragmentShaderStream.str();
-
-#ifdef VERTEX_PACKING
-            // Hack to ensure that VERTEX_PACKING is defined in the shader
-			int line = 0;
-			int pos = 0;
-			while (line != 2) {
-				if (vertexCode[pos] == '\n') {
-                    line++;
-                }
-                pos++;
-            }
-			vertexCode.erase(pos, 3);
-#endif
 		}
 		catch (std::ifstream::failure e) {
 			std::cout << "ERROR::SHADER::FILE_NOT_SUCCESFULLY_READ" << std::endl;

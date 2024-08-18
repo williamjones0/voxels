@@ -12,6 +12,7 @@
 //#include <chrono>
 //
 //#include "world/Chunk.hpp"
+//#include "world/Mesher.hpp"
 //#include "world/WorldMesh.hpp"
 //#include "opengl/Shader.h"
 //
@@ -129,21 +130,27 @@
 //
 //    const int NUM_AXIS_CHUNKS = WORLD_SIZE / CHUNK_SIZE;
 //    const int NUM_CHUNKS = NUM_AXIS_CHUNKS * NUM_AXIS_CHUNKS;
-//    unsigned int firstIndex = 0;
 //    std::vector<Chunk> chunks;
 //    for (int cx = 0; cx < NUM_AXIS_CHUNKS; ++cx) {
 //        for (int cz = 0; cz < NUM_AXIS_CHUNKS; ++cz) {
-//            Chunk chunk = Chunk(cx, cz, firstIndex);
+//            Chunk chunk = Chunk(cx, cz);
 //
 //            auto startTime = std::chrono::high_resolution_clock::now();
 //            chunk.init(worldMesh.data);
+//			chunk.generateVoxels2D();
+//            meshChunk(&chunk, WORLD_SIZE, worldMesh.data);
 //            auto endTime = std::chrono::high_resolution_clock::now();
 //            auto duration = std::chrono::duration_cast<std::chrono::microseconds>(endTime - startTime);
 //            std::cout << "Chunk " << cz + cx * NUM_AXIS_CHUNKS << " took " << duration.count() << "us to init" << std::endl << std::endl;
 //            chunks.push_back(chunk);
-//            firstIndex += chunk.numVertices;
 //        }
 //    }
+//
+//    unsigned int firstIndex = 0;
+//	for (size_t i = 0; i < NUM_CHUNKS; ++i) {
+//		chunks[i].firstIndex = firstIndex;
+//		firstIndex += chunks[i].numVertices;
+//	}
 //
 //    worldMesh.createBuffers();
 //
@@ -193,7 +200,7 @@
 //    glNamedBufferStorage(commandCountBuffer,
 //        sizeof(unsigned int),
 //        NULL,
-//        NULL);
+//        GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT);
 //    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, commandCountBuffer);
 //    glBindBuffer(GL_PARAMETER_BUFFER, commandCountBuffer);
 //
