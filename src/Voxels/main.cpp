@@ -688,25 +688,41 @@ void raycast_(float radius, std::vector<Chunk> &chunks, std::vector<ChunkData> &
                     // Change voxel to air
                     chunk.store(px % CHUNK_SIZE, py, pz % CHUNK_SIZE, 0);
 
+                    // Update minY
+                    chunk.minY = std::min(chunk.minY, py);
+
+                    std::vector<Chunk *> chunksToMesh;
+					chunksToMesh.push_back(&chunk);
+
                     // If the voxel is on a chunk boundary, update the neighboring chunk(s)
                     if (px % CHUNK_SIZE == 0 && cx > 0) {
                         Chunk &negXChunk = chunks[cz + (cx - 1) * (WORLD_SIZE / CHUNK_SIZE)];
                         negXChunk.store(CHUNK_SIZE, py, pz % CHUNK_SIZE, 0);
+						negXChunk.minY = std::min(negXChunk.minY, py);
+						chunksToMesh.push_back(&negXChunk);
                     } else if (px % CHUNK_SIZE == CHUNK_SIZE - 1 && cx < WORLD_SIZE / CHUNK_SIZE - 1) {
                         Chunk &posXChunk = chunks[cz + (cx + 1) * (WORLD_SIZE / CHUNK_SIZE)];
                         posXChunk.store(-1, py, pz % CHUNK_SIZE, 0);
+						posXChunk.minY = std::min(posXChunk.minY, py);
+						chunksToMesh.push_back(&posXChunk);
                     }
 
                     if (pz % CHUNK_SIZE == 0 && cz > 0) {
                         Chunk &negZChunk = chunks[cz - 1 + cx * (WORLD_SIZE / CHUNK_SIZE)];
                         negZChunk.store(px % CHUNK_SIZE, py, CHUNK_SIZE, 0);
+						negZChunk.minY = std::min(negZChunk.minY, py);
+						chunksToMesh.push_back(&negZChunk);
                     } else if (pz % CHUNK_SIZE == CHUNK_SIZE - 1 && cz < WORLD_SIZE / CHUNK_SIZE - 1) {
                         Chunk &posZChunk = chunks[cz + 1 + cx * (WORLD_SIZE / CHUNK_SIZE)];
                         posZChunk.store(px % CHUNK_SIZE, py, -1, 0);
+						posZChunk.minY = std::min(posZChunk.minY, py);
+						chunksToMesh.push_back(&posZChunk);
                     }
 
-                    // Update chunk
-                    meshChunk(&chunk, WORLD_SIZE, worldMesh, true);
+                    // Mesh chunks
+                    for (Chunk *c : chunksToMesh) {
+						meshChunk(c, WORLD_SIZE, worldMesh, true);
+                    }
 
                     //// TEST mesh all chunks
                     //worldMesh.data.clear();
