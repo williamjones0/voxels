@@ -6,7 +6,7 @@
 
 class WorldMesh {
 public:
-    WorldMesh();
+    WorldMesh(int numChunks);
 
     unsigned int VAO;
     unsigned int VBO;

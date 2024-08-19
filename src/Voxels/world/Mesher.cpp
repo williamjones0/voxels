@@ -537,7 +537,7 @@ void meshChunk(Chunk *chunk, int worldSize, std::vector<float> &data) {
     auto start = std::chrono::high_resolution_clock::now();
 
     if (reMesh) {
-        int chunkIndex = chunk->cz * worldSize + chunk->cx;
+        int chunkIndex = chunk->cx * (worldSize / CHUNK_SIZE) + chunk->cz;
         int chunkVertexStart = worldMesh.chunkVertexStarts[chunkIndex];
         int chunkVertexEnd;
         if (chunkIndex + 1 < worldMesh.chunkVertexStarts.size()) {
@@ -586,7 +586,7 @@ void meshChunk(Chunk *chunk, int worldSize, std::vector<float> &data) {
         //std::cout << "\n";
 
         if (reMesh) {
-            int chunkIndex = chunk->cz * worldSize + chunk->cx;
+            int chunkIndex = chunk->cx * (worldSize / CHUNK_SIZE) + chunk->cz;
             int chunkVertexStart = worldMesh.chunkVertexStarts[chunkIndex];
             worldMesh.data.insert(worldMesh.data.begin() + chunkVertexStart + i, vertex);
         } else {
@@ -596,7 +596,7 @@ void meshChunk(Chunk *chunk, int worldSize, std::vector<float> &data) {
 
     if (reMesh) {
         // Update the chunkVertexStarts
-        int chunkIndex = chunk->cz * worldSize + chunk->cx;
+        int chunkIndex = chunk->cx * (worldSize / CHUNK_SIZE) + chunk->cz;
         int chunkVertexStart = worldMesh.chunkVertexStarts[chunkIndex];
         int chunkVertexEnd;
         if (chunkIndex + 1 < worldMesh.chunkVertexStarts.size()) {
@@ -610,7 +610,10 @@ void meshChunk(Chunk *chunk, int worldSize, std::vector<float> &data) {
             worldMesh.chunkVertexStarts[i] += positions.size() / 3 - oldChunkVerticesSize;
         }
     } else {
-        worldMesh.chunkVertexStarts.push_back(worldMesh.data.size());
+        int chunkIndex = chunk->cx * (worldSize / CHUNK_SIZE) + chunk->cz;
+        if (chunkIndex + 1 < worldMesh.chunkVertexStarts.size()) {
+            worldMesh.chunkVertexStarts[chunkIndex + 1] = worldMesh.data.size();
+        }
     }
 
     //std::cout << "vertex push time: " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count() << "us\n";

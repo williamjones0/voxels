@@ -45,4 +45,11 @@ void WorldMesh::createBuffers() {
 #endif
 }
 
-WorldMesh::WorldMesh() {}
+WorldMesh::WorldMesh(int numChunks) {
+    VAO = 0;
+    VBO = 0;
+
+    chunkVertexStarts = std::vector<int>(numChunks);
+
+    chunkVertexStarts[0] = 0;
+}

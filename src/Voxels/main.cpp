@@ -165,12 +165,12 @@ int main() {
     Shader drawCommandShader("../../../../../data/shaders/drawcmd_comp.glsl");
     Shader lineShader("../../../../../data/shaders/line_vert.glsl", "../../../../../data/shaders/line_frag.glsl");
 
-    WorldMesh worldMesh;
-
     const int NUM_AXIS_CHUNKS = WORLD_SIZE / CHUNK_SIZE;
     const int NUM_CHUNKS = NUM_AXIS_CHUNKS * NUM_AXIS_CHUNKS;
     unsigned int firstIndex = 0;
     std::vector<Chunk> chunks(NUM_CHUNKS);
+
+    WorldMesh worldMesh(NUM_CHUNKS);
 
     //unsigned int numThreads = std::thread::hardware_concurrency();
     //std::cout << "Number of threads: " << numThreads << std::endl;
@@ -706,16 +706,16 @@ void raycast_(float radius, std::vector<Chunk> &chunks, std::vector<ChunkData> &
                     }
 
                     // Update chunk
-                    // meshChunk(&chunk, WORLD_SIZE, worldMesh, true);
+                    meshChunk(&chunk, WORLD_SIZE, worldMesh, true);
 
-                    // TEST mesh all chunks
-                    worldMesh.data.clear();
-                    for (int cx = 0; cx < WORLD_SIZE / CHUNK_SIZE; ++cx) {
-                        for (int cz = 0; cz < WORLD_SIZE / CHUNK_SIZE; ++cz) {
-                            Chunk &chunk = chunks[cz + cx * (WORLD_SIZE / CHUNK_SIZE)];
-                            meshChunk(&chunk, WORLD_SIZE, worldMesh);
-                        }
-                    }
+                    //// TEST mesh all chunks
+                    //worldMesh.data.clear();
+                    //for (int cx = 0; cx < WORLD_SIZE / CHUNK_SIZE; ++cx) {
+                    //    for (int cz = 0; cz < WORLD_SIZE / CHUNK_SIZE; ++cz) {
+                    //        Chunk &chunk = chunks[cz + cx * (WORLD_SIZE / CHUNK_SIZE)];
+                    //        meshChunk(&chunk, WORLD_SIZE, worldMesh);
+                    //    }
+                    //}
 
                     // Update firstIndex for all chunks
                     int firstIndex = 0;

@@ -141,9 +141,9 @@ void Chunk::generateVoxels2D() {
                 voxels[index] = voxelType;
             }
 
-            voxels[getVoxelIndex(x + 1, CHUNK_HEIGHT / 2, z + 1, CHUNK_SIZE + 2)] = 1;
+            //voxels[getVoxelIndex(x + 1, CHUNK_HEIGHT / 2, z + 1, CHUNK_SIZE + 2)] = 1;
 
-            maxY = std::max(maxY, CHUNK_HEIGHT / 2);
+            //maxY = std::max(maxY, CHUNK_HEIGHT / 2);
         }
     }
 
