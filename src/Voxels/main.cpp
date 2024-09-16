@@ -323,6 +323,7 @@ int main() {
         // Generate draw commands
         drawCommandShader.use();
         drawCommandShader.setVec4Array("frustum", frustum, 6);
+        drawCommandShader.setInt("CHUNK_SIZE", CHUNK_SIZE);
 
         glDispatchCompute(NUM_CHUNKS / 1, 1, 1);
         glMemoryBarrier(GL_COMMAND_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT);
@@ -462,179 +463,6 @@ void putMatrix(std::vector<T> &buffer, glm::mat<C, R, T> m) {
     }
 }
 
-float intbound(float s, float ds) {
-    // Find the smallest positive t such that s + t*ds is an integer.
-    if (ds < 0) {
-        return intbound(-s, -ds);
-    } else {
-        s = fmod(s, 1);
-        // problem is now s + t * ds = 1
-        return (1 - s) / ds;
-    }
-}
-
-void raycast(float radius, std::vector<Chunk> &chunks, WorldMesh &worldMesh, GLuint verticesBuffer, GLuint chunkDataBuffer) {
-    int x = floor(camera.position.x);
-    int y = floor(camera.position.y);
-    int z = floor(camera.position.z);
-
-    float dx = camera.front.x;
-    float dy = camera.front.y;
-    float dz = camera.front.z;
-
-    float stepX = (dx > 0) ? 1 : (dx < 0) ? -1 : 0;
-    float stepY = (dy > 0) ? 1 : (dy < 0) ? -1 : 0;
-    float stepZ = (dz > 0) ? 1 : (dz < 0) ? -1 : 0;
-
-    float tMaxX = (stepX > 0) ? (1 - (camera.position.x - x)) / abs(camera.front.x) : (camera.position.x - x) / abs(camera.front.x); // (x - camera.position.x) / camera.front.x; // intbound(camera.position.x, dx); // (stepX > 0) ? (ceil(x) - x) / dx : (x - floor(x)) / dx;
-    float tMaxY = (stepY > 0) ? (1 - (camera.position.y - y)) / abs(camera.front.y) : (camera.position.y - y) / abs(camera.front.y); // (y - camera.position.y) / camera.front.y; // intbound(camera.position.y, dy); // (stepY > 0) ? (ceil(y) - y) / dy : (y - floor(y)) / dy;
-    float tMaxZ = (stepZ > 0) ? (1 - (camera.position.z - z)) / abs(camera.front.z) : (camera.position.z - z) / abs(camera.front.z); // (z - camera.position.z) / camera.front.z; // intbound(camera.position.z, dz); // (stepZ > 0) ? (ceil(z) - z) / dz : (z - floor(z)) / dz;
-
-    float tDeltaX = (stepX != 0) ? stepX / dx : 0;
-    float tDeltaY = (stepY != 0) ? stepY / dy : 0;
-    float tDeltaZ = (stepZ != 0) ? stepZ / dz : 0;
-
-    glm::vec3 face = glm::vec3(0.0f);
-
-    radius /= sqrt(dx * dx + dy * dy + dz * dz);
-
-    while (
-        (stepX > 0 ? x < WORLD_SIZE : x >= 0) &&
-        (stepY > 0 ? y < CHUNK_HEIGHT : y >= 0) &&
-        (stepZ > 0 ? z < WORLD_SIZE : z >= 0)
-    ) {
-        if (!(x < 0 || y < 0 || z < 0 || x >= WORLD_SIZE || y >= CHUNK_HEIGHT || z >= WORLD_SIZE)) {
-            // Check if voxel is solid
-            int cx = x / CHUNK_SIZE;
-            int cz = z / CHUNK_SIZE;
-
-            Chunk &chunk = chunks[cz + cx * (WORLD_SIZE / CHUNK_SIZE)];
-            int v = chunk.load(x % CHUNK_SIZE, y, z % CHUNK_SIZE);
-            
-            if (v != 0) {
-                std::cout << "Voxel hit at " << x << ", " << y << ", " << z << std::endl;
-                // Change voxel to air
-                chunk.store(x % CHUNK_SIZE, y, z % CHUNK_SIZE, 0);
-
-                // If the voxel is on a chunk boundary, update the neighboring chunk(s)
-                if (x % CHUNK_SIZE == 0 && cx > 0) {
-                    Chunk &negXChunk = chunks[cz + (cx - 1) * (WORLD_SIZE / CHUNK_SIZE)];
-                    negXChunk.store(CHUNK_SIZE - 1, y, z % CHUNK_SIZE, 0);
-                }
-                else if (x % CHUNK_SIZE == CHUNK_SIZE - 1 && cx < WORLD_SIZE / CHUNK_SIZE) {
-                    Chunk &posXChunk = chunks[cz + (cx + 1) * (WORLD_SIZE / CHUNK_SIZE)];
-                    chunk.store(0, y, z % CHUNK_SIZE, 0);
-                }
-
-                if (z % CHUNK_SIZE == 0 && cz > 0) {
-                    Chunk &negZChunk = chunks[cz - 1 + cx * (WORLD_SIZE / CHUNK_SIZE)];
-                    negZChunk.store(x % CHUNK_SIZE, y, CHUNK_SIZE - 1, 0);
-                } else if (z % CHUNK_SIZE == CHUNK_SIZE - 1 && cz < WORLD_SIZE / CHUNK_SIZE) {
-                    Chunk &posZChunk = chunks[cz + 1 + cx * (WORLD_SIZE / CHUNK_SIZE)];
-                    posZChunk.store(x % CHUNK_SIZE, y, 0, 0);
-                }
-
-                // Update chunk
-                // meshChunk(&chunk, WORLD_SIZE, worldMesh, true);
-
-                // TEST mesh all chunks
-                worldMesh.data.clear();
-                for (int cx = 0; cx < WORLD_SIZE / CHUNK_SIZE; ++cx) {
-                    for (int cz = 0; cz < WORLD_SIZE / CHUNK_SIZE; ++cz) {
-                        Chunk &chunk = chunks[cz + cx * (WORLD_SIZE / CHUNK_SIZE)];
-                        meshChunk(&chunk, WORLD_SIZE, worldMesh);
-                    }
-                }
-
-                // Update firstIndex for all chunks
-                int firstIndex = 0;
-                for (int i = 0; i < (WORLD_SIZE / CHUNK_SIZE) * (WORLD_SIZE / CHUNK_SIZE); ++i) {
-                    chunks[i].firstIndex = firstIndex;
-                    firstIndex += chunks[i].numVertices;
-                }
-
-                // Update vertex buffer
-                glNamedBufferData(verticesBuffer, sizeof(uint32_t) * worldMesh.data.size(), (const void *)worldMesh.data.data(), GL_DYNAMIC_DRAW);
-                // glNamedBufferSubData(verticesBuffer, 0, sizeof(uint32_t) * worldMesh.data.size(), worldMesh.data.data());
-
-                // Update chunk data
-                ChunkData cd = {
-                    .model = chunk.model,
-                    .cx = chunk.cx,
-                    .cz = chunk.cz,
-                    .minY = chunk.minY,
-                    .maxY = chunk.maxY,
-                    .numVertices = chunk.numVertices,
-                    .firstIndex = chunk.firstIndex,
-                    ._pad0 = 0,
-                    ._pad1 = 0,
-                };
-
-                int index = cz + cx * (WORLD_SIZE / CHUNK_SIZE);
-                size_t offset = index * sizeof(ChunkData);
-
-                void *chunkDataBufferPtr = glMapNamedBufferRange(chunkDataBuffer, offset, sizeof(ChunkData), GL_MAP_WRITE_BIT | GL_MAP_PERSISTENT_BIT);
-
-                if (chunkDataBufferPtr) {
-                    // Perform the memory copy
-                    std::memcpy(chunkDataBufferPtr, &cd, sizeof(ChunkData));
-
-                    // Unmap the buffer after the operation
-                    if (!glUnmapNamedBuffer(chunkDataBuffer)) {
-                        std::cerr << "Failed to unmap buffer!" << std::endl;
-                    }
-                } else {
-                    std::cerr << "Failed to map buffer range!" << std::endl;
-                }
-
-                break;
-            }
-        }
-
-        if (tMaxX < tMaxY) {
-            if (tMaxX < tMaxZ) {
-                if (tMaxX > radius) break;
-
-                x += stepX;
-                tMaxX += tDeltaX;
-
-                face[0] = -stepX;
-                face[1] = 0;
-                face[2] = 0;
-            } else {
-                if (tMaxZ > radius) break;
-
-                z += stepZ;
-                tMaxZ += tDeltaZ;
-
-                face[0] = 0;
-                face[1] = 0;
-                face[2] = -stepZ;
-            }
-        } else {
-            if (tMaxY < tMaxZ) {
-                if (tMaxY > radius) break;
-
-                y += stepY;
-                tMaxY += tDeltaY;
-
-                face[0] = 0;
-                face[1] = -stepY;
-                face[2] = 0;
-            } else {
-                if (tMaxZ > radius) break;
-
-                z += stepZ;
-                tMaxZ += tDeltaZ;
-
-                face[0] = 0;
-                face[1] = 0;
-                face[2] = -stepZ;
-            }
-        }
-    }
-}
-
 int step(float edge, float x) {
     return x < edge ? 0 : 1;
 }
@@ -692,36 +520,60 @@ void raycast_(float radius, std::vector<Chunk> &chunks, std::vector<ChunkData> &
                     chunk.minY = std::min(chunk.minY, py);
 
                     std::vector<Chunk *> chunksToMesh;
-					chunksToMesh.push_back(&chunk);
+                    chunksToMesh.push_back(&chunk);
 
                     // If the voxel is on a chunk boundary, update the neighboring chunk(s)
                     if (px % CHUNK_SIZE == 0 && cx > 0) {
                         Chunk &negXChunk = chunks[cz + (cx - 1) * (WORLD_SIZE / CHUNK_SIZE)];
                         negXChunk.store(CHUNK_SIZE, py, pz % CHUNK_SIZE, 0);
-						negXChunk.minY = std::min(negXChunk.minY, py);
-						chunksToMesh.push_back(&negXChunk);
+                        negXChunk.minY = std::min(negXChunk.minY, py);
+                        chunksToMesh.push_back(&negXChunk);
+
+                        if (pz % CHUNK_SIZE == 0 && cz > 0) {
+                            Chunk &negXNegZChunk = chunks[cz - 1 + (cx - 1) * (WORLD_SIZE / CHUNK_SIZE)];
+                            negXNegZChunk.store(CHUNK_SIZE, py, CHUNK_SIZE, 0);
+                            negXNegZChunk.minY = std::min(negXNegZChunk.minY, py);
+                            chunksToMesh.push_back(&negXNegZChunk);
+                        } else if (pz % CHUNK_SIZE == CHUNK_SIZE - 1 && cz < WORLD_SIZE / CHUNK_SIZE - 1) {
+                            Chunk &negXPosZChunk = chunks[cz + 1 + (cx - 1) * (WORLD_SIZE / CHUNK_SIZE)];
+                            negXPosZChunk.store(CHUNK_SIZE, py, -1, 0);
+                            negXPosZChunk.minY = std::min(negXPosZChunk.minY, py);
+                            chunksToMesh.push_back(&negXPosZChunk);
+                        }
                     } else if (px % CHUNK_SIZE == CHUNK_SIZE - 1 && cx < WORLD_SIZE / CHUNK_SIZE - 1) {
                         Chunk &posXChunk = chunks[cz + (cx + 1) * (WORLD_SIZE / CHUNK_SIZE)];
                         posXChunk.store(-1, py, pz % CHUNK_SIZE, 0);
-						posXChunk.minY = std::min(posXChunk.minY, py);
-						chunksToMesh.push_back(&posXChunk);
+                        posXChunk.minY = std::min(posXChunk.minY, py);
+                        chunksToMesh.push_back(&posXChunk);
+
+                        if (pz % CHUNK_SIZE == 0 && cz > 0) {
+                            Chunk &posXNegZChunk = chunks[cz - 1 + (cx + 1) * (WORLD_SIZE / CHUNK_SIZE)];
+                            posXNegZChunk.store(-1, py, CHUNK_SIZE, 0);
+                            posXNegZChunk.minY = std::min(posXNegZChunk.minY, py);
+                            chunksToMesh.push_back(&posXNegZChunk);
+                        } else if (pz % CHUNK_SIZE == CHUNK_SIZE - 1 && cz < WORLD_SIZE / CHUNK_SIZE - 1) {
+                            Chunk &posXPosZChunk = chunks[cz + 1 + (cx + 1) * (WORLD_SIZE / CHUNK_SIZE)];
+                            posXPosZChunk.store(-1, py, -1, 0);
+                            posXPosZChunk.minY = std::min(posXPosZChunk.minY, py);
+                            chunksToMesh.push_back(&posXPosZChunk);
+                        }
                     }
 
                     if (pz % CHUNK_SIZE == 0 && cz > 0) {
                         Chunk &negZChunk = chunks[cz - 1 + cx * (WORLD_SIZE / CHUNK_SIZE)];
                         negZChunk.store(px % CHUNK_SIZE, py, CHUNK_SIZE, 0);
-						negZChunk.minY = std::min(negZChunk.minY, py);
-						chunksToMesh.push_back(&negZChunk);
+                        negZChunk.minY = std::min(negZChunk.minY, py);
+                        chunksToMesh.push_back(&negZChunk);
                     } else if (pz % CHUNK_SIZE == CHUNK_SIZE - 1 && cz < WORLD_SIZE / CHUNK_SIZE - 1) {
                         Chunk &posZChunk = chunks[cz + 1 + cx * (WORLD_SIZE / CHUNK_SIZE)];
                         posZChunk.store(px % CHUNK_SIZE, py, -1, 0);
-						posZChunk.minY = std::min(posZChunk.minY, py);
-						chunksToMesh.push_back(&posZChunk);
+                        posZChunk.minY = std::min(posZChunk.minY, py);
+                        chunksToMesh.push_back(&posZChunk);
                     }
 
                     // Mesh chunks
                     for (Chunk *c : chunksToMesh) {
-						meshChunk(c, WORLD_SIZE, worldMesh, true);
+                        meshChunk(c, WORLD_SIZE, worldMesh, true);
                     }
 
                     //// TEST mesh all chunks

@@ -2,7 +2,7 @@
 
 layout (local_size_x = 1, local_size_y = 1, local_size_z = 1) in;
 
-const int CHUNK_SIZE = 16;
+uniform int CHUNK_SIZE;
 
 struct Chunk {
     mat4 model;
@@ -72,7 +72,7 @@ void main() {
     Chunk chunk = chunks[index];
     bool visible = isVisible(chunk.cx, chunk.cz, chunk.minY, chunk.maxY);
 
-    if (true) {
+    if (visible) {
         uint dci = atomicAdd(commandCount, 1);
 
         drawCommands[dci].count = chunk.numVertices;
