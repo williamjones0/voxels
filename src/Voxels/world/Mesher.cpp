@@ -1,177 +1,56 @@
 #include "Mesher.hpp"
 
-#include <cstring>
-#include <iostream>
 #include <chrono>
-#include <bitset>
 
 #include "../util/PerlinNoise.hpp"
 #include "../util/Util.hpp"
 
-#define FRONT_FACE 0
-#define BACK_FACE 18
-#define LEFT_FACE 36
-#define RIGHT_FACE 54
-#define BOTTOM_FACE 72
-#define TOP_FACE 90
+constexpr int FRONT_FACE = 0;
+constexpr int BACK_FACE = 18;
+constexpr int LEFT_FACE = 36;
+constexpr int RIGHT_FACE = 54;
+constexpr int BOTTOM_FACE = 72;
+constexpr int TOP_FACE = 90;
 
-#define VERTICES_LENGTH 108
+constexpr int VERTICES_LENGTH = 108;
 
-#define FRONT_NORMAL 0
-#define BACK_NORMAL 1
-#define LEFT_NORMAL 2
-#define RIGHT_NORMAL 3
-#define BOTTOM_NORMAL 4
-#define TOP_NORMAL 5
+constexpr int FRONT_NORMAL = 0;
+constexpr int BACK_NORMAL = 1;
+constexpr int LEFT_NORMAL = 2;
+constexpr int RIGHT_NORMAL = 3;
+constexpr int BOTTOM_NORMAL = 4;
+constexpr int TOP_NORMAL = 5;
 
-static inline int vertexAO(uint8_t side1, uint8_t side2, uint8_t corner) {
+constexpr int COLOUR_GREEN = 0;
+constexpr int COLOUR_RED = 1;
+
+long long int Mesher::totalMesherTime = 0;
+long long int Mesher::presenceTime = 0;
+long long int Mesher::voxelAoTime = 0;
+long long int Mesher::aoPushTime = 0;
+long long int Mesher::addVertexTime = 0;
+
+inline int Mesher::vertexAO(uint8_t side1, uint8_t side2, uint8_t corner) {
     return (side1 && side2) ? 0 : (3 - (side1 + side2 + corner));
 }
 
-bool inBounds(int x, int y, int z, int size, int height) {
+bool Mesher::inBounds(int x, int y, int z, int size, int height) {
     return (0 <= x && x < size)
         && (0 <= y && y < height)
         && (0 <= z && z < size);
 }
 
-int dirToIndex(int i, int j, int k) {
+int Mesher::dirToIndex(int i, int j, int k) {
     return (i + 1) * 9 + (j + 1) * 3 + k + 1;
 }
 
-#ifdef VERTEX_PACKING
-void meshChunk(Chunk *chunk, int worldSize, WorldMesh &worldMesh, bool reMesh) {
-#else
-void meshChunk(Chunk *chunk, int worldSize, std::vector<float> &data) {
-#endif
+void Mesher::meshChunk(Chunk *chunk, int worldSize, WorldMesh &worldMesh, bool reMesh) {
     auto startTime = std::chrono::high_resolution_clock::now();
     std::vector<int> &voxels = chunk->voxels;
     std::vector<int> positions;
-    std::vector<float> colours;
+    std::vector<int> colours;
     std::vector<int> normals;
     std::vector<int> ao;
-
-    int vertices[] = {
-            // Front
-            0, 0, 0,
-            1, 0, 0,
-            1, 1, 0,
-            1, 1, 0,
-            0, 1, 0,
-            0, 0, 0,
-
-            // Back
-            0, 0, 1,
-            1, 0, 1,
-            1, 1, 1,
-            1, 1, 1,
-            0, 1, 1,
-            0, 0, 1,
-
-            // Left
-            0, 1, 1,
-            0, 1, 0,
-            0, 0, 0,
-            0, 0, 0,
-            0, 0, 1,
-            0, 1, 1,
-
-            // Right
-            1, 1, 1,
-            1, 1, 0,
-            1, 0, 0,
-            1, 0, 0,
-            1, 0, 1,
-            1, 1, 1,
-
-            // Bottom
-            0, 0, 0,
-            1, 0, 0,
-            1, 0, 1,
-            1, 0, 1,
-            0, 0, 1,
-            0, 0, 0,
-
-            // Top
-            0, 1, 0,
-            1, 1, 0,
-            1, 1, 1,
-            1, 1, 1,
-            0, 1, 1,
-            0, 1, 0
-    };
-
-    int flipped_vertices[] = {
-            // Front
-            0, 0, 0,
-            1, 0, 0,
-            0, 1, 0,
-            0, 1, 0,
-            1, 0, 0,
-            1, 1, 0,
-
-            // Back
-            0, 0, 1,
-            1, 0, 1,
-            0, 1, 1,
-            0, 1, 1,
-            1, 0, 1,
-            1, 1, 1,
-
-            // Left
-            0, 1, 1,
-            0, 1, 0,
-            0, 0, 1,
-            0, 0, 1,
-            0, 1, 0,
-            0, 0, 0,
-
-            // Right
-            1, 1, 1,
-            1, 1, 0,
-            1, 0, 1,
-            1, 0, 1,
-            1, 1, 0,
-            1, 0, 0,
-
-            // Bottom
-            0, 0, 0,
-            1, 0, 0,
-            0, 0, 1,
-            0, 0, 1,
-            1, 0, 0,
-            1, 0, 1,
-
-            // Top
-            0, 1, 0,
-            1, 1, 0,
-            0, 1, 1,
-            0, 1, 1,
-            1, 1, 0,
-            1, 1, 1,
-    };
-
-    float red_face[] = {
-            0.6, 0.1, 0.1,
-            0.6, 0.1, 0.1,
-            0.6, 0.1, 0.1,
-            0.6, 0.1, 0.1,
-            0.6, 0.1, 0.1,
-            0.6, 0.1, 0.1
-    };
-
-    float green_face[] = {
-            0.278, 0.600, 0.141,
-            0.278, 0.600, 0.141,
-            0.278, 0.600, 0.141,
-            0.278, 0.600, 0.141,
-            0.278, 0.600, 0.141,
-            0.278, 0.600, 0.141
-    };
-
-    volatile long long int presenceTime = 0;
-    volatile long long int voxelAoTime = 0;
-    volatile long long int aoPushTime = 0;
-    volatile long long int addVertexTime = 0;
 
     auto endInitTime = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(endInitTime - startTime);
@@ -186,7 +65,7 @@ void meshChunk(Chunk *chunk, int worldSize, std::vector<float> &data) {
                     auto start = std::chrono::high_resolution_clock::now();
                     // Ambient occlusion (computed first so that quads can be flipped if necessary)
                     // (-1, -1, -1) to (1, 1, 1)
-                    std::array<bool, 27> presence;
+                    std::array<bool, 27> presence{};
                     int index = 0;
                     for (int i = -1; i <= 1; ++i) {
                         for (int j = -1; j <= 1; ++j) {
@@ -202,7 +81,7 @@ void meshChunk(Chunk *chunk, int worldSize, std::vector<float> &data) {
 
                     start = std::chrono::high_resolution_clock::now();
 
-                    std::array<int, 24> voxelAo;
+                    std::array<int, 24> voxelAo{};
 
                     // Top
                     voxelAo[0] = (vertexAO(presence[dirToIndex(0, +1, -1)], presence[dirToIndex(-1, +1, 0)],
@@ -389,19 +268,17 @@ void meshChunk(Chunk *chunk, int worldSize, std::vector<float> &data) {
 
                     // Add vertices
                     int *translated_vertices = new int[VERTICES_LENGTH];
-                    std::memcpy(translated_vertices, vertices, VERTICES_LENGTH * sizeof(int));
                     for (int k = 0; k < 36; ++k) {
-                        translated_vertices[3 * k] += x - 1;
-                        translated_vertices[3 * k + 1] += y;
-                        translated_vertices[3 * k + 2] += z - 1;
+                        translated_vertices[3 * k] = vertices[3 * k] + x - 1;
+                        translated_vertices[3 * k + 1] = vertices[3 * k + 1] + y;
+                        translated_vertices[3 * k + 2] = vertices[3 * k + 2] + z - 1;
                     }
 
                     int *translated_flipped_vertices = new int[VERTICES_LENGTH];
-                    std::memcpy(translated_flipped_vertices, flipped_vertices, VERTICES_LENGTH * sizeof(int));
                     for (int k = 0; k < 36; ++k) {
-                        translated_flipped_vertices[3 * k] += x - 1;
-                        translated_flipped_vertices[3 * k + 1] += y;
-                        translated_flipped_vertices[3 * k + 2] += z - 1;
+                        translated_flipped_vertices[3 * k] = flipped_vertices[3 * k] + x - 1;
+                        translated_flipped_vertices[3 * k + 1] = flipped_vertices[3 * k + 1] + y;
+                        translated_flipped_vertices[3 * k + 2] = flipped_vertices[3 * k + 2] + z - 1;
                     }
 
                     // Top face
@@ -416,7 +293,11 @@ void meshChunk(Chunk *chunk, int worldSize, std::vector<float> &data) {
                         for (int i = 0; i < 6; i++) {
                             normals.push_back(TOP_NORMAL);
                         }
-                        colours.insert(colours.end(), &green_face[0], &green_face[18]);
+                        if (voxel == 1) {
+                            colours.push_back(COLOUR_GREEN);
+                        } else {
+                            colours.push_back(COLOUR_RED);
+                        }
                     }
 
                     // Bottom
@@ -432,9 +313,9 @@ void meshChunk(Chunk *chunk, int worldSize, std::vector<float> &data) {
                             normals.push_back(BOTTOM_NORMAL);
                         }
                         if (voxel == 1) {
-                            colours.insert(colours.end(), &green_face[0], &green_face[18]);
+                            colours.push_back(COLOUR_GREEN);
                         } else {
-                            colours.insert(colours.end(), &red_face[0], &red_face[18]);
+                            colours.push_back(COLOUR_RED);
                         }
                     }
 
@@ -451,9 +332,9 @@ void meshChunk(Chunk *chunk, int worldSize, std::vector<float> &data) {
                             normals.push_back(LEFT_NORMAL);
                         }
                         if (voxel == 1) {
-                            colours.insert(colours.end(), &green_face[0], &green_face[18]);
+                            colours.push_back(COLOUR_GREEN);
                         } else {
-                            colours.insert(colours.end(), &red_face[0], &red_face[18]);
+                            colours.push_back(COLOUR_RED);
                         }
                     }
 
@@ -470,9 +351,9 @@ void meshChunk(Chunk *chunk, int worldSize, std::vector<float> &data) {
                             normals.push_back(RIGHT_NORMAL);
                         }
                         if (voxel == 1) {
-                            colours.insert(colours.end(), &green_face[0], &green_face[18]);
+                            colours.push_back(COLOUR_GREEN);
                         } else {
-                            colours.insert(colours.end(), &red_face[0], &red_face[18]);
+                            colours.push_back(COLOUR_RED);
                         }
                     }
 
@@ -489,9 +370,9 @@ void meshChunk(Chunk *chunk, int worldSize, std::vector<float> &data) {
                             normals.push_back(FRONT_NORMAL);
                         }
                         if (voxel == 1) {
-                            colours.insert(colours.end(), &green_face[0], &green_face[18]);
+                            colours.push_back(COLOUR_GREEN);
                         } else {
-                            colours.insert(colours.end(), &red_face[0], &red_face[18]);
+                            colours.push_back(COLOUR_RED);
                         }
                     }
 
@@ -508,9 +389,9 @@ void meshChunk(Chunk *chunk, int worldSize, std::vector<float> &data) {
                             normals.push_back(BACK_NORMAL);
                         }
                         if (voxel == 1) {
-                            colours.insert(colours.end(), &green_face[0], &green_face[18]);
+                            colours.push_back(COLOUR_GREEN);
                         } else {
-                            colours.insert(colours.end(), &red_face[0], &red_face[18]);
+                            colours.push_back(COLOUR_RED);
                         }
                     }
 
@@ -551,18 +432,11 @@ void meshChunk(Chunk *chunk, int worldSize, std::vector<float> &data) {
     }
 
     for (int i = 0; i < positions.size() / 3; ++i) {
-        uint32_t colour;
-        if (colours[3 * i] == 0.278f) {
-            colour = 0;
-        } else {
-            colour = 1;
-        }
-
         uint32_t vertex =
             (uint32_t)positions[3 * i] |
             ((uint32_t)positions[3 * i + 1] << (CHUNK_SIZE_SHIFT + 1)) |
             ((uint32_t)positions[3 * i + 2] << (CHUNK_SIZE_SHIFT + CHUNK_HEIGHT_SHIFT + 2)) |
-            (colour << (2 * CHUNK_SIZE_SHIFT + CHUNK_HEIGHT_SHIFT + 3)) |
+            ((uint32_t)colours[i / 6] << (2 * CHUNK_SIZE_SHIFT + CHUNK_HEIGHT_SHIFT + 3)) |
             ((uint32_t)normals[i] << (2 * CHUNK_SIZE_SHIFT + CHUNK_HEIGHT_SHIFT + 4)) |
             ((uint32_t)ao[i] << (2 * CHUNK_SIZE_SHIFT + CHUNK_HEIGHT_SHIFT + 7));
 
@@ -624,7 +498,7 @@ void meshChunk(Chunk *chunk, int worldSize, std::vector<float> &data) {
     //std::cout << "meshChunk in-function time: " << std::chrono::duration_cast<std::chrono::microseconds>(endTime - startTime).count() << "us\n";
 }
 
-bool boundsCheck(int x, int y, int z, int i, int j, int k, int worldSize, std::vector<int> &voxels) {
+bool Mesher::boundsCheck(int x, int y, int z, int i, int j, int k, int worldSize, std::vector<int> &voxels) {
     bool adjInBounds = inBounds(x + i, y + j, z + k, worldSize + 2, CHUNK_HEIGHT);
 
     bool isAdjVoxelEmpty = true;

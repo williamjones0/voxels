@@ -1,25 +1,19 @@
 #include "Chunk.hpp"
 
-#include <glad/glad.h>
 #include <glm/ext/matrix_transform.hpp>
 
 #include <iostream>
-#include <chrono>
 #include <fstream>
 #include <sstream>
 
-#include "Mesher.hpp"
 #include "../util/PerlinNoise.hpp"
 #include "../util/Util.hpp"
-#include "../util/Flags.h"
 
 #define EPSILON 0.000001
 
-Chunk::Chunk(void) : cx(0), cz(0), minY(CHUNK_HEIGHT), maxY(0), VAO(0), dataVBO(0), numVertices(0), firstIndex(0), model(glm::mat4(1.0f)), voxels((CHUNK_SIZE + 2) * (CHUNK_SIZE + 2) * (CHUNK_HEIGHT + 2)) {}
+Chunk::Chunk() : cx(0), cz(0), minY(CHUNK_HEIGHT), maxY(0), VAO(0), dataVBO(0), numVertices(0), firstIndex(0), model(glm::mat4(1.0f)), voxels((CHUNK_SIZE + 2) * (CHUNK_SIZE + 2) * (CHUNK_HEIGHT + 2)) {}
 
 Chunk::Chunk(int cx, int cz) : cx(cx), cz(cz), minY(CHUNK_HEIGHT), maxY(0), VAO(0), dataVBO(0), numVertices(0), firstIndex(0), model(glm::mat4(1.0f)), voxels((CHUNK_SIZE + 2) * (CHUNK_SIZE + 2) * (CHUNK_HEIGHT + 2)) {}
-
-Chunk::Chunk(const Chunk &other) : cx(other.cx), cz(other.cz), minY(other.minY), maxY(other.maxY), VAO(other.VAO), dataVBO(other.dataVBO), numVertices(other.numVertices), firstIndex(other.firstIndex), model(other.model), voxels(other.voxels) {}
 
 Chunk &Chunk::operator=(const Chunk &other) {
     if (this != &other) {
@@ -54,7 +48,7 @@ Chunk &Chunk::operator=(Chunk &&other) noexcept {
         dataVBO = other.dataVBO;
         numVertices = other.numVertices;
         firstIndex = other.firstIndex;
-        model = std::move(other.model);
+        model = other.model;
         voxels = std::move(other.voxels);
 
         other.VAO = 0;
@@ -73,11 +67,7 @@ int Chunk::load(int x, int y, int z) {
     return voxels[getVoxelIndex(x + 1, y + 1, z + 1, CHUNK_SIZE + 2)];
 }
 
-#ifdef VERTEX_PACKING
-void Chunk::init(std::vector<uint32_t> &data) {
-#else
-void Chunk::init(std::vector<float> &data) {
-#endif
+void Chunk::init() {
     model = glm::translate(glm::mat4(1.0f), glm::vec3(cx * CHUNK_SIZE, 0, cz * CHUNK_SIZE));
     voxels = std::vector<int>((CHUNK_SIZE + 2) * (CHUNK_SIZE + 2) * (CHUNK_HEIGHT + 2));
 }
@@ -140,10 +130,6 @@ void Chunk::generateVoxels2D() {
                 }
                 voxels[index] = voxelType;
             }
-
-            //voxels[getVoxelIndex(x + 1, CHUNK_HEIGHT / 2, z + 1, CHUNK_SIZE + 2)] = 1;
-
-            //maxY = std::max(maxY, CHUNK_HEIGHT / 2);
         }
     }
 
@@ -178,7 +164,7 @@ void Chunk::generateVoxels3D() {
     maxY = std::min(CHUNK_HEIGHT, maxY + 2);
 }
 
-void Chunk::generateVoxels(std::string path) {
+void Chunk::generateVoxels(const std::string &path) {
     std::ifstream infile(path);
 
     std::string line;

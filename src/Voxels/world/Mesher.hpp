@@ -5,18 +5,126 @@
 
 #include "Chunk.hpp"
 #include "WorldMesh.hpp"
-#include "../util/Flags.h"
 
-static inline int vertexAO(uint8_t side1, uint8_t side2, uint8_t corner);
+class Mesher {
+public:
+    static void meshChunk(Chunk *chunk, int worldSize, WorldMesh &worldMesh, bool reMesh = false);
 
-bool inBounds(int x, int y, int z, int size, int height);
+    static long long int totalMesherTime;
 
-int dirToIndex(int i, int j, int k);
+private:
+    static inline int vertexAO(uint8_t side1, uint8_t side2, uint8_t corner);
 
-#ifdef VERTEX_PACKING
-void meshChunk(Chunk *chunk, int worldSize, WorldMesh &worldMesh, bool reMesh = false);
-#else
-void meshChunk(Chunk *chunk, int worldSize, std::vector<float> &data);
-#endif
+    static bool inBounds(int x, int y, int z, int size, int height);
 
-bool boundsCheck(int x, int y, int z, int i, int j, int k, int worldSize, std::vector<int> &voxels);
+    static int dirToIndex(int i, int j, int k);
+
+    static bool boundsCheck(int x, int y, int z, int i, int j, int k, int worldSize, std::vector<int> &voxels);
+
+    static long long int presenceTime;
+    static long long int voxelAoTime;
+    static long long int aoPushTime;
+    static long long int addVertexTime;
+};
+
+namespace {
+    constexpr int vertices[] = {
+            // Front
+            0, 0, 0,
+            1, 0, 0,
+            1, 1, 0,
+            1, 1, 0,
+            0, 1, 0,
+            0, 0, 0,
+
+            // Back
+            0, 0, 1,
+            1, 0, 1,
+            1, 1, 1,
+            1, 1, 1,
+            0, 1, 1,
+            0, 0, 1,
+
+            // Left
+            0, 1, 1,
+            0, 1, 0,
+            0, 0, 0,
+            0, 0, 0,
+            0, 0, 1,
+            0, 1, 1,
+
+            // Right
+            1, 1, 1,
+            1, 1, 0,
+            1, 0, 0,
+            1, 0, 0,
+            1, 0, 1,
+            1, 1, 1,
+
+            // Bottom
+            0, 0, 0,
+            1, 0, 0,
+            1, 0, 1,
+            1, 0, 1,
+            0, 0, 1,
+            0, 0, 0,
+
+            // Top
+            0, 1, 0,
+            1, 1, 0,
+            1, 1, 1,
+            1, 1, 1,
+            0, 1, 1,
+            0, 1, 0
+    };
+
+    constexpr int flipped_vertices[] = {
+            // Front
+            0, 0, 0,
+            1, 0, 0,
+            0, 1, 0,
+            0, 1, 0,
+            1, 0, 0,
+            1, 1, 0,
+
+            // Back
+            0, 0, 1,
+            1, 0, 1,
+            0, 1, 1,
+            0, 1, 1,
+            1, 0, 1,
+            1, 1, 1,
+
+            // Left
+            0, 1, 1,
+            0, 1, 0,
+            0, 0, 1,
+            0, 0, 1,
+            0, 1, 0,
+            0, 0, 0,
+
+            // Right
+            1, 1, 1,
+            1, 1, 0,
+            1, 0, 1,
+            1, 0, 1,
+            1, 1, 0,
+            1, 0, 0,
+
+            // Bottom
+            0, 0, 0,
+            1, 0, 0,
+            0, 0, 1,
+            0, 0, 1,
+            1, 0, 0,
+            1, 0, 1,
+
+            // Top
+            0, 1, 0,
+            1, 1, 0,
+            0, 1, 1,
+            0, 1, 1,
+            1, 1, 0,
+            1, 1, 1,
+    };
+}

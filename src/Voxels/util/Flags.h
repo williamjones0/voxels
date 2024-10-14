@@ -1,1 +1,0 @@
-#define VERTEX_PACKING

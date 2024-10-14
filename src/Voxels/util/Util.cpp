@@ -12,7 +12,7 @@ float clamp(float x, float low, float high) {
 }
 
 template<typename T>
-void debugPrint(std::vector<T>& vec, int stride) {
+void debugPrint(std::vector<T> &vec, int stride) {
     for (int i = 0; i < vec.size(); ++i) {
         std::cout << vec[i] << " ";
         if (i % stride == stride - 1) {
@@ -20,5 +20,3 @@ void debugPrint(std::vector<T>& vec, int stride) {
         }
     }
 }
-
-long long int totalMesherTime = 0;

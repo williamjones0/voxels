@@ -21,6 +21,14 @@
 //    unsigned int baseInstance;
 //} DrawArraysIndirectCommand;
 //
+//typedef struct {
+//    unsigned int count;
+//    unsigned int instanceCount;
+//	unsigned int firstIndex;
+//	int baseVertex;
+//	unsigned int baseInstance;
+//} DrawElementsIndirectCommand;
+//
 //void GLAPIENTRY MessageCallback(
 //    GLenum source,
 //    GLenum type,
@@ -103,15 +111,27 @@
 //        }
 //    }
 //
+//	std::vector<unsigned int> indices;
+//    for (int i = 0; i < NUM_TRIANGLES; ++i) {
+//		indices.push_back(0);
+//		indices.push_back(1);
+//		indices.push_back(2);
+//    }
+//
 //    unsigned int VAO;
 //    unsigned int VBO;
+//    unsigned int IBO;
 //
 //    glCreateBuffers(1, &VBO);
 //    glNamedBufferStorage(VBO, sizeof(float) * positions.size(), positions.data(), GL_DYNAMIC_STORAGE_BIT);
 //
+//	glCreateBuffers(1, &IBO);
+//	glNamedBufferStorage(IBO, sizeof(unsigned int) * indices.size(), indices.data(), GL_DYNAMIC_STORAGE_BIT);
+//
 //    glCreateVertexArrays(1, &VAO);
 //
 //    glVertexArrayVertexBuffer(VAO, 0, VBO, 0, sizeof(float) * 3);
+//    glVertexArrayElementBuffer(VAO, IBO);
 //    
 //    glEnableVertexArrayAttrib(VAO, 0);
 //
@@ -119,13 +139,14 @@
 //
 //    glVertexArrayAttribBinding(VAO, 0, 0);
 //
-//    std::vector<DrawArraysIndirectCommand> commands;
+//    std::vector<DrawElementsIndirectCommand> commands;
 //    unsigned int firstIndex = 0;
 //    for (int i = 0; i < NUM_TRIANGLES; ++i) {
-//        DrawArraysIndirectCommand triangleCmd = {
+//        DrawElementsIndirectCommand triangleCmd = {
 //            .count = 3,
 //            .instanceCount = 1,
 //            .firstIndex = firstIndex,
+//            .baseVertex = 0,
 //            .baseInstance = 0
 //        };
 //        commands.push_back(triangleCmd);
@@ -142,7 +163,7 @@
 //    GLuint drawCmdBuffer;
 //    glCreateBuffers(1, &drawCmdBuffer);
 //    glNamedBufferStorage(drawCmdBuffer,
-//        sizeof(DrawArraysIndirectCommand) * commands.size(),
+//        sizeof(DrawElementsIndirectCommand) * commands.size(),
 //        (const void *)commands.data(),
 //        GL_DYNAMIC_STORAGE_BIT);
 //
@@ -151,9 +172,14 @@
 //        offsets.push_back(i);
 //    }
 //
+//    //GLuint offsetBuffer;
+//	//glGenBuffers(1, &offsetBuffer);
+//	//glBindBuffer(GL_SHADER_STORAGE_BUFFER, offsetBuffer);
+//	//glBufferData(GL_SHADER_STORAGE_BUFFER, sizeof(float) * offsets.size(), offsets.data(), GL_DYNAMIC_DRAW);
+//	//glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, offsetBuffer);
+//
 //    GLuint offsetBuffer;
 //    glCreateBuffers(1, &offsetBuffer);
-//
 //    glNamedBufferStorage(offsetBuffer,
 //        sizeof(float) * offsets.size(),
 //        (const void *)offsets.data(),
@@ -168,10 +194,17 @@
 //
 //        shader.use();
 //
-//        glBindVertexArray(VAO);
-//        glBindBuffer(GL_ARRAY_BUFFER, VBO);
-//        glBindBuffer(GL_DRAW_INDIRECT_BUFFER, drawCmdBuffer);
-//        glMultiDrawArraysIndirect(GL_TRIANGLES, 0, commands.size(), sizeof(DrawArraysIndirectCommand));
+//        //glBindVertexArray(VAO);
+//        //glBindBuffer(GL_ARRAY_BUFFER, VBO);
+//        //glBindBuffer(GL_DRAW_INDIRECT_BUFFER, drawCmdBuffer);
+//        //glMultiDrawArraysIndirect(GL_TRIANGLES, 0, commands.size(), sizeof(DrawArraysIndirectCommand));
+//
+//        // Elements version
+//		glBindVertexArray(VAO);
+//		glBindBuffer(GL_ARRAY_BUFFER, VBO);
+//		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
+//		glBindBuffer(GL_DRAW_INDIRECT_BUFFER, drawCmdBuffer);
+//		glMultiDrawElementsIndirect(GL_TRIANGLES, GL_UNSIGNED_INT, 0, commands.size(), 0);
 //
 //        glfwPollEvents();
 //        glfwSwapBuffers(window);
