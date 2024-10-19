@@ -109,7 +109,6 @@ public:
     }
 
 private:
-//    static constexpr const char *pathPrefix = "../../../../../data/shaders/";
     static constexpr const char *pathPrefix = "data/shaders/";
 
     static unsigned int createShader(const std::string &name, GLenum type) {

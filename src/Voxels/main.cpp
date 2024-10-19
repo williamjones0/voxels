@@ -54,6 +54,7 @@ typedef struct {
     int x;
     int y;
     int z;
+    int face;
 } RaycastResult;
 
 void framebuffer_size_callback(GLFWwindow *window, int width, int height);
@@ -67,7 +68,7 @@ template<glm::length_t C, glm::length_t R, typename T>
 void putMatrix(std::vector<T> &buffer, glm::mat<C, R, T> m);
 
 RaycastResult raycast(std::vector<Chunk> &chunks);
-void updateVoxel(World world, RaycastResult result);
+void updateVoxel(World world, RaycastResult result, bool place);
 
 const unsigned int SCREEN_WIDTH = 2560 * 0.8;
 const unsigned int SCREEN_HEIGHT = 1600 * 0.8;
@@ -407,7 +408,7 @@ void processInput(GLFWwindow *window, World world) {
         if (!lastFrameMousePresses.contains(GLFW_MOUSE_BUTTON_LEFT)) {
             RaycastResult result = raycast(world.chunks);
             if (result.chunkIndex != -1) {
-                updateVoxel(world, result);
+                updateVoxel(world, result, false);
             }
         }
 
@@ -417,6 +418,19 @@ void processInput(GLFWwindow *window, World world) {
     }
 
     if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_RIGHT) == GLFW_PRESS) {
+        if (!lastFrameMousePresses.contains(GLFW_MOUSE_BUTTON_RIGHT)) {
+            RaycastResult result = raycast(world.chunks);
+            if (result.chunkIndex != -1) {
+                updateVoxel(world, result, true);
+            }
+        }
+
+        lastFrameMousePresses.insert(GLFW_MOUSE_BUTTON_RIGHT);
+    } else {
+        lastFrameMousePresses.erase(GLFW_MOUSE_BUTTON_RIGHT);
+    }
+
+    if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_4) == GLFW_PRESS) {
         camera.movementSpeed = 100.0f;
     } else {
         camera.movementSpeed = 10.0f;
@@ -502,6 +516,8 @@ RaycastResult raycast(std::vector<Chunk> &chunks) {
 
     int cmpx = 0, cmpy = 0, cmpz = 0;
 
+    int faceHit = -1;
+
     for (int i = 0; i < maxSteps && py >= 0; i++) {
         if (i > 0 && py < CHUNK_HEIGHT) {
             int cx = px / CHUNK_SIZE;
@@ -512,12 +528,13 @@ RaycastResult raycast(std::vector<Chunk> &chunks) {
                 int v = chunk.load(px % CHUNK_SIZE, py, pz % CHUNK_SIZE);
 
                 if (v != 0) {
-                    std::cout << "Voxel hit at " << px << ", " << py << ", " << pz << std::endl;
+                    std::cout << "Voxel hit at " << px << ", " << py << ", " << pz << ", face: " << faceHit << std::endl;
                     return RaycastResult {
                         .chunkIndex = cz + cx * (WORLD_SIZE / CHUNK_SIZE),
                         .x = px % CHUNK_SIZE,
                         .y = py,
                         .z = pz % CHUNK_SIZE,
+                        .face = faceHit
                     };
                 }
             }
@@ -527,6 +544,14 @@ RaycastResult raycast(std::vector<Chunk> &chunks) {
         cmpx = step(tx, tz) * step(tx, ty);
         cmpy = step(ty, tx) * step(ty, tz);
         cmpz = step(tz, ty) * step(tz, tx);
+
+        if (cmpx) {
+            faceHit = (sx < 0) ? 0 : 1;  // 0: +x, 1: -x
+        } else if (cmpy) {
+            faceHit = (sy < 0) ? 2 : 3;  // 2: +y, 3: -y
+        } else if (cmpz) {
+            faceHit = (sz < 0) ? 4 : 5;  // 4: +z, 5: -z
+        }
 
         tx += dtx * cmpx;
         ty += dty * cmpy;
@@ -542,67 +567,135 @@ RaycastResult raycast(std::vector<Chunk> &chunks) {
         .x = -1,
         .y = -1,
         .z = -1,
+        .face = -1
     };
 }
 
-void updateVoxel(World world, RaycastResult result) {
-    Chunk &chunk = world.chunks[result.chunkIndex];
+void updateVoxel(World world, RaycastResult result, bool place) {
+    Chunk *chunk = &world.chunks[result.chunkIndex];
 
-    // Change voxel to air
-    chunk.store(result.x, result.y, result.z, 0);
+    if (place) {
+        if (result.face == 0) {
+            if (result.x == CHUNK_SIZE - 1) {
+                if (chunk->cx == WORLD_SIZE / CHUNK_SIZE - 1) {
+                    return;
+                }
+                chunk = &world.chunks[chunk->cz + (chunk->cx + 1) * (WORLD_SIZE / CHUNK_SIZE)];
+                result.x = 0;
+                result.chunkIndex += WORLD_SIZE / CHUNK_SIZE;
+            } else {
+                result.x++;
+            }
+        } else if (result.face == 1) {
+            if (result.x == 0) {
+                if (chunk->cx == 0) {
+                    return;
+                }
+                chunk = &world.chunks[chunk->cz + (chunk->cx - 1) * (WORLD_SIZE / CHUNK_SIZE)];
+                result.x = CHUNK_SIZE - 1;
+                result.chunkIndex -= WORLD_SIZE / CHUNK_SIZE;
+            } else {
+                result.x--;
+            }
+        } else if (result.face == 2) {
+            if (result.y == CHUNK_HEIGHT - 2) {
+                return;
+            }
+            result.y++;
+        } else if (result.face == 3) {
+            if (result.y == 0) {
+                return;
+            }
+            result.y--;
+        } else if (result.face == 4) {
+            if (result.z == CHUNK_SIZE - 1) {
+                if (chunk->cz == WORLD_SIZE / CHUNK_SIZE - 1) {
+                    return;
+                }
+                chunk = &world.chunks[chunk->cz + 1 + chunk->cx * (WORLD_SIZE / CHUNK_SIZE)];
+                result.z = 0;
+                result.chunkIndex++;
+            } else {
+                result.z++;
+            }
+        } else if (result.face == 5) {
+            if (result.z == 0) {
+                if (chunk->cz == 0) {
+                    return;
+                }
+                chunk = &world.chunks[chunk->cz - 1 + chunk->cx * (WORLD_SIZE / CHUNK_SIZE)];
+                result.z = CHUNK_SIZE - 1;
+                result.chunkIndex--;
+            } else {
+                result.z--;
+            }
+        }
+    }
 
-    // Update minY
-    chunk.minY = std::min(chunk.minY, result.y);
+    // Change voxel value
+    chunk->store(result.x, result.y, result.z, place ? 1 : 0);
+
+    // Update minY and maxY
+    chunk->minY = std::min(chunk->minY, result.y);
+    chunk->maxY = std::max(chunk->maxY, result.y + 2);
 
     std::vector<Chunk *> chunksToMesh;
-    chunksToMesh.push_back(&chunk);
+    chunksToMesh.push_back(chunk);
 
     // If the voxel is on a chunk boundary, update the neighboring chunk(s)
-    if (result.x == 0 && chunk.cx > 0) {
-        Chunk &negXChunk = world.chunks[chunk.cz + (chunk.cx - 1) * (WORLD_SIZE / CHUNK_SIZE)];
-        negXChunk.store(CHUNK_SIZE, result.y, result.z, 0);
+    if (result.x == 0 && chunk->cx > 0) {
+        Chunk &negXChunk = world.chunks[chunk->cz + (chunk->cx - 1) * (WORLD_SIZE / CHUNK_SIZE)];
+        negXChunk.store(CHUNK_SIZE, result.y, result.z, place ? 1 : 0);
         negXChunk.minY = std::min(negXChunk.minY, result.y);
+        negXChunk.maxY = std::max(negXChunk.maxY, result.y + 2);
         chunksToMesh.push_back(&negXChunk);
 
-        if (result.z == 0 && chunk.cz > 0) {
-            Chunk &negXNegZChunk = world.chunks[chunk.cz - 1 + (chunk.cx - 1) * (WORLD_SIZE / CHUNK_SIZE)];
-            negXNegZChunk.store(CHUNK_SIZE, result.y, CHUNK_SIZE, 0);
+        if (result.z == 0 && chunk->cz > 0) {
+            Chunk &negXNegZChunk = world.chunks[chunk->cz - 1 + (chunk->cx - 1) * (WORLD_SIZE / CHUNK_SIZE)];
+            negXNegZChunk.store(CHUNK_SIZE, result.y, CHUNK_SIZE, place ? 1 : 0);
             negXNegZChunk.minY = std::min(negXNegZChunk.minY, result.y);
+            negXNegZChunk.maxY = std::max(negXNegZChunk.maxY, result.y + 2);
             chunksToMesh.push_back(&negXNegZChunk);
-        } else if (result.z == CHUNK_SIZE - 1 && chunk.cz < WORLD_SIZE / CHUNK_SIZE - 1) {
-            Chunk &negXPosZChunk = world.chunks[chunk.cz + 1 + (chunk.cx - 1) * (WORLD_SIZE / CHUNK_SIZE)];
-            negXPosZChunk.store(CHUNK_SIZE, result.y, -1, 0);
+        } else if (result.z == CHUNK_SIZE - 1 && chunk->cz < WORLD_SIZE / CHUNK_SIZE - 1) {
+            Chunk &negXPosZChunk = world.chunks[chunk->cz + 1 + (chunk->cx - 1) * (WORLD_SIZE / CHUNK_SIZE)];
+            negXPosZChunk.store(CHUNK_SIZE, result.y, -1, place ? 1 : 0);
             negXPosZChunk.minY = std::min(negXPosZChunk.minY, result.y);
+            negXPosZChunk.maxY = std::max(negXPosZChunk.maxY, result.y + 2);
             chunksToMesh.push_back(&negXPosZChunk);
         }
-    } else if (result.x == CHUNK_SIZE - 1 && chunk.cx < WORLD_SIZE / CHUNK_SIZE - 1) {
-        Chunk &posXChunk = world.chunks[chunk.cz + (chunk.cx + 1) * (WORLD_SIZE / CHUNK_SIZE)];
-        posXChunk.store(-1, result.y, result.z, 0);
+    } else if (result.x == CHUNK_SIZE - 1 && chunk->cx < WORLD_SIZE / CHUNK_SIZE - 1) {
+        Chunk &posXChunk = world.chunks[chunk->cz + (chunk->cx + 1) * (WORLD_SIZE / CHUNK_SIZE)];
+        posXChunk.store(-1, result.y, result.z, place ? 1 : 0);
         posXChunk.minY = std::min(posXChunk.minY, result.y);
+        posXChunk.maxY = std::max(posXChunk.maxY, result.y + 2);
         chunksToMesh.push_back(&posXChunk);
 
-        if (result.z == 0 && chunk.cz > 0) {
-            Chunk &posXNegZChunk = world.chunks[chunk.cz - 1 + (chunk.cx + 1) * (WORLD_SIZE / CHUNK_SIZE)];
-            posXNegZChunk.store(-1, result.y, CHUNK_SIZE, 0);
+        if (result.z == 0 && chunk->cz > 0) {
+            Chunk &posXNegZChunk = world.chunks[chunk->cz - 1 + (chunk->cx + 1) * (WORLD_SIZE / CHUNK_SIZE)];
+            posXNegZChunk.store(-1, result.y, CHUNK_SIZE, place ? 1 : 0);
             posXNegZChunk.minY = std::min(posXNegZChunk.minY, result.y);
+            posXNegZChunk.maxY = std::max(posXNegZChunk.maxY, result.y + 2);
             chunksToMesh.push_back(&posXNegZChunk);
-        } else if (result.z == CHUNK_SIZE - 1 && chunk.cz < WORLD_SIZE / CHUNK_SIZE - 1) {
-            Chunk &posXPosZChunk = world.chunks[chunk.cz + 1 + (chunk.cx + 1) * (WORLD_SIZE / CHUNK_SIZE)];
-            posXPosZChunk.store(-1, result.y, -1, 0);
+        } else if (result.z == CHUNK_SIZE - 1 && chunk->cz < WORLD_SIZE / CHUNK_SIZE - 1) {
+            Chunk &posXPosZChunk = world.chunks[chunk->cz + 1 + (chunk->cx + 1) * (WORLD_SIZE / CHUNK_SIZE)];
+            posXPosZChunk.store(-1, result.y, -1, place ? 1 : 0);
             posXPosZChunk.minY = std::min(posXPosZChunk.minY, result.y);
+            posXPosZChunk.maxY = std::max(posXPosZChunk.maxY, result.y + 2);
             chunksToMesh.push_back(&posXPosZChunk);
         }
     }
 
-    if (result.z == 0 && chunk.cz > 0) {
-        Chunk &negZChunk = world.chunks[chunk.cz - 1 + chunk.cx * (WORLD_SIZE / CHUNK_SIZE)];
-        negZChunk.store(result.x, result.y, CHUNK_SIZE, 0);
+    if (result.z == 0 && chunk->cz > 0) {
+        Chunk &negZChunk = world.chunks[chunk->cz - 1 + chunk->cx * (WORLD_SIZE / CHUNK_SIZE)];
+        negZChunk.store(result.x, result.y, CHUNK_SIZE, place ? 1 : 0);
         negZChunk.minY = std::min(negZChunk.minY, result.y);
+        negZChunk.maxY = std::max(negZChunk.maxY, result.y + 2);
         chunksToMesh.push_back(&negZChunk);
-    } else if (result.z == CHUNK_SIZE - 1 && chunk.cz < WORLD_SIZE / CHUNK_SIZE - 1) {
-        Chunk &posZChunk = world.chunks[chunk.cz + 1 + chunk.cx * (WORLD_SIZE / CHUNK_SIZE)];
-        posZChunk.store(result.x, result.y, -1, 0);
+    } else if (result.z == CHUNK_SIZE - 1 && chunk->cz < WORLD_SIZE / CHUNK_SIZE - 1) {
+        Chunk &posZChunk = world.chunks[chunk->cz + 1 + chunk->cx * (WORLD_SIZE / CHUNK_SIZE)];
+        posZChunk.store(result.x, result.y, -1, place ? 1 : 0);
         posZChunk.minY = std::min(posZChunk.minY, result.y);
+        posZChunk.maxY = std::max(posZChunk.maxY, result.y + 2);
         chunksToMesh.push_back(&posZChunk);
     }
 
@@ -624,13 +717,13 @@ void updateVoxel(World world, RaycastResult result) {
 
     // Update chunk data
     ChunkData cd = {
-            .model = chunk.model,
-            .cx = chunk.cx,
-            .cz = chunk.cz,
-            .minY = chunk.minY,
-            .maxY = chunk.maxY,
-            .numVertices = chunk.numVertices,
-            .firstIndex = chunk.firstIndex,
+            .model = chunk->model,
+            .cx = chunk->cx,
+            .cz = chunk->cz,
+            .minY = chunk->minY,
+            .maxY = chunk->maxY,
+            .numVertices = chunk->numVertices,
+            .firstIndex = chunk->firstIndex,
             ._pad0 = 0,
             ._pad1 = 0,
     };
