@@ -25,7 +25,7 @@ WorldMesh::WorldMesh(int numChunks) {
     VAO = 0;
     VBO = 0;
 
-    chunkVertexStarts = std::vector<int>(numChunks);
+    chunkVertexStarts = std::vector<unsigned int>(numChunks);
 
     chunkVertexStarts[0] = 0;
 }

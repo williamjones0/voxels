@@ -12,7 +12,7 @@ public:
 
     std::vector<uint32_t> data;
 
-    std::vector<int> chunkVertexStarts;
+    std::vector<unsigned int> chunkVertexStarts;
 
     void createBuffers();
 };

@@ -157,7 +157,6 @@ int main() {
     Shader shader("vert.glsl", "frag.glsl");
     Shader drawCommandShader("drawcmd_comp.glsl");
 
-    unsigned int firstIndex = 0;
     std::vector<Chunk> chunks(NUM_CHUNKS);
 
     WorldMesh worldMesh(NUM_CHUNKS);
@@ -210,8 +209,10 @@ int main() {
     auto durationSeconds = static_cast<float>(duration.count()) / 1000000.0f;
     std::cout << "Meshing all " << NUM_CHUNKS << " chunks took " << durationSeconds << "s" << std::endl;
 
+    unsigned int firstIndex = 0;
     for (int i = 0; i < NUM_CHUNKS; ++i) {
         chunks[i].firstIndex = firstIndex;
+        worldMesh.chunkVertexStarts[i] = firstIndex;
         firstIndex += chunks[i].numVertices;
     }
 
