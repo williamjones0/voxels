@@ -44,7 +44,7 @@ int Mesher::dirToIndex(int i, int j, int k) {
     return (i + 1) * 9 + (j + 1) * 3 + k + 1;
 }
 
-void Mesher::meshChunk(Chunk *chunk, int worldSize, WorldMesh &worldMesh, bool reMesh) {
+void Mesher::meshChunk(Chunk *chunk, int worldSize, WorldMesh &worldMesh, std::vector<uint32_t> &vertices, bool reMesh) {
     auto startTime = std::chrono::high_resolution_clock::now();
     std::vector<int> &voxels = chunk->voxels;
     std::vector<int> positions;
@@ -148,7 +148,7 @@ void Mesher::meshChunk(Chunk *chunk, int worldSize, WorldMesh &worldMesh, bool r
                     start = std::chrono::high_resolution_clock::now();
 
                     // Top
-                    if (boundsCheck(x, y, z, 0, 1, 0, worldSize, voxels)) {
+                    if (shouldMeshFace(x, y, z, 0, 1, 0, worldSize, voxels)) {
                         if (voxelAo[0] + voxelAo[2] <= voxelAo[3] + voxelAo[1]) {
                             // Flip
                             ao.push_back(voxelAo[0]);
@@ -168,7 +168,7 @@ void Mesher::meshChunk(Chunk *chunk, int worldSize, WorldMesh &worldMesh, bool r
                     }
 
                     // Bottom
-                    if (boundsCheck(x, y, z, 0, -1, 0, worldSize, voxels)) {
+                    if (shouldMeshFace(x, y, z, 0, -1, 0, worldSize, voxels)) {
                         if (voxelAo[4] + voxelAo[6] > voxelAo[7] + voxelAo[5]) {
                             ao.push_back(voxelAo[4]);
                             ao.push_back(voxelAo[5]);
@@ -187,7 +187,7 @@ void Mesher::meshChunk(Chunk *chunk, int worldSize, WorldMesh &worldMesh, bool r
                     }
 
                     // Left
-                    if (boundsCheck(x, y, z, -1, 0, 0, worldSize, voxels)) {
+                    if (shouldMeshFace(x, y, z, -1, 0, 0, worldSize, voxels)) {
                         if (voxelAo[8] + voxelAo[10] > voxelAo[11] + voxelAo[9]) {
                             ao.push_back(voxelAo[11]);
                             ao.push_back(voxelAo[10]);
@@ -206,7 +206,7 @@ void Mesher::meshChunk(Chunk *chunk, int worldSize, WorldMesh &worldMesh, bool r
                     }
 
                     // Right
-                    if (boundsCheck(x, y, z, 1, 0, 0, worldSize, voxels)) {
+                    if (shouldMeshFace(x, y, z, 1, 0, 0, worldSize, voxels)) {
                         if (voxelAo[12] + voxelAo[14] > voxelAo[15] + voxelAo[13]) {
                             ao.push_back(voxelAo[14]);
                             ao.push_back(voxelAo[15]);
@@ -225,7 +225,7 @@ void Mesher::meshChunk(Chunk *chunk, int worldSize, WorldMesh &worldMesh, bool r
                     }
 
                     // Front
-                    if (boundsCheck(x, y, z, 0, 0, -1, worldSize, voxels)) {
+                    if (shouldMeshFace(x, y, z, 0, 0, -1, worldSize, voxels)) {
                         if (voxelAo[16] + voxelAo[18] > voxelAo[19] + voxelAo[17]) {
                             ao.push_back(voxelAo[16]);
                             ao.push_back(voxelAo[17]);
@@ -244,7 +244,7 @@ void Mesher::meshChunk(Chunk *chunk, int worldSize, WorldMesh &worldMesh, bool r
                     }
 
                     // Back
-                    if (boundsCheck(x, y, z, 0, 0, 1, worldSize, voxels)) {
+                    if (shouldMeshFace(x, y, z, 0, 0, 1, worldSize, voxels)) {
                         if (voxelAo[20] + voxelAo[22] > voxelAo[23] + voxelAo[21]) {
                             ao.push_back(voxelAo[21]);
                             ao.push_back(voxelAo[20]);
@@ -269,20 +269,20 @@ void Mesher::meshChunk(Chunk *chunk, int worldSize, WorldMesh &worldMesh, bool r
                     // Add vertices
                     int *translated_vertices = new int[VERTICES_LENGTH];
                     for (int k = 0; k < 36; ++k) {
-                        translated_vertices[3 * k] = vertices[3 * k] + x - 1;
-                        translated_vertices[3 * k + 1] = vertices[3 * k + 1] + y;
-                        translated_vertices[3 * k + 2] = vertices[3 * k + 2] + z - 1;
+                        translated_vertices[3 * k] = cube_vertices[3 * k] + x - 1;
+                        translated_vertices[3 * k + 1] = cube_vertices[3 * k + 1] + y;
+                        translated_vertices[3 * k + 2] = cube_vertices[3 * k + 2] + z - 1;
                     }
 
                     int *translated_flipped_vertices = new int[VERTICES_LENGTH];
                     for (int k = 0; k < 36; ++k) {
-                        translated_flipped_vertices[3 * k] = flipped_vertices[3 * k] + x - 1;
-                        translated_flipped_vertices[3 * k + 1] = flipped_vertices[3 * k + 1] + y;
-                        translated_flipped_vertices[3 * k + 2] = flipped_vertices[3 * k + 2] + z - 1;
+                        translated_flipped_vertices[3 * k] = flipped_cube_vertices[3 * k] + x - 1;
+                        translated_flipped_vertices[3 * k + 1] = flipped_cube_vertices[3 * k + 1] + y;
+                        translated_flipped_vertices[3 * k + 2] = flipped_cube_vertices[3 * k + 2] + z - 1;
                     }
 
                     // Top face
-                    if (boundsCheck(x, y, z, 0, 1, 0, worldSize, voxels)) {
+                    if (shouldMeshFace(x, y, z, 0, 1, 0, worldSize, voxels)) {
                         if (voxelAo[0] + voxelAo[2] <= voxelAo[3] + voxelAo[1]) {
                             positions.insert(positions.end(), &translated_flipped_vertices[TOP_FACE],
                                 &translated_flipped_vertices[TOP_FACE + 18]);
@@ -301,7 +301,7 @@ void Mesher::meshChunk(Chunk *chunk, int worldSize, WorldMesh &worldMesh, bool r
                     }
 
                     // Bottom
-                    if (boundsCheck(x, y, z, 0, -1, 0, worldSize, voxels)) {
+                    if (shouldMeshFace(x, y, z, 0, -1, 0, worldSize, voxels)) {
                         if (voxelAo[4] + voxelAo[6] > voxelAo[7] + voxelAo[5]) {
                             positions.insert(positions.end(), &translated_flipped_vertices[BOTTOM_FACE],
                                 &translated_flipped_vertices[BOTTOM_FACE + 18]);
@@ -320,7 +320,7 @@ void Mesher::meshChunk(Chunk *chunk, int worldSize, WorldMesh &worldMesh, bool r
                     }
 
                     // Left
-                    if (boundsCheck(x, y, z, -1, 0, 0, worldSize, voxels)) {
+                    if (shouldMeshFace(x, y, z, -1, 0, 0, worldSize, voxels)) {
                         if (voxelAo[8] + voxelAo[10] > voxelAo[11] + voxelAo[9]) {
                             positions.insert(positions.end(), &translated_flipped_vertices[LEFT_FACE],
                                 &translated_flipped_vertices[LEFT_FACE + 18]);
@@ -339,7 +339,7 @@ void Mesher::meshChunk(Chunk *chunk, int worldSize, WorldMesh &worldMesh, bool r
                     }
 
                     // Right
-                    if (boundsCheck(x, y, z, 1, 0, 0, worldSize, voxels)) {
+                    if (shouldMeshFace(x, y, z, 1, 0, 0, worldSize, voxels)) {
                         if (voxelAo[12] + voxelAo[14] > voxelAo[15] + voxelAo[13]) {
                             positions.insert(positions.end(), &translated_flipped_vertices[RIGHT_FACE],
                                 &translated_flipped_vertices[RIGHT_FACE + 18]);
@@ -358,7 +358,7 @@ void Mesher::meshChunk(Chunk *chunk, int worldSize, WorldMesh &worldMesh, bool r
                     }
 
                     // Front
-                    if (boundsCheck(x, y, z, 0, 0, -1, worldSize, voxels)) {
+                    if (shouldMeshFace(x, y, z, 0, 0, -1, worldSize, voxels)) {
                         if (voxelAo[16] + voxelAo[18] > voxelAo[19] + voxelAo[17]) {
                             positions.insert(positions.end(), &translated_flipped_vertices[FRONT_FACE],
                                 &translated_flipped_vertices[FRONT_FACE + 18]);
@@ -377,7 +377,7 @@ void Mesher::meshChunk(Chunk *chunk, int worldSize, WorldMesh &worldMesh, bool r
                     }
 
                     // Back
-                    if (boundsCheck(x, y, z, 0, 0, 1, worldSize, voxels)) {
+                    if (shouldMeshFace(x, y, z, 0, 0, 1, worldSize, voxels)) {
                         if (voxelAo[20] + voxelAo[22] > voxelAo[23] + voxelAo[21]) {
                             positions.insert(positions.end(), &translated_flipped_vertices[BACK_FACE],
                                 &translated_flipped_vertices[BACK_FACE + 18]);
@@ -464,7 +464,7 @@ void Mesher::meshChunk(Chunk *chunk, int worldSize, WorldMesh &worldMesh, bool r
             int chunkVertexStart = worldMesh.chunkVertexStarts[chunkIndex];
             worldMesh.data.insert(worldMesh.data.begin() + chunkVertexStart + i, vertex);
         } else {
-            worldMesh.data.push_back(vertex);
+            vertices.push_back(vertex);
         }
     }
 
@@ -498,7 +498,7 @@ void Mesher::meshChunk(Chunk *chunk, int worldSize, WorldMesh &worldMesh, bool r
     //std::cout << "meshChunk in-function time: " << std::chrono::duration_cast<std::chrono::microseconds>(endTime - startTime).count() << "us\n";
 }
 
-bool Mesher::boundsCheck(int x, int y, int z, int i, int j, int k, int worldSize, std::vector<int> &voxels) {
+bool Mesher::shouldMeshFace(int x, int y, int z, int i, int j, int k, int worldSize, std::vector<int> &voxels) {
     bool adjInBounds = inBounds(x + i, y + j, z + k, worldSize + 2, CHUNK_HEIGHT);
 
     bool isAdjVoxelEmpty = true;

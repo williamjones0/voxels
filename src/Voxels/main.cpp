@@ -18,8 +18,6 @@
 #include "world/Mesher.hpp"
 #include "world/Chunk.hpp"
 #include "world/WorldMesh.hpp"
-#include "world/Line.h"
-#include "util/Util.hpp"
 
 typedef struct {
     unsigned int count;
@@ -158,70 +156,59 @@ int main() {
 
     Shader shader("vert.glsl", "frag.glsl");
     Shader drawCommandShader("drawcmd_comp.glsl");
-    Shader lineShader("line_vert.glsl", "line_frag.glsl");
 
-    const int NUM_AXIS_CHUNKS = WORLD_SIZE / CHUNK_SIZE;
-    const int NUM_CHUNKS = NUM_AXIS_CHUNKS * NUM_AXIS_CHUNKS;
     unsigned int firstIndex = 0;
     std::vector<Chunk> chunks(NUM_CHUNKS);
 
     WorldMesh worldMesh(NUM_CHUNKS);
 
-    //unsigned int numThreads = std::thread::hardware_concurrency();
-    //std::cout << "Number of threads: " << numThreads << std::endl;
+    unsigned int numThreads = std::thread::hardware_concurrency();
+    std::cout << "std::thread::hardware_concurrency(): " << std::thread::hardware_concurrency() << std::endl;
+    std::cout << "Number of threads: " << numThreads << std::endl;
 
-    //int numChunksPerThread = NUM_CHUNKS / numThreads;
-    //int numThreadsWithOneMoreChunk = NUM_CHUNKS - (numChunksPerThread * numThreads);
+    int numChunksPerThread = NUM_CHUNKS / numThreads;
+    int numThreadsWithOneMoreChunk = NUM_CHUNKS - (numChunksPerThread * numThreads);
 
-    //std::vector<std::thread> threads;
-    //std::vector<std::vector<uint32_t>> chunkVertices(numThreads);
-    //for (int threadIndex = 0; threadIndex < numThreads; ++threadIndex) {
-    //    threads.push_back(std::thread([threadIndex, numChunksPerThread, numThreadsWithOneMoreChunk, &chunkVertices, &chunks, &worldMesh]() {
-    //        int start = std::min(threadIndex, numThreadsWithOneMoreChunk) * (numChunksPerThread + 1) + std::max(0, threadIndex - numThreadsWithOneMoreChunk) * numChunksPerThread;
-    //        int end = start + numChunksPerThread;
-    //        if (threadIndex < numThreadsWithOneMoreChunk) {
-    //            end++;
-    //        }
+    auto startTime = std::chrono::high_resolution_clock::now();
+    std::vector<std::thread> threads;
+    std::vector<std::vector<uint32_t>> chunkVertices(numThreads);
+    for (int threadIndex = 0; threadIndex < numThreads; ++threadIndex) {
+        threads.emplace_back([threadIndex, numChunksPerThread, numThreadsWithOneMoreChunk, &chunkVertices, &chunks, &worldMesh]() {
+            int start = std::min(threadIndex, numThreadsWithOneMoreChunk) * (numChunksPerThread + 1) + std::max(0, threadIndex - numThreadsWithOneMoreChunk) * numChunksPerThread;
+            int end = start + numChunksPerThread;
+            if (threadIndex < numThreadsWithOneMoreChunk) {
+                end++;
+            }
 
-    //        for (int i = start; i < end; ++i) {
-    //            int cx = i / NUM_AXIS_CHUNKS;
-    //            int cz = i % NUM_AXIS_CHUNKS;
-    //            Chunk chunk = Chunk(cx, cz);
+            for (int i = start; i < end; ++i) {
+                int cx = i / NUM_AXIS_CHUNKS;
+                int cz = i % NUM_AXIS_CHUNKS;
+                Chunk chunk = Chunk(cx, cz);
 
-    //            auto startTime = std::chrono::high_resolution_clock::now();
-    //            chunk.init(chunkVertices[threadIndex]);
-    //            auto endTime = std::chrono::high_resolution_clock::now();
-    //            auto duration = std::chrono::duration_cast<std::chrono::microseconds>(endTime - startTime);
-    //            // std::cout << "Chunk " << cz + cx * NUM_AXIS_CHUNKS << " took " << duration.count() << "us to init" << std::endl << std::endl;
-    //chunks[i] = chunk;
-    //        }
-    //    }));
-    //}
-
-    //for (int i = 0; i < numThreads; ++i) {
-    //    threads[i].join();
-    //}
-
-    //for (int i = 0; i < numThreads; ++i) {
-    //    worldMesh.data.insert(worldMesh.data.end(), chunkVertices[i].begin(), chunkVertices[i].end());
-    //}
-
-    for (int cx = 0; cx < NUM_AXIS_CHUNKS; ++cx) {
-        for (int cz = 0; cz < NUM_AXIS_CHUNKS; ++cz) {
-            Chunk chunk = Chunk(cx, cz);
-
-            auto startTime = std::chrono::high_resolution_clock::now();
-            chunk.init();
-            chunk.generateVoxels2D();
-            Mesher::meshChunk(&chunk, WORLD_SIZE, worldMesh);
-
-            auto endTime = std::chrono::high_resolution_clock::now();
-            auto duration = std::chrono::duration_cast<std::chrono::microseconds>(endTime - startTime);
-            std::cout << "Chunk " << cz + cx * NUM_AXIS_CHUNKS << " took " << duration.count() << "us to init"
-                      << std::endl << std::endl;
-            chunks[cz + cx * NUM_AXIS_CHUNKS] = chunk;
-        }
+                auto startTime = std::chrono::high_resolution_clock::now();
+                chunk.init();
+                chunk.generateVoxels2D();
+                Mesher::meshChunk(&chunk, WORLD_SIZE, worldMesh, chunkVertices[threadIndex]);
+                auto endTime = std::chrono::high_resolution_clock::now();
+                auto duration = std::chrono::duration_cast<std::chrono::microseconds>(endTime - startTime);
+                // std::cout << "Chunk " << cz + cx * NUM_AXIS_CHUNKS << " took " << duration.count() << "us to init" << std::endl << std::endl;
+                chunks[i] = chunk;
+            }
+        });
     }
+
+    for (int i = 0; i < numThreads; ++i) {
+        threads[i].join();
+    }
+
+    for (int i = 0; i < numThreads; ++i) {
+        worldMesh.data.insert(worldMesh.data.end(), chunkVertices[i].begin(), chunkVertices[i].end());
+    }
+
+    auto endTime = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(endTime - startTime);
+    auto durationSeconds = static_cast<float>(duration.count()) / 1000000.0f;
+    std::cout << "Meshing all " << NUM_CHUNKS << " chunks took " << durationSeconds << "s" << std::endl;
 
     for (int i = 0; i < NUM_CHUNKS; ++i) {
         chunks[i].firstIndex = firstIndex;
@@ -344,14 +331,6 @@ int main() {
         glBindVertexArray(worldMesh.VAO);
         glBindBuffer(GL_DRAW_INDIRECT_BUFFER, chunkDrawCmdBuffer);
         glMultiDrawArraysIndirectCount(GL_TRIANGLES, nullptr, 0, NUM_CHUNKS, sizeof(ChunkDrawCommand));
-
-        Line line;
-
-        lineShader.use();
-
-        lineShader.setVec3("color", glm::vec3(1.0f, 0.0f, 0.0f));
-        lineShader.setMat4("mvp", projection * view);
-        line.draw();
 
         // std::cout << "Frame time: " << deltaTime << "\t FPS: " << (1.0f / deltaTime) << std::endl;
         std::string title = "Voxels | FPS: " + std::to_string((int) (1.0f / deltaTime)) +
@@ -701,7 +680,7 @@ void updateVoxel(World world, RaycastResult result, bool place) {
 
     // Mesh chunks
     for (Chunk *c: chunksToMesh) {
-        Mesher::meshChunk(c, WORLD_SIZE, world.worldMesh, true);
+        Mesher::meshChunk(c, WORLD_SIZE, world.worldMesh, world.worldMesh.data, true);
     }
 
     // Update firstIndex for all chunks

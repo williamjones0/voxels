@@ -8,7 +8,7 @@
 
 class Mesher {
 public:
-    static void meshChunk(Chunk *chunk, int worldSize, WorldMesh &worldMesh, bool reMesh = false);
+    static void meshChunk(Chunk *chunk, int worldSize, WorldMesh &worldMesh, std::vector<uint32_t> &vertices, bool reMesh = false);
 
     static long long int totalMesherTime;
 
@@ -19,7 +19,7 @@ private:
 
     static int dirToIndex(int i, int j, int k);
 
-    static bool boundsCheck(int x, int y, int z, int i, int j, int k, int worldSize, std::vector<int> &voxels);
+    static bool shouldMeshFace(int x, int y, int z, int i, int j, int k, int worldSize, std::vector<int> &voxels);
 
     static long long int presenceTime;
     static long long int voxelAoTime;
@@ -28,7 +28,7 @@ private:
 };
 
 namespace {
-    constexpr int vertices[] = {
+    constexpr int cube_vertices[] = {
             // Front
             0, 0, 0,
             1, 0, 0,
@@ -78,7 +78,7 @@ namespace {
             0, 1, 0
     };
 
-    constexpr int flipped_vertices[] = {
+    constexpr int flipped_cube_vertices[] = {
             // Front
             0, 0, 0,
             1, 0, 0,
