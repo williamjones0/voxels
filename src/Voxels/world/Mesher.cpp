@@ -427,8 +427,11 @@ void Mesher::meshChunk(Chunk *chunk, int worldSize, WorldMesh &worldMesh, std::v
             chunkVertexEnd = worldMesh.data.size();
         }
 
-        // Clear the old vertices
+        // Clear the old vertices and insert enough space for the new vertices
         worldMesh.data.erase(worldMesh.data.begin() + chunkVertexStart, worldMesh.data.begin() + chunkVertexEnd);
+
+        std::vector<uint32_t> newVertices = std::vector<uint32_t>(positions.size() / 3);
+        worldMesh.data.insert(worldMesh.data.begin() + chunkVertexStart, newVertices.begin(), newVertices.end());
     }
 
     for (int i = 0; i < positions.size() / 3; ++i) {
@@ -462,7 +465,7 @@ void Mesher::meshChunk(Chunk *chunk, int worldSize, WorldMesh &worldMesh, std::v
         if (reMesh) {
             int chunkIndex = chunk->cx * (worldSize / CHUNK_SIZE) + chunk->cz;
             int chunkVertexStart = worldMesh.chunkVertexStarts[chunkIndex];
-            worldMesh.data.insert(worldMesh.data.begin() + chunkVertexStart + i, vertex);
+            worldMesh.data[chunkVertexStart + i] = vertex;
         } else {
             vertices.push_back(vertex);
         }
