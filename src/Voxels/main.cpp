@@ -310,7 +310,7 @@ int main() {
         processInput(window, world);
 
         // Clear command count buffer
-        glClearNamedBufferData(commandCountBuffer, GL_R32UI, GL_RED, GL_UNSIGNED_INT, nullptr);
+        glClearNamedBufferData(commandCountBuffer, GL_R32UI, GL_RED_INTEGER, GL_UNSIGNED_INT, nullptr);
 
         // Generate draw commands
         drawCommandShader.use();
@@ -410,7 +410,7 @@ void processInput(GLFWwindow *window, World world) {
         lastFrameMousePresses.erase(GLFW_MOUSE_BUTTON_RIGHT);
     }
 
-    if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_4) == GLFW_PRESS) {
+    if (glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_4) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_LEFT_CONTROL)) {
         camera.movementSpeed = 100.0f;
     } else {
         camera.movementSpeed = 10.0f;

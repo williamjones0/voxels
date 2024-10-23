@@ -6,14 +6,12 @@
 #include <vector>
 #include <string>
 
-constexpr int WORLD_SIZE = 1024;
+constexpr int WORLD_SIZE = 256;
 
 constexpr int CHUNK_SIZE_SHIFT = 4;
 constexpr int CHUNK_HEIGHT_SHIFT = 7;
 constexpr int CHUNK_SIZE = 1 << CHUNK_SIZE_SHIFT;
 constexpr int CHUNK_HEIGHT = 1 << CHUNK_HEIGHT_SHIFT;
-constexpr int CHUNK_SIZE_MASK = (1 << (CHUNK_SIZE_SHIFT + 1)) - 1;
-constexpr int CHUNK_HEIGHT_MASK = (1 << (CHUNK_HEIGHT_SHIFT + 1)) - 1;
 
 constexpr int NUM_AXIS_CHUNKS = WORLD_SIZE / CHUNK_SIZE;
 constexpr int NUM_CHUNKS = NUM_AXIS_CHUNKS * NUM_AXIS_CHUNKS;
