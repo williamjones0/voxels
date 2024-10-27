@@ -1,7 +1,6 @@
 #version 460 core
 
 struct Chunk {
-    mat4 model;
     int cx;
     int cz;
     int minY;
@@ -34,10 +33,6 @@ uniform int chunkHeightShift;
 int chunkSizeMask = (1 << (chunkSizeShift + 1)) - 1;
 int chunkHeightMask = (1 << (chunkHeightShift + 1)) - 1;
 
-struct ChunkModel {
-    mat4 model;
-};
-
 layout (binding = 0) readonly buffer DrawCommands {
     ChunkDrawCommand drawCommands[];
 };
@@ -55,6 +50,7 @@ vec3 get_color(uint type) {
         case 0: return vec3(0.278, 0.600, 0.141);
         case 1: return vec3(0.6, 0.1, 0.1);
     }
+    return vec3(0.0);
 }
 
 void main() {
@@ -69,7 +65,12 @@ void main() {
     normal = int((vertex >> (2 * chunkSizeShift + chunkHeightShift + 4)) & 7u);
     float ao = float((vertex >> (2 * chunkSizeShift + chunkHeightShift + 7)) & 3u);
 
-    gl_Position = projection * view * chunk.model * vec4(x, y, z, 1.0);
+    mat4 model = mat4(1.0, 0.0, 0.0, 0.0,
+                      0.0, 1.0, 0.0, 0.0,
+                      0.0, 0.0, 1.0, 0.0,
+                      float(chunk.cx << chunkSizeShift), 0, float(chunk.cz << chunkSizeShift), 1.0);
+
+    gl_Position = projection * view * model * vec4(x, y, z, 1.0);
     // ourColor = get_color(uint(aColor));
     // ourColor = vec3(gl_DrawID / 4.0f, gl_DrawID / 4.0f, gl_DrawID / 4.0f);
     fragAo = clamp(float(ao) / 3.0, 0.5, 1.0);

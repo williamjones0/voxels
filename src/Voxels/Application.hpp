@@ -21,7 +21,6 @@ typedef struct {
 } ChunkDrawCommand;
 
 typedef struct {
-    glm::mat4 model;
     int cx;
     int cz;
     int minY;

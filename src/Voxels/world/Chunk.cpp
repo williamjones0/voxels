@@ -11,9 +11,9 @@
 
 #define EPSILON 0.000001
 
-Chunk::Chunk() : cx(0), cz(0), minY(CHUNK_HEIGHT), maxY(0), VAO(0), dataVBO(0), numVertices(0), firstIndex(0), model(glm::mat4(1.0f)), voxels((CHUNK_SIZE + 2) * (CHUNK_SIZE + 2) * (CHUNK_HEIGHT + 2)) {}
+Chunk::Chunk() : cx(0), cz(0), minY(CHUNK_HEIGHT), maxY(0), VAO(0), dataVBO(0), numVertices(0), firstIndex(0), voxels((CHUNK_SIZE + 2) * (CHUNK_SIZE + 2) * (CHUNK_HEIGHT + 2)) {}
 
-Chunk::Chunk(int cx, int cz) : cx(cx), cz(cz), minY(CHUNK_HEIGHT), maxY(0), VAO(0), dataVBO(0), numVertices(0), firstIndex(0), model(glm::mat4(1.0f)), voxels((CHUNK_SIZE + 2) * (CHUNK_SIZE + 2) * (CHUNK_HEIGHT + 2)) {}
+Chunk::Chunk(int cx, int cz) : cx(cx), cz(cz), minY(CHUNK_HEIGHT), maxY(0), VAO(0), dataVBO(0), numVertices(0), firstIndex(0), voxels((CHUNK_SIZE + 2) * (CHUNK_SIZE + 2) * (CHUNK_HEIGHT + 2)) {}
 
 Chunk &Chunk::operator=(const Chunk &other) {
     if (this != &other) {
@@ -25,13 +25,12 @@ Chunk &Chunk::operator=(const Chunk &other) {
         dataVBO = other.dataVBO;
         numVertices = other.numVertices;
         firstIndex = other.firstIndex;
-        model = other.model;
         voxels = other.voxels;
     }
     return *this;
 }
 
-Chunk::Chunk(Chunk &&other) noexcept : cx(other.cx), cz(other.cz), minY(other.minY), maxY(other.maxY), VAO(other.VAO), dataVBO(other.dataVBO), numVertices(other.numVertices), firstIndex(other.firstIndex), model(std::move(other.model)), voxels(std::move(other.voxels)) {
+Chunk::Chunk(Chunk &&other) noexcept : cx(other.cx), cz(other.cz), minY(other.minY), maxY(other.maxY), VAO(other.VAO), dataVBO(other.dataVBO), numVertices(other.numVertices), firstIndex(other.firstIndex), voxels(std::move(other.voxels)) {
     other.VAO = 0;
     other.dataVBO = 0;
     other.numVertices = 0;
@@ -48,7 +47,6 @@ Chunk &Chunk::operator=(Chunk &&other) noexcept {
         dataVBO = other.dataVBO;
         numVertices = other.numVertices;
         firstIndex = other.firstIndex;
-        model = other.model;
         voxels = std::move(other.voxels);
 
         other.VAO = 0;
@@ -68,7 +66,6 @@ int Chunk::load(int x, int y, int z) {
 }
 
 void Chunk::init() {
-    model = glm::translate(glm::mat4(1.0f), glm::vec3(cx * CHUNK_SIZE, 0, cz * CHUNK_SIZE));
     voxels = std::vector<int>((CHUNK_SIZE + 2) * (CHUNK_SIZE + 2) * (CHUNK_HEIGHT + 2));
 }
 

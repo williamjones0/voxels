@@ -198,7 +198,6 @@ bool Application::load() {
 
     for (size_t i = 0; i < NUM_CHUNKS; ++i) {
         ChunkData cd = {
-                .model = chunks[i].model,
                 .cx = chunks[i].cx,
                 .cz = chunks[i].cz,
                 .minY = chunks[i].minY,
@@ -630,7 +629,6 @@ void Application::updateVoxel(RaycastResult result, bool place) {
 
     // Update chunk data
     ChunkData cd = {
-            .model = chunk->model,
             .cx = chunk->cx,
             .cz = chunk->cz,
             .minY = chunk->minY,

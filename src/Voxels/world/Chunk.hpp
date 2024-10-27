@@ -35,8 +35,6 @@ public:
     unsigned int numVertices;
     unsigned int firstIndex;
 
-    glm::mat4 model;
-
     std::vector<int> voxels;
     void store(int x, int y, int z, char v);
     int load(int x, int y, int z);
