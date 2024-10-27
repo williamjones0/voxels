@@ -11,6 +11,8 @@ class Shader {
 public:
     unsigned int ID;
 
+    Shader() = default;
+
     Shader(const std::string &vertexName, const std::string &fragmentName) {
         unsigned int vertex = createShader(vertexName, GL_VERTEX_SHADER);
         unsigned int fragment = createShader(fragmentName, GL_FRAGMENT_SHADER);

@@ -14,13 +14,15 @@ endif()
 add_custom_target(copy_data ALL COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/data ${CMAKE_CURRENT_BINARY_DIR}/data)   
 
 add_executable(Voxels
-    main.cpp
-    core/Camera.cpp
+        core/Camera.cpp
     util/Util.cpp
     world/Chunk.cpp
     world/Mesher.cpp
     world/WorldMesh.cpp
- "test.cpp"  "comptest.cpp")
+        Application.cpp
+        Application.hpp
+        main.cpp
+        main.cpp)
 
 add_dependencies(Voxels copy_data)
 

@@ -5,10 +5,11 @@
 
 class WorldMesh {
 public:
+    WorldMesh() = default;
     explicit WorldMesh(int numChunks);
 
-    unsigned int VAO;
-    unsigned int VBO;
+    unsigned int VAO{};
+    unsigned int VBO{};
 
     std::vector<uint32_t> data;
 
