@@ -1,6 +1,7 @@
 #include "Camera.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
+#include <iostream>
 
 Camera::Camera(glm::vec3 position, float yaw, float pitch) : position(position), yaw(yaw), pitch(pitch) {
     updateCameraVectors();

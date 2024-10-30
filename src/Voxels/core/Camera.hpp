@@ -18,6 +18,7 @@ enum Movement {
 
 class Camera {
 public:
+    Camera() = default;
     Camera(glm::vec3 position, float yaw, float pitch);
 
     void update(float deltaTime);
@@ -32,7 +33,7 @@ public:
     glm::vec3 front{};
     glm::vec3 up{};
     glm::vec3 right{};
-    const glm::vec3 worldUp = glm::vec3(0.0f, 1.0f, 0.0f);
+    glm::vec3 worldUp = glm::vec3(0.0f, 1.0f, 0.0f);
 
     float yaw;
     float pitch;

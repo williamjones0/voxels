@@ -1,7 +1,7 @@
-#include "Application.hpp"
+#include "VoxelsApplication.hpp"
 
 int main() {
-    Application app;
+    VoxelsApplication app;
     app.run();
 
     return 0;

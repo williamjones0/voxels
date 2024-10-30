@@ -22,7 +22,9 @@ add_executable(Voxels
         Application.cpp
         Application.hpp
         main.cpp
-        main.cpp)
+        main.cpp
+        VoxelsApplication.hpp
+        VoxelsApplication.cpp)
 
 add_dependencies(Voxels copy_data)
 
