@@ -1,7 +1,5 @@
 #include "Chunk.hpp"
 
-#include <glm/ext/matrix_transform.hpp>
-
 #include <iostream>
 #include <fstream>
 #include <sstream>
@@ -11,9 +9,25 @@
 
 #define EPSILON 0.000001
 
-Chunk::Chunk() : cx(0), cz(0), minY(CHUNK_HEIGHT), maxY(0), VAO(0), dataVBO(0), numVertices(0), firstIndex(0), voxels((CHUNK_SIZE + 2) * (CHUNK_SIZE + 2) * (CHUNK_HEIGHT + 2)) {}
+Chunk::Chunk() : cx(0), cz(0), minY(CHUNK_HEIGHT), maxY(0), neighbours(0), VAO(0), dataVBO(0), vertices(0), index(0), numVertices(0), firstIndex(0), voxels((CHUNK_SIZE + 2) * (CHUNK_SIZE + 2) * (CHUNK_HEIGHT + 2)) {}
 
-Chunk::Chunk(int cx, int cz) : cx(cx), cz(cz), minY(CHUNK_HEIGHT), maxY(0), VAO(0), dataVBO(0), numVertices(0), firstIndex(0), voxels((CHUNK_SIZE + 2) * (CHUNK_SIZE + 2) * (CHUNK_HEIGHT + 2)) {}
+Chunk::Chunk(int cx, int cz) : cx(cx), cz(cz), minY(CHUNK_HEIGHT), maxY(0), neighbours(0), VAO(0), dataVBO(0), vertices(0), index(0), numVertices(0), firstIndex(0), voxels((CHUNK_SIZE + 2) * (CHUNK_SIZE + 2) * (CHUNK_HEIGHT + 2)) {}
+
+Chunk::Chunk(Chunk const &chunk) {
+    cx = chunk.cx;
+    cz = chunk.cz;
+    minY = chunk.minY;
+    maxY = chunk.maxY;
+    neighbours = chunk.neighbours;
+    VAO = chunk.VAO;
+    dataVBO = chunk.dataVBO;
+    vertices = chunk.vertices;
+    index = chunk.index;
+    numVertices = chunk.numVertices;
+    firstIndex = chunk.firstIndex;
+    voxels = chunk.voxels;
+}
+
 
 Chunk &Chunk::operator=(const Chunk &other) {
     if (this != &other) {
@@ -21,8 +35,11 @@ Chunk &Chunk::operator=(const Chunk &other) {
         cz = other.cz;
         minY = other.minY;
         maxY = other.maxY;
+        neighbours = other.neighbours;
         VAO = other.VAO;
         dataVBO = other.dataVBO;
+        vertices = other.vertices;
+        index = other.index;
         numVertices = other.numVertices;
         firstIndex = other.firstIndex;
         voxels = other.voxels;
@@ -30,7 +47,7 @@ Chunk &Chunk::operator=(const Chunk &other) {
     return *this;
 }
 
-Chunk::Chunk(Chunk &&other) noexcept : cx(other.cx), cz(other.cz), minY(other.minY), maxY(other.maxY), VAO(other.VAO), dataVBO(other.dataVBO), numVertices(other.numVertices), firstIndex(other.firstIndex), voxels(std::move(other.voxels)) {
+Chunk::Chunk(Chunk &&other) noexcept : cx(other.cx), cz(other.cz), minY(other.minY), maxY(other.maxY), neighbours(other.neighbours), VAO(other.VAO), dataVBO(other.dataVBO), vertices(std::move(other.vertices)), index(other.index), numVertices(other.numVertices), firstIndex(other.firstIndex), voxels(std::move(other.voxels)) {
     other.VAO = 0;
     other.dataVBO = 0;
     other.numVertices = 0;
@@ -43,8 +60,11 @@ Chunk &Chunk::operator=(Chunk &&other) noexcept {
         cz = other.cz;
         minY = other.minY;
         maxY = other.maxY;
+        neighbours = other.neighbours;
         VAO = other.VAO;
         dataVBO = other.dataVBO;
+        vertices = std::move(other.vertices);
+        index = other.index;
         numVertices = other.numVertices;
         firstIndex = other.firstIndex;
         voxels = std::move(other.voxels);
@@ -59,6 +79,8 @@ Chunk &Chunk::operator=(Chunk &&other) noexcept {
 
 void Chunk::store(int x, int y, int z, char v) {
     voxels[getVoxelIndex(x + 1, y + 1, z + 1, CHUNK_SIZE + 2)] = v;
+    minY = std::min(minY, y);
+    maxY = std::max(maxY, y + 2);
 }
 
 int Chunk::load(int x, int y, int z) {

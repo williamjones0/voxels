@@ -20,6 +20,9 @@ class Chunk {
 public:
     Chunk();
     Chunk(int cx, int cz);
+
+    Chunk(const Chunk &chunk);
+
     Chunk &operator=(const Chunk &other); // Copy assignment operator
     Chunk(Chunk &&other) noexcept; // Move constructor
     Chunk &operator=(Chunk &&other) noexcept; // Move assignment operator
@@ -29,8 +32,14 @@ public:
     int minY;
     int maxY;
 
+    int neighbours;
+
     unsigned int VAO;
     unsigned int dataVBO;
+
+    std::vector<uint32_t> vertices;
+
+    size_t index;
 
     unsigned int numVertices;
     unsigned int firstIndex;

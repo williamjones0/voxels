@@ -7,6 +7,8 @@
 #include "world/Chunk.hpp"
 #include "world/WorldMesh.hpp"
 
+#include <bitset>
+
 typedef struct {
     unsigned int count;
     unsigned int instanceCount;
@@ -52,6 +54,21 @@ protected:
 private:
     RaycastResult raycast();
     void updateVoxel(RaycastResult result, bool place);
+    bool updateFrontierChunks();
+    void destroyFrontierChunks();
+    bool ensureChunkIfVisible(int cx, int cz);
+    Chunk *ensureChunk(int cx, int cz);
+    Chunk *createChunk(int cx, int cz);
+    void addFrontier(Chunk *chunk);
+    void updateFrontierNeighbour(Chunk *frontier, int cx, int cz);
+    bool createNewFrontierChunks();
+    int onFrontierChunkRemoved(Chunk *frontierChunk);
+    int onFrontierChunkRemoved(int cx, int cz, double distance);
+    bool chunkInRenderDistance(int cx, int cz);
+    double squaredDistanceToChunk(int cx, int cz) const;
+    static size_t key(int i, int j);
+
+    void updateVerticesBuffer();
 
     Camera camera;
 
@@ -61,7 +78,9 @@ private:
     Shader drawCommandProgram;
 
     std::vector<Chunk> chunks;
-    std::vector<Chunk> frontierChunks;
+    std::vector<size_t> frontierChunks;
+    std::vector<size_t> newlyCreatedChunks;
+    std::unordered_map<size_t, size_t> chunkByCoords;
     std::vector<ChunkData> chunkData;
     WorldMesh worldMesh;
 

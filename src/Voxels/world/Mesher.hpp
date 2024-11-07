@@ -8,7 +8,7 @@
 
 class Mesher {
 public:
-    static void meshChunk(Chunk *chunk, int worldSize, WorldMesh &worldMesh, std::vector<uint32_t> &vertices, bool reMesh = false);
+    static void meshChunk(Chunk &chunk);
 
     static long long int totalMesherTime;
 
@@ -19,7 +19,7 @@ private:
 
     static int dirToIndex(int i, int j, int k);
 
-    static bool shouldMeshFace(int x, int y, int z, int i, int j, int k, int worldSize, std::vector<int> &voxels);
+    static bool shouldMeshFace(int x, int y, int z, int i, int j, int k, std::vector<int> &voxels);
 
     static long long int presenceTime;
     static long long int voxelAoTime;
