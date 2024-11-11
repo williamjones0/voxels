@@ -4,11 +4,14 @@
 #include <glm/gtx/string_cast.hpp>
 
 #include <iostream>
+#include <algorithm>
 
 #include "world/Mesher.hpp"
 
 constexpr float PI = 3.14159265359f;
-constexpr int MAX_RENDER_DISTANCE = 128;
+constexpr int MAX_RENDER_DISTANCE_CHUNKS = 16;
+constexpr int MAX_RENDER_DISTANCE_METRES = MAX_RENDER_DISTANCE_CHUNKS << CHUNK_SIZE_SHIFT;
+constexpr int MAX_CHUNKS = (2 * MAX_RENDER_DISTANCE_CHUNKS + 1) * (2 * MAX_RENDER_DISTANCE_CHUNKS + 1);
 
 bool VoxelsApplication::init() {
     if (!Application::init()) {
@@ -63,7 +66,7 @@ bool VoxelsApplication::load() {
 
     glCreateBuffers(1, &chunkDrawCmdBuffer);
     glNamedBufferStorage(chunkDrawCmdBuffer,
-                         sizeof(ChunkDrawCommand) * NUM_CHUNKS,
+                         sizeof(ChunkDrawCommand) * MAX_CHUNKS,
                          nullptr,
                          NULL);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, chunkDrawCmdBuffer);
@@ -140,7 +143,7 @@ void VoxelsApplication::render() {
     drawCommandProgram.setVec4Array("frustum", frustum, 6);
     drawCommandProgram.setInt("CHUNK_SIZE", CHUNK_SIZE);
 
-    glDispatchCompute(NUM_CHUNKS / 1, 1, 1);
+    glDispatchCompute(MAX_CHUNKS / 1, 1, 1);
     glMemoryBarrier(GL_COMMAND_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT);
 
     // Render
@@ -152,7 +155,7 @@ void VoxelsApplication::render() {
 
     glBindVertexArray(worldMesh.VAO);
     glBindBuffer(GL_DRAW_INDIRECT_BUFFER, chunkDrawCmdBuffer);
-    glMultiDrawArraysIndirectCount(GL_TRIANGLES, nullptr, 0, NUM_CHUNKS, sizeof(ChunkDrawCommand));
+    glMultiDrawArraysIndirectCount(GL_TRIANGLES, nullptr, 0, MAX_CHUNKS, sizeof(ChunkDrawCommand));
 }
 
 void VoxelsApplication::updateVerticesBuffer() {
@@ -588,6 +591,8 @@ void VoxelsApplication::destroyFrontierChunks() {
     for (size_t chunkIndex : toDestroy) {
         Chunk &chunk = chunks[chunkIndex];
 
+        std::cout << "Destroyed chunk " << chunkIndex << " at [" << chunk.cx << ", " << chunk.cz << "]" << std::endl;
+
         worldMesh.data.erase(worldMesh.data.begin() + chunk.firstIndex,
                              worldMesh.data.begin() + chunk.firstIndex + chunk.numVertices);
 
@@ -662,6 +667,8 @@ Chunk *VoxelsApplication::createChunk(int cx, int cz) {
 
     newlyCreatedChunks.push_back(chunk.index);
 
+    std::cout << "Created chunk " << chunk.index << " at [" << chunk.cx << ", " << chunk.cz << "]" << std::endl;
+
     return &chunk;
 }
 
@@ -716,7 +723,7 @@ int VoxelsApplication::onFrontierChunkRemoved(int cx, int cz, double distance) {
 }
 
 bool VoxelsApplication::chunkInRenderDistance(int cx, int cz) {
-    return squaredDistanceToChunk(cx, cz) < MAX_RENDER_DISTANCE * MAX_RENDER_DISTANCE;
+    return squaredDistanceToChunk(cx, cz) < MAX_RENDER_DISTANCE_METRES * MAX_RENDER_DISTANCE_METRES;
 }
 
 double VoxelsApplication::squaredDistanceToChunk(int cx, int cz) const {

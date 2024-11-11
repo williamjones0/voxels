@@ -8,7 +8,7 @@ void WorldMesh::createBuffers() {
     std::cout << "data size: " << data.size() << std::endl;
 
     glCreateBuffers(1, &VBO);
-    glNamedBufferStorage(VBO, sizeof(uint32_t) * data.size(), &data[0], GL_DYNAMIC_STORAGE_BIT);
+    glNamedBufferStorage(VBO, sizeof(uint32_t) * data.size(), 0, GL_DYNAMIC_STORAGE_BIT);
 
     glCreateVertexArrays(1, &VAO);
 
