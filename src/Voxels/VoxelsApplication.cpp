@@ -13,6 +13,8 @@ constexpr int MAX_RENDER_DISTANCE_CHUNKS = 16;
 constexpr int MAX_RENDER_DISTANCE_METRES = MAX_RENDER_DISTANCE_CHUNKS << CHUNK_SIZE_SHIFT;
 constexpr int MAX_CHUNKS = (2 * MAX_RENDER_DISTANCE_CHUNKS + 1) * (2 * MAX_RENDER_DISTANCE_CHUNKS + 1);
 
+constexpr int MAX_CHUNK_TASKS = 16;
+
 bool VoxelsApplication::init() {
     if (!Application::init()) {
         return false;
@@ -45,7 +47,7 @@ bool VoxelsApplication::load() {
         return false;
     }
 
-    camera = Camera(glm::vec3(8.0f, 80.0f, 8.0f), 0.0f, 0.0f);
+    camera = Camera(glm::vec3(8.0f, 400.0f, 8.0f), 0.0f, -90.0f);
 
     shader = Shader("vert.glsl", "frag.glsl");
     drawCommandProgram = Shader("drawcmd_comp.glsl");
@@ -57,6 +59,8 @@ bool VoxelsApplication::load() {
     chunkData = std::vector<ChunkData>();
 
     worldMesh = WorldMesh();
+
+    threadPool.start();
 
     createChunk(0, 0);
 
@@ -107,7 +111,20 @@ void VoxelsApplication::update() {
 
     camera.update(deltaTime);
 
+    chunksReady = false;
+
     while (updateFrontierChunks()) {}
+
+    chunkTasksCount = 0;
+
+    // Lock mutex and set the ready flag, then notify all waiting threads
+    {
+        std::unique_lock<std::mutex> lock(cvMutex);
+        chunksReady = true;
+    }
+    cv.notify_all();
+
+    threadPool.waitUntilDone();
 
     updateVerticesBuffer();
 
@@ -552,6 +569,10 @@ bool VoxelsApplication::createNewFrontierChunks() {
     for (size_t i = 0, s = frontierChunks.size(); i < s; i++) {
         Chunk chunk = chunks[frontierChunks[i]];
 
+        if (chunkTasksCount >= MAX_CHUNK_TASKS) {
+            break;
+        }
+
         if (ensureChunkIfVisible(chunk.cx - 1, chunk.cz) ||
             ensureChunkIfVisible(chunk.cx + 1, chunk.cz) ||
             ensureChunkIfVisible(chunk.cx, chunk.cz - 1) ||
@@ -646,8 +667,9 @@ Chunk *VoxelsApplication::ensureChunk(int cx, int cz) {
 Chunk *VoxelsApplication::createChunk(int cx, int cz) {
     chunks.emplace_back(cx, cz);
     Chunk &chunk = chunks.back();
-    chunk.index = chunks.size() - 1;
-    chunkByCoords[key(cx, cz)] = chunk.index;
+    size_t chunkIndex = chunks.size() - 1;
+    chunk.index = chunkIndex;
+    chunkByCoords[key(cx, cz)] = chunkIndex;
     addFrontier(&chunk);
     chunkData.push_back({
         .cx = cx,
@@ -660,14 +682,24 @@ Chunk *VoxelsApplication::createChunk(int cx, int cz) {
         ._pad1 = 0,
     });
 
-    chunk.init();
-    chunk.generateVoxels2D();
+    chunkTasksCount++;
 
-    Mesher::meshChunk(chunk);
+    threadPool.queueTask([chunkIndex, this]() {
+        {
+            std::unique_lock<std::mutex> lock(cvMutex);
+            cv.wait(lock, [this]() { return chunksReady; });
+        }
 
-    newlyCreatedChunks.push_back(chunk.index);
+        Chunk &chunk = chunks[chunkIndex];
+        chunk.init();
+        chunk.generateVoxels2D();
 
-    std::cout << "Created chunk " << chunk.index << " at [" << chunk.cx << ", " << chunk.cz << "]" << std::endl;
+        Mesher::meshChunk(chunk);
+
+        newlyCreatedChunks.push_back(chunk.index);
+
+        std::cout << "Created chunk " << chunk.index << " at [" << chunk.cx << ", " << chunk.cz << "]" << std::endl;
+    });
 
     return &chunk;
 }

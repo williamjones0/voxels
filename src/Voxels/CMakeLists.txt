@@ -25,6 +25,7 @@ add_executable(Voxels
         main.cpp
         VoxelsApplication.hpp
         VoxelsApplication.cpp
+        core/ThreadPool.cpp
 )
 
 add_dependencies(Voxels copy_data)
