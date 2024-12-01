@@ -126,6 +126,8 @@ void Application::processInput() {
 }
 
 void Application::cleanup() {
+    threadPool.stop();
+
     glfwTerminate();
 }
 

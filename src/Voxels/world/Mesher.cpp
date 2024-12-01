@@ -267,14 +267,14 @@ void Mesher::meshChunk(Chunk &chunk) {
                     start = std::chrono::high_resolution_clock::now();
 
                     // Add vertices
-                    int *translated_vertices = new int[VERTICES_LENGTH];
+                    int translated_vertices[VERTICES_LENGTH];
                     for (int k = 0; k < 36; ++k) {
                         translated_vertices[3 * k] = cube_vertices[3 * k] + x - 1;
                         translated_vertices[3 * k + 1] = cube_vertices[3 * k + 1] + y;
                         translated_vertices[3 * k + 2] = cube_vertices[3 * k + 2] + z - 1;
                     }
 
-                    int *translated_flipped_vertices = new int[VERTICES_LENGTH];
+                    int translated_flipped_vertices[VERTICES_LENGTH];
                     for (int k = 0; k < 36; ++k) {
                         translated_flipped_vertices[3 * k] = flipped_cube_vertices[3 * k] + x - 1;
                         translated_flipped_vertices[3 * k + 1] = flipped_cube_vertices[3 * k + 1] + y;
@@ -394,9 +394,6 @@ void Mesher::meshChunk(Chunk &chunk) {
                             colours.push_back(COLOUR_RED);
                         }
                     }
-
-                    delete[] translated_vertices;
-                    delete[] translated_flipped_vertices;
 
                     addVertexTime += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now() - start).count();
                 }

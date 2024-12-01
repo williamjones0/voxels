@@ -7,6 +7,8 @@
 
 #include <unordered_set>
 
+#include "core/ThreadPool.hpp"
+
 class Application {
 public:
     void run();
@@ -41,4 +43,6 @@ protected:
 
     float deltaTime;
     float lastFrame;
+
+    ThreadPool threadPool;
 };

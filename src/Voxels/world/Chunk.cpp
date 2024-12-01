@@ -77,6 +77,10 @@ Chunk &Chunk::operator=(Chunk &&other) noexcept {
     return *this;
 }
 
+bool Chunk::operator==(const Chunk &other) const {
+    return cx == other.cx && cz == other.cz;
+}
+
 void Chunk::store(int x, int y, int z, char v) {
     voxels[getVoxelIndex(x + 1, y + 1, z + 1, CHUNK_SIZE + 2)] = v;
     minY = std::min(minY, y);

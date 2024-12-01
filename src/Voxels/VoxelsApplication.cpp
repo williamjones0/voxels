@@ -9,7 +9,7 @@
 #include "world/Mesher.hpp"
 
 constexpr float PI = 3.14159265359f;
-constexpr int MAX_RENDER_DISTANCE_CHUNKS = 16;
+constexpr int MAX_RENDER_DISTANCE_CHUNKS = 8;
 constexpr int MAX_RENDER_DISTANCE_METRES = MAX_RENDER_DISTANCE_CHUNKS << CHUNK_SIZE_SHIFT;
 constexpr int MAX_CHUNKS = (2 * MAX_RENDER_DISTANCE_CHUNKS + 1) * (2 * MAX_RENDER_DISTANCE_CHUNKS + 1);
 
@@ -52,10 +52,11 @@ bool VoxelsApplication::load() {
     shader = Shader("vert.glsl", "frag.glsl");
     drawCommandProgram = Shader("drawcmd_comp.glsl");
 
-    chunks = std::vector<Chunk>();
-    frontierChunks = std::vector<size_t>();
-    newlyCreatedChunks = std::vector<size_t>();
-    chunkByCoords = std::unordered_map<size_t, size_t>();
+    chunks = std::list<Chunk>();
+//    chunks.reserve(NUM_CHUNKS);  // Is reserve guaranteed to prevent resizes if the size is less than the capacity?
+    frontierChunks = std::vector<Chunk *>();
+    newlyCreatedChunks = std::vector<Chunk *>();
+    chunkByCoords = std::unordered_map<size_t, Chunk *>();
     chunkData = std::vector<ChunkData>();
 
     worldMesh = WorldMesh();
@@ -72,7 +73,7 @@ bool VoxelsApplication::load() {
     glNamedBufferStorage(chunkDrawCmdBuffer,
                          sizeof(ChunkDrawCommand) * MAX_CHUNKS,
                          nullptr,
-                         NULL);
+                         GL_DYNAMIC_STORAGE_BIT);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, chunkDrawCmdBuffer);
 
     glCreateBuffers(1, &chunkDataBuffer);
@@ -113,11 +114,14 @@ void VoxelsApplication::update() {
 
     chunksReady = false;
 
+    // The trouble here is that if the meshing threads from the previous update have not finished, the chunks vector
+    // will be updated and this will make the references invalid, causing a segfault
     while (updateFrontierChunks()) {}
 
     chunkTasksCount = 0;
 
     // Lock mutex and set the ready flag, then notify all waiting threads
+    // We need to wait for all threads to be created before meshing to ensure that no invalid references are created
     {
         std::unique_lock<std::mutex> lock(cvMutex);
         chunksReady = true;
@@ -176,31 +180,58 @@ void VoxelsApplication::render() {
 }
 
 void VoxelsApplication::updateVerticesBuffer() {
+    newlyCreatedChunksReady = false;
+
     // Sort newly created chunks by chunk.index so that chunkData is updated in the correct order
-    std::sort(newlyCreatedChunks.begin(), newlyCreatedChunks.end(), [this](size_t a, size_t b) {
-        return chunks[a].index < chunks[b].index;
+    std::sort(newlyCreatedChunks.begin(), newlyCreatedChunks.end(), [](Chunk *a, Chunk *b) {
+        return a->index < b->index;
     });
 
-    for (size_t chunkIndex : newlyCreatedChunks) {
-        Chunk &chunk = chunks[chunkIndex];
+    if (!newlyCreatedChunks.empty()) {
+        std::cout << "newlyCreatedChunks.size(): " << newlyCreatedChunks.size() << std::endl;
+    }
 
-        chunk.firstIndex = worldMesh.data.size();
+    for (Chunk *chunk : newlyCreatedChunks) {
+        chunk->firstIndex = worldMesh.data.size();
 
-        worldMesh.data.insert(worldMesh.data.end(), chunk.vertices.begin(), chunk.vertices.end());
+        // vvv THIS IS WRONG vvv
+        // suppose chunks 0, 1 and 3 are in newlyCreatedChunks, but chunk 2 is still meshing
+        // then in worldMesh.data, we will have the vertices of chunks 0, 1 and 3, but the indices will be wrong
+        // because the vertices of chunk 2 will be inserted after the vertices of chunk 3
+        worldMesh.data.insert(worldMesh.data.end(), chunk->vertices.begin(), chunk->vertices.end());
 
         // Update chunk data
         ChunkData cd = {
-                .cx = chunk.cx,
-                .cz = chunk.cz,
-                .minY = chunk.minY,
-                .maxY = chunk.maxY,
-                .numVertices = chunk.numVertices,
-                .firstIndex = chunk.firstIndex,
+                .cx = chunk->cx,
+                .cz = chunk->cz,
+                .minY = chunk->minY,
+                .maxY = chunk->maxY,
+                .numVertices = chunk->numVertices,
+                .firstIndex = chunk->firstIndex,
                 ._pad0 = 0,
                 ._pad1 = 0,
         };
-        chunkData[chunk.index] = cd;
+        chunkData[chunk->index] = cd;
+
+        std::cout << "cx: " << chunk->cx << ", cz: " << chunk->cz << ", firstIndex: " << chunk->firstIndex << ", numVertices: " << chunk->numVertices << std::endl;
     }
+
+//    for (ChunkData &cd : chunkData) {
+//        if (cd.numVertices == 0) {
+//            continue;
+//        }
+//
+//        std::cout << "cx: " << cd.cx << ", cz: " << cd.cz << ", firstIndex: " << cd.firstIndex << ", numVertices: " << cd.numVertices << std::endl;
+//        std::cout << worldMesh.data[cd.firstIndex] << ", " << worldMesh.data[cd.firstIndex + 1] << ", " << worldMesh.data[cd.firstIndex + 2] << std::endl;
+//        std::cout << chunkByCoords[key(cd.cx, cd.cz)]->vertices[0] << ", " << chunkByCoords[key(cd.cx, cd.cz)]->vertices[1] << ", " << chunkByCoords[key(cd.cx, cd.cz)]->vertices[2] << std::endl;
+//        std::cout << std::endl;
+//
+//        if (worldMesh.data[cd.firstIndex] != chunkByCoords[key(cd.cx, cd.cz)]->vertices[0] ||
+//            worldMesh.data[cd.firstIndex + 1] != chunkByCoords[key(cd.cx, cd.cz)]->vertices[1] ||
+//            worldMesh.data[cd.firstIndex + 2] != chunkByCoords[key(cd.cx, cd.cz)]->vertices[2]) {
+//            std::cerr << "Vertices are not in the correct order!" << std::endl;
+//        }
+//    }
 
     // Update vertex buffer
     glNamedBufferData(verticesBuffer, sizeof(uint32_t) * worldMesh.data.size(),
@@ -212,6 +243,8 @@ void VoxelsApplication::updateVerticesBuffer() {
 
     // Clear newly created chunks
     newlyCreatedChunks.clear();
+
+    newlyCreatedChunksReady = true;
 }
 
 void VoxelsApplication::processInput() {
@@ -261,7 +294,7 @@ void VoxelsApplication::processInput() {
             case GLFW_MOUSE_BUTTON_LEFT:
                 if (!lastFrameButtons.contains(GLFW_MOUSE_BUTTON_LEFT)) {
                     RaycastResult result = raycast();
-                    if (result.chunkIndex != -1) {
+                    if (result.chunk != nullptr) {
                         updateVoxel(result, false);
                     }
                 }
@@ -269,7 +302,7 @@ void VoxelsApplication::processInput() {
             case GLFW_MOUSE_BUTTON_RIGHT:
                 if (!lastFrameButtons.contains(GLFW_MOUSE_BUTTON_RIGHT)) {
                     RaycastResult result = raycast();
-                    if (result.chunkIndex != -1) {
+                    if (result.chunk != nullptr) {
                         updateVoxel(result, true);
                     }
                 }
@@ -302,88 +335,88 @@ int step(float edge, float x) {
 }
 
 RaycastResult VoxelsApplication::raycast() {
-    float big = 1e30f;
-
-    float ox = camera.position.x;
-    float oy = camera.position.y - 1;
-    float oz = camera.position.z;
-
-    float dx = camera.front.x;
-    float dy = camera.front.y;
-    float dz = camera.front.z;
-
-    int px = (int) std::floor(ox);
-    int py = (int) std::floor(oy);
-    int pz = (int) std::floor(oz);
-
-    float dxi = 1.0f / dx;
-    float dyi = 1.0f / dy;
-    float dzi = 1.0f / dz;
-
-    int sx = dx > 0 ? 1 : -1;
-    int sy = dy > 0 ? 1 : -1;
-    int sz = dz > 0 ? 1 : -1;
-
-    float dtx = std::min(dxi * sx, big);
-    float dty = std::min(dyi * sy, big);
-    float dtz = std::min(dzi * sz, big);
-
-    float tx = abs((px + std::max(sx, 0) - ox) * dxi);
-    float ty = abs((py + std::max(sy, 0) - oy) * dyi);
-    float tz = abs((pz + std::max(sz, 0) - oz) * dzi);
-
-    int maxSteps = 16;
-
-    int cmpx = 0, cmpy = 0, cmpz = 0;
-
-    int faceHit = -1;
-
-    for (int i = 0; i < maxSteps && py >= 0; i++) {
-        if (i > 0 && py < CHUNK_HEIGHT) {
-            int cx = px / CHUNK_SIZE;
-            int cz = pz / CHUNK_SIZE;
-
-            if (0 <= cx && cx <= (WORLD_SIZE / CHUNK_SIZE - 1) && 0 <= cz && cz <= (WORLD_SIZE / CHUNK_SIZE - 1)) {
-                Chunk &chunk = chunks[chunkByCoords[key(cx, cz)]];
-                int v = chunk.load(px % CHUNK_SIZE, py, pz % CHUNK_SIZE);
-
-                if (v != 0) {
-                    std::cout << "Voxel hit at " << px << ", " << py << ", " << pz << ", face: " << faceHit << std::endl;
-                    return RaycastResult {
-                            .chunkIndex = static_cast<int>(chunkByCoords[key(cx, cz)]),
-                            .x = px % CHUNK_SIZE,
-                            .y = py,
-                            .z = pz % CHUNK_SIZE,
-                            .face = faceHit
-                    };
-                }
-            }
-        }
-
-        // Advance to next voxel
-        cmpx = step(tx, tz) * step(tx, ty);
-        cmpy = step(ty, tx) * step(ty, tz);
-        cmpz = step(tz, ty) * step(tz, tx);
-
-        if (cmpx) {
-            faceHit = (sx < 0) ? 0 : 1;  // 0: +x, 1: -x
-        } else if (cmpy) {
-            faceHit = (sy < 0) ? 2 : 3;  // 2: +y, 3: -y
-        } else if (cmpz) {
-            faceHit = (sz < 0) ? 4 : 5;  // 4: +z, 5: -z
-        }
-
-        tx += dtx * cmpx;
-        ty += dty * cmpy;
-        tz += dtz * cmpz;
-
-        px += sx * cmpx;
-        py += sy * cmpy;
-        pz += sz * cmpz;
-    }
+//    float big = 1e30f;
+//
+//    float ox = camera.position.x;
+//    float oy = camera.position.y - 1;
+//    float oz = camera.position.z;
+//
+//    float dx = camera.front.x;
+//    float dy = camera.front.y;
+//    float dz = camera.front.z;
+//
+//    int px = (int) std::floor(ox);
+//    int py = (int) std::floor(oy);
+//    int pz = (int) std::floor(oz);
+//
+//    float dxi = 1.0f / dx;
+//    float dyi = 1.0f / dy;
+//    float dzi = 1.0f / dz;
+//
+//    int sx = dx > 0 ? 1 : -1;
+//    int sy = dy > 0 ? 1 : -1;
+//    int sz = dz > 0 ? 1 : -1;
+//
+//    float dtx = std::min(dxi * sx, big);
+//    float dty = std::min(dyi * sy, big);
+//    float dtz = std::min(dzi * sz, big);
+//
+//    float tx = abs((px + std::max(sx, 0) - ox) * dxi);
+//    float ty = abs((py + std::max(sy, 0) - oy) * dyi);
+//    float tz = abs((pz + std::max(sz, 0) - oz) * dzi);
+//
+//    int maxSteps = 16;
+//
+//    int cmpx = 0, cmpy = 0, cmpz = 0;
+//
+//    int faceHit = -1;
+//
+//    for (int i = 0; i < maxSteps && py >= 0; i++) {
+//        if (i > 0 && py < CHUNK_HEIGHT) {
+//            int cx = px / CHUNK_SIZE;
+//            int cz = pz / CHUNK_SIZE;
+//
+//            if (0 <= cx && cx <= (WORLD_SIZE / CHUNK_SIZE - 1) && 0 <= cz && cz <= (WORLD_SIZE / CHUNK_SIZE - 1)) {
+//                Chunk *chunk = chunkByCoords[key(cx, cz)];
+//                int v = chunk->load(px % CHUNK_SIZE, py, pz % CHUNK_SIZE);
+//
+//                if (v != 0) {
+//                    std::cout << "Voxel hit at " << px << ", " << py << ", " << pz << ", face: " << faceHit << std::endl;
+//                    return RaycastResult {
+//                            .chunk = chunk,
+//                            .x = px % CHUNK_SIZE,
+//                            .y = py,
+//                            .z = pz % CHUNK_SIZE,
+//                            .face = faceHit
+//                    };
+//                }
+//            }
+//        }
+//
+//        // Advance to next voxel
+//        cmpx = step(tx, tz) * step(tx, ty);
+//        cmpy = step(ty, tx) * step(ty, tz);
+//        cmpz = step(tz, ty) * step(tz, tx);
+//
+//        if (cmpx) {
+//            faceHit = (sx < 0) ? 0 : 1;  // 0: +x, 1: -x
+//        } else if (cmpy) {
+//            faceHit = (sy < 0) ? 2 : 3;  // 2: +y, 3: -y
+//        } else if (cmpz) {
+//            faceHit = (sz < 0) ? 4 : 5;  // 4: +z, 5: -z
+//        }
+//
+//        tx += dtx * cmpx;
+//        ty += dty * cmpy;
+//        tz += dtz * cmpz;
+//
+//        px += sx * cmpx;
+//        py += sy * cmpy;
+//        pz += sz * cmpz;
+//    }
 
     return RaycastResult {
-            .chunkIndex = -1,
+            .chunk = nullptr,
             .x = -1,
             .y = -1,
             .z = -1,
@@ -392,168 +425,168 @@ RaycastResult VoxelsApplication::raycast() {
 }
 
 void VoxelsApplication::updateVoxel(RaycastResult result, bool place) {
-    Chunk *chunk = &chunks[result.chunkIndex];
-
-    if (place) {
-        if (result.face == 0) {
-            if (result.x == CHUNK_SIZE - 1) {
-                if (chunk->cx == WORLD_SIZE / CHUNK_SIZE - 1) {
-                    return;
-                }
-                chunk = &chunks[chunkByCoords[key(chunk->cx + 1, chunk->cz)]];
-                result.x = 0;
-            } else {
-                result.x++;
-            }
-        } else if (result.face == 1) {
-            if (result.x == 0) {
-                if (chunk->cx == 0) {
-                    return;
-                }
-                chunk = &chunks[chunkByCoords[key(chunk->cx - 1, chunk->cz)]];
-                result.x = CHUNK_SIZE - 1;
-            } else {
-                result.x--;
-            }
-        } else if (result.face == 2) {
-            if (result.y == CHUNK_HEIGHT - 2) {
-                return;
-            }
-            result.y++;
-        } else if (result.face == 3) {
-            if (result.y == 0) {
-                return;
-            }
-            result.y--;
-        } else if (result.face == 4) {
-            if (result.z == CHUNK_SIZE - 1) {
-                if (chunk->cz == WORLD_SIZE / CHUNK_SIZE - 1) {
-                    return;
-                }
-                chunk = &chunks[chunkByCoords[key(chunk->cx, chunk->cz + 1)]];
-                result.z = 0;
-            } else {
-                result.z++;
-            }
-        } else if (result.face == 5) {
-            if (result.z == 0) {
-                if (chunk->cz == 0) {
-                    return;
-                }
-                chunk = &chunks[chunkByCoords[key(chunk->cx, chunk->cz - 1)]];
-                result.z = CHUNK_SIZE - 1;
-            } else {
-                result.z--;
-            }
-        }
-    }
-
-    // Change voxel value
-    chunk->store(result.x, result.y, result.z, place ? 1 : 0);
-
-    // Update minY and maxY
-    chunk->minY = std::min(chunk->minY, result.y);
-    chunk->maxY = std::max(chunk->maxY, result.y + 2);
-
-    std::vector<Chunk *> chunksToMesh;
-    chunksToMesh.push_back(chunk);
-
-    // If the voxel is on a chunk boundary, update the neighboring chunk(s)
-    if (result.x == 0 && chunk->cx > 0) {
-        Chunk *negXChunk = &chunks[chunkByCoords[key(chunk->cx - 1, chunk->cz)]];
-        negXChunk->store(CHUNK_SIZE, result.y, result.z, place ? 1 : 0);
-        chunksToMesh.push_back(negXChunk);
-
-        if (result.z == 0 && chunk->cz > 0) {
-            Chunk *negXNegZChunk = &chunks[chunkByCoords[key(chunk->cx - 1, chunk->cz - 1)]];
-            negXNegZChunk->store(CHUNK_SIZE, result.y, CHUNK_SIZE, place ? 1 : 0);
-            chunksToMesh.push_back(negXNegZChunk);
-        } else if (result.z == CHUNK_SIZE - 1 && chunk->cz < WORLD_SIZE / CHUNK_SIZE - 1) {
-            Chunk *negXPosZChunk = &chunks[chunkByCoords[key(chunk->cx - 1, chunk->cz + 1)]];
-            negXPosZChunk->store(CHUNK_SIZE, result.y, -1, place ? 1 : 0);
-            chunksToMesh.push_back(negXPosZChunk);
-        }
-    } else if (result.x == CHUNK_SIZE - 1 && chunk->cx < WORLD_SIZE / CHUNK_SIZE - 1) {
-        Chunk *posXChunk = &chunks[chunkByCoords[key(chunk->cx + 1, chunk->cz)]];
-        posXChunk->store(-1, result.y, result.z, place ? 1 : 0);
-        chunksToMesh.push_back(posXChunk);
-
-        if (result.z == 0 && chunk->cz > 0) {
-            Chunk *posXNegZChunk = &chunks[chunkByCoords[key(chunk->cx + 1, chunk->cz - 1)]];
-            posXNegZChunk->store(-1, result.y, CHUNK_SIZE, place ? 1 : 0);
-            chunksToMesh.push_back(posXNegZChunk);
-        } else if (result.z == CHUNK_SIZE - 1 && chunk->cz < WORLD_SIZE / CHUNK_SIZE - 1) {
-            Chunk *posXPosZChunk = &chunks[chunkByCoords[key(chunk->cx + 1, chunk->cz + 1)]];
-            posXPosZChunk->store(-1, result.y, -1, place ? 1 : 0);
-            chunksToMesh.push_back(posXPosZChunk);
-        }
-    }
-
-    if (result.z == 0 && chunk->cz > 0) {
-        Chunk *negZChunk = &chunks[chunkByCoords[key(chunk->cx, chunk->cz - 1)]];
-        negZChunk->store(result.x, result.y, CHUNK_SIZE, place ? 1 : 0);
-        chunksToMesh.push_back(negZChunk);
-    } else if (result.z == CHUNK_SIZE - 1 && chunk->cz < WORLD_SIZE / CHUNK_SIZE - 1) {
-        Chunk *posZChunk = &chunks[chunkByCoords[key(chunk->cx, chunk->cz + 1)]];
-        posZChunk->store(result.x, result.y, -1, place ? 1 : 0);
-        chunksToMesh.push_back(posZChunk);
-    }
-
-    // Sort by firstIndex descending
-    std::sort(chunksToMesh.begin(), chunksToMesh.end(), [](Chunk *a, Chunk *b) {
-        return a->firstIndex > b->firstIndex;
-    });
-
-    // Erase old vertex data and move chunks to the end of the vectors to preserve order
-    for (Chunk *chunk : chunksToMesh) {
-        worldMesh.data.erase(worldMesh.data.begin() + chunk->firstIndex,
-                             worldMesh.data.begin() + chunk->firstIndex + chunk->numVertices);
-        std::rotate(chunkData.begin() + chunk->index, chunkData.begin() + chunk->index + 1, chunkData.end());
-        std::rotate(chunks.begin() + chunk->index, chunks.begin() + chunk->index + 1, chunks.end());
-    }
-
-    // Mesh chunks
-    for (Chunk *chunk: chunksToMesh) {
-        Mesher::meshChunk(*chunk);
-        worldMesh.data.insert(worldMesh.data.end(), chunk->vertices.begin(), chunk->vertices.end());
-    }
-
-    // Update firstIndex and chunkData for all chunks
-    int firstIndex = 0;
-    for (int i = 0; i < chunks.size(); ++i) {
-        Chunk &chunk = chunks[i];
-        chunk.firstIndex = firstIndex;
-        chunkData[i] = {
-                .cx = chunk.cx,
-                .cz = chunk.cz,
-                .minY = chunk.minY,
-                .maxY = chunk.maxY,
-                .numVertices = chunk.numVertices,
-                .firstIndex = chunk.firstIndex,
-                ._pad0 = 0,
-                ._pad1 = 0,
-        };
-        firstIndex += chunk.numVertices;
-    }
-
-    // Update vertex buffer
-    glNamedBufferData(verticesBuffer, sizeof(uint32_t) * worldMesh.data.size(),
-                      (const void *) worldMesh.data.data(), GL_DYNAMIC_DRAW);
-
-    // Update all chunk data
-    void *chunkDataBufferPtr = glMapNamedBuffer(chunkDataBuffer, GL_WRITE_ONLY);
-
-    if (chunkDataBufferPtr) {
-        // Perform the memory copy
-        std::memcpy(chunkDataBufferPtr, chunkData.data(), sizeof(ChunkData) * chunkData.size());
-
-        // Unmap the buffer after the operation
-        if (!glUnmapNamedBuffer(chunkDataBuffer)) {
-            std::cerr << "Failed to unmap buffer!" << std::endl;
-        }
-    } else {
-        std::cerr << "Failed to map buffer!" << std::endl;
-    }
+//    Chunk *chunk = result.chunk;
+//
+//    if (place) {
+//        if (result.face == 0) {
+//            if (result.x == CHUNK_SIZE - 1) {
+//                if (chunk->cx == WORLD_SIZE / CHUNK_SIZE - 1) {
+//                    return;
+//                }
+//                chunk = chunkByCoords[key(chunk->cx + 1, chunk->cz)];
+//                result.x = 0;
+//            } else {
+//                result.x++;
+//            }
+//        } else if (result.face == 1) {
+//            if (result.x == 0) {
+//                if (chunk->cx == 0) {
+//                    return;
+//                }
+//                chunk = chunkByCoords[key(chunk->cx - 1, chunk->cz)];
+//                result.x = CHUNK_SIZE - 1;
+//            } else {
+//                result.x--;
+//            }
+//        } else if (result.face == 2) {
+//            if (result.y == CHUNK_HEIGHT - 2) {
+//                return;
+//            }
+//            result.y++;
+//        } else if (result.face == 3) {
+//            if (result.y == 0) {
+//                return;
+//            }
+//            result.y--;
+//        } else if (result.face == 4) {
+//            if (result.z == CHUNK_SIZE - 1) {
+//                if (chunk->cz == WORLD_SIZE / CHUNK_SIZE - 1) {
+//                    return;
+//                }
+//                chunk = chunkByCoords[key(chunk->cx, chunk->cz + 1)];
+//                result.z = 0;
+//            } else {
+//                result.z++;
+//            }
+//        } else if (result.face == 5) {
+//            if (result.z == 0) {
+//                if (chunk->cz == 0) {
+//                    return;
+//                }
+//                chunk = chunkByCoords[key(chunk->cx, chunk->cz - 1)];
+//                result.z = CHUNK_SIZE - 1;
+//            } else {
+//                result.z--;
+//            }
+//        }
+//    }
+//
+//    // Change voxel value
+//    chunk->store(result.x, result.y, result.z, place ? 1 : 0);
+//
+//    // Update minY and maxY
+//    chunk->minY = std::min(chunk->minY, result.y);
+//    chunk->maxY = std::max(chunk->maxY, result.y + 2);
+//
+//    std::vector<Chunk *> chunksToMesh;
+//    chunksToMesh.push_back(chunk);
+//
+//    // If the voxel is on a chunk boundary, update the neighboring chunk(s)
+//    if (result.x == 0 && chunk->cx > 0) {
+//        Chunk *negXChunk = chunkByCoords[key(chunk->cx - 1, chunk->cz)];
+//        negXChunk->store(CHUNK_SIZE, result.y, result.z, place ? 1 : 0);
+//        chunksToMesh.push_back(negXChunk);
+//
+//        if (result.z == 0 && chunk->cz > 0) {
+//            Chunk *negXNegZChunk = chunkByCoords[key(chunk->cx - 1, chunk->cz - 1)];
+//            negXNegZChunk->store(CHUNK_SIZE, result.y, CHUNK_SIZE, place ? 1 : 0);
+//            chunksToMesh.push_back(negXNegZChunk);
+//        } else if (result.z == CHUNK_SIZE - 1 && chunk->cz < WORLD_SIZE / CHUNK_SIZE - 1) {
+//            Chunk *negXPosZChunk = chunkByCoords[key(chunk->cx - 1, chunk->cz + 1)];
+//            negXPosZChunk->store(CHUNK_SIZE, result.y, -1, place ? 1 : 0);
+//            chunksToMesh.push_back(negXPosZChunk);
+//        }
+//    } else if (result.x == CHUNK_SIZE - 1 && chunk->cx < WORLD_SIZE / CHUNK_SIZE - 1) {
+//        Chunk *posXChunk = chunkByCoords[key(chunk->cx + 1, chunk->cz)];
+//        posXChunk->store(-1, result.y, result.z, place ? 1 : 0);
+//        chunksToMesh.push_back(posXChunk);
+//
+//        if (result.z == 0 && chunk->cz > 0) {
+//            Chunk *posXNegZChunk = chunkByCoords[key(chunk->cx + 1, chunk->cz - 1)];
+//            posXNegZChunk->store(-1, result.y, CHUNK_SIZE, place ? 1 : 0);
+//            chunksToMesh.push_back(posXNegZChunk);
+//        } else if (result.z == CHUNK_SIZE - 1 && chunk->cz < WORLD_SIZE / CHUNK_SIZE - 1) {
+//            Chunk *posXPosZChunk = chunkByCoords[key(chunk->cx + 1, chunk->cz + 1)];
+//            posXPosZChunk->store(-1, result.y, -1, place ? 1 : 0);
+//            chunksToMesh.push_back(posXPosZChunk);
+//        }
+//    }
+//
+//    if (result.z == 0 && chunk->cz > 0) {
+//        Chunk *negZChunk = chunkByCoords[key(chunk->cx, chunk->cz - 1)];
+//        negZChunk->store(result.x, result.y, CHUNK_SIZE, place ? 1 : 0);
+//        chunksToMesh.push_back(negZChunk);
+//    } else if (result.z == CHUNK_SIZE - 1 && chunk->cz < WORLD_SIZE / CHUNK_SIZE - 1) {
+//        Chunk *posZChunk = chunkByCoords[key(chunk->cx, chunk->cz + 1)];
+//        posZChunk->store(result.x, result.y, -1, place ? 1 : 0);
+//        chunksToMesh.push_back(posZChunk);
+//    }
+//
+//    // Sort by firstIndex descending
+//    std::sort(chunksToMesh.begin(), chunksToMesh.end(), [](Chunk *a, Chunk *b) {
+//        return a->firstIndex > b->firstIndex;
+//    });
+//
+//    // Erase old vertex data and move chunks to the end of the vectors to preserve order
+//    for (Chunk *chunk : chunksToMesh) {
+//        worldMesh.data.erase(worldMesh.data.begin() + chunk->firstIndex,
+//                             worldMesh.data.begin() + chunk->firstIndex + chunk->numVertices);
+//        std::rotate(chunkData.begin() + chunk->index, chunkData.begin() + chunk->index + 1, chunkData.end());
+//        std::rotate(chunks.begin() + chunk->index, chunks.begin() + chunk->index + 1, chunks.end());
+//    }
+//
+//    // Mesh chunks
+//    for (Chunk *chunk: chunksToMesh) {
+//        Mesher::meshChunk(*chunk);
+//        worldMesh.data.insert(worldMesh.data.end(), chunk->vertices.begin(), chunk->vertices.end());
+//    }
+//
+//    // Update firstIndex and chunkData for all chunks
+//    int firstIndex = 0;
+//    for (int i = 0; i < chunks.size(); ++i) {
+//        Chunk &chunk = chunks[i];
+//        chunk.firstIndex = firstIndex;
+//        chunkData[i] = {
+//                .cx = chunk.cx,
+//                .cz = chunk.cz,
+//                .minY = chunk.minY,
+//                .maxY = chunk.maxY,
+//                .numVertices = chunk.numVertices,
+//                .firstIndex = chunk.firstIndex,
+//                ._pad0 = 0,
+//                ._pad1 = 0,
+//        };
+//        firstIndex += chunk.numVertices;
+//    }
+//
+//    // Update vertex buffer
+//    glNamedBufferData(verticesBuffer, sizeof(uint32_t) * worldMesh.data.size(),
+//                      (const void *) worldMesh.data.data(), GL_DYNAMIC_DRAW);
+//
+//    // Update all chunk data
+//    void *chunkDataBufferPtr = glMapNamedBuffer(chunkDataBuffer, GL_WRITE_ONLY);
+//
+//    if (chunkDataBufferPtr) {
+//        // Perform the memory copy
+//        std::memcpy(chunkDataBufferPtr, chunkData.data(), sizeof(ChunkData) * chunkData.size());
+//
+//        // Unmap the buffer after the operation
+//        if (!glUnmapNamedBuffer(chunkDataBuffer)) {
+//            std::cerr << "Failed to unmap buffer!" << std::endl;
+//        }
+//    } else {
+//        std::cerr << "Failed to map buffer!" << std::endl;
+//    }
 }
 
 bool VoxelsApplication::updateFrontierChunks() {
@@ -562,21 +595,21 @@ bool VoxelsApplication::updateFrontierChunks() {
 }
 
 bool VoxelsApplication::createNewFrontierChunks() {
-    std::sort(frontierChunks.begin(), frontierChunks.end(), [this](size_t a, size_t b) {
-        return squaredDistanceToChunk(chunks[a].cx, chunks[a].cz) < squaredDistanceToChunk(chunks[b].cx, chunks[b].cz);
+    std::sort(frontierChunks.begin(), frontierChunks.end(), [this](Chunk *a, Chunk *b) {
+        return squaredDistanceToChunk(a->cx, a->cz) < squaredDistanceToChunk(b->cx, b->cz);
     });
 
     for (size_t i = 0, s = frontierChunks.size(); i < s; i++) {
-        Chunk chunk = chunks[frontierChunks[i]];
+        Chunk *chunk = frontierChunks[i];
 
         if (chunkTasksCount >= MAX_CHUNK_TASKS) {
             break;
         }
 
-        if (ensureChunkIfVisible(chunk.cx - 1, chunk.cz) ||
-            ensureChunkIfVisible(chunk.cx + 1, chunk.cz) ||
-            ensureChunkIfVisible(chunk.cx, chunk.cz - 1) ||
-            ensureChunkIfVisible(chunk.cx, chunk.cz + 1)) {
+        if (ensureChunkIfVisible(chunk->cx - 1, chunk->cz) ||
+            ensureChunkIfVisible(chunk->cx + 1, chunk->cz) ||
+            ensureChunkIfVisible(chunk->cx, chunk->cz - 1) ||
+            ensureChunkIfVisible(chunk->cx, chunk->cz + 1)) {
             return true;
         }
     }
@@ -585,58 +618,44 @@ bool VoxelsApplication::createNewFrontierChunks() {
 }
 
 void VoxelsApplication::destroyFrontierChunks() {
-    std::vector<size_t> toDestroy;
+    std::vector<Chunk *> toDestroy;
 
     for (size_t i = 0, s = frontierChunks.size(); i < s; i++) {
-        Chunk &chunk = chunks[frontierChunks[i]];
-        if (chunkInRenderDistance(chunk.cx, chunk.cz)) {
+        Chunk *chunk = frontierChunks[i];
+        if (chunkInRenderDistance(chunk->cx, chunk->cz)) {
             continue;
         }
 
         // Promote neighbours to frontier if necessary and destroy chunk
-        int numPromoted = onFrontierChunkRemoved(&chunk);
+        int numPromoted = onFrontierChunkRemoved(chunk);
         frontierChunks.erase(frontierChunks.begin() + i);
-        chunkByCoords.erase(key(chunk.cx, chunk.cz));
-        toDestroy.push_back(chunk.index);
+        chunkByCoords.erase(key(chunk->cx, chunk->cz));
+        toDestroy.push_back(chunk);
         s += numPromoted - 1;
         i--;
     }
 
     // Sort by firstIndex in descending order
-    std::sort(toDestroy.begin(), toDestroy.end(), [this](size_t a, size_t b) {
-        return chunks[a].firstIndex > chunks[b].firstIndex;
+    std::sort(toDestroy.begin(), toDestroy.end(), [this](Chunk *a, Chunk *b) {
+        return a->firstIndex > b->firstIndex;
     });
 
     // Erase the relevant data from the buffers, remove the chunks from the chunks vector
     // and update frontierChunks and chunkByCoords indices based on the removed chunks
-    for (size_t chunkIndex : toDestroy) {
-        Chunk &chunk = chunks[chunkIndex];
+    for (Chunk *chunk : toDestroy) {
+        std::cout << "Destroyed chunk " << chunk->index << " at [" << chunk->cx << ", " << chunk->cz << "]" << std::endl;
 
-        std::cout << "Destroyed chunk " << chunkIndex << " at [" << chunk.cx << ", " << chunk.cz << "]" << std::endl;
+        worldMesh.data.erase(worldMesh.data.begin() + chunk->firstIndex,
+                             worldMesh.data.begin() + chunk->firstIndex + chunk->numVertices);
 
-        worldMesh.data.erase(worldMesh.data.begin() + chunk.firstIndex,
-                             worldMesh.data.begin() + chunk.firstIndex + chunk.numVertices);
+        chunkData.erase(chunkData.begin() + chunk->index);
 
-        chunkData.erase(chunkData.begin() + chunk.index);
-
-        chunks.erase(chunks.begin() + chunkIndex);
-
-        for (size_t &frontierChunkIndex : frontierChunks) {
-            if (frontierChunkIndex > chunkIndex) {
-                frontierChunkIndex--;
-            }
-        }
-
-        for (auto &pair : chunkByCoords) {
-            if (pair.second > chunkIndex) {
-                pair.second--;
-            }
-        }
+        chunks.remove(*chunk);
     }
 
     // Update chunk indexes in case chunks were removed
-    for (int i = 0; i < chunks.size(); ++i) {
-        chunks[i].index = i;
+    for (auto it = chunks.begin(); it != chunks.end(); ++it) {
+        it->index = std::distance(chunks.begin(), it);
     }
 
     // Update firstIndex for all chunks
@@ -669,12 +688,12 @@ Chunk *VoxelsApplication::createChunk(int cx, int cz) {
     Chunk &chunk = chunks.back();
     size_t chunkIndex = chunks.size() - 1;
     chunk.index = chunkIndex;
-    chunkByCoords[key(cx, cz)] = chunkIndex;
+    chunkByCoords[key(cx, cz)] = &chunk;
     addFrontier(&chunk);
     chunkData.push_back({
         .cx = cx,
         .cz = cz,
-        .minY = 0,
+        .minY = 128,
         .maxY = 0,
         .numVertices = 0,
         .firstIndex = 0,
@@ -684,19 +703,23 @@ Chunk *VoxelsApplication::createChunk(int cx, int cz) {
 
     chunkTasksCount++;
 
-    threadPool.queueTask([chunkIndex, this]() {
+    threadPool.queueTask([&chunk, this]() {
         {
             std::unique_lock<std::mutex> lock(cvMutex);
             cv.wait(lock, [this]() { return chunksReady; });
         }
 
-        Chunk &chunk = chunks[chunkIndex];
         chunk.init();
         chunk.generateVoxels2D();
 
         Mesher::meshChunk(chunk);
 
-        newlyCreatedChunks.push_back(chunk.index);
+        // If newlyCreatedChunks is currently being iterated through, we need to lock the mutex
+        {
+            std::unique_lock<std::mutex> lock(cvMutex);
+            cvNewlyCreatedChunks.wait(lock, [this]() { return newlyCreatedChunksReady; });
+        }
+        newlyCreatedChunks.push_back(&chunk);
 
         std::cout << "Created chunk " << chunk.index << " at [" << chunk.cx << ", " << chunk.cz << "]" << std::endl;
     });
@@ -705,7 +728,7 @@ Chunk *VoxelsApplication::createChunk(int cx, int cz) {
 }
 
 void VoxelsApplication::addFrontier(Chunk *chunk) {
-    frontierChunks.push_back(chunk->index);
+    frontierChunks.push_back(chunk);
     int cx = chunk->cx;
     int cz = chunk->cz;
 
@@ -720,11 +743,11 @@ void VoxelsApplication::updateFrontierNeighbour(Chunk *frontier, int cx, int cz)
         return;
     }
 
-    Chunk &neighbour = chunks[chunkByCoords[key(cx, cz)]];
-    neighbour.neighbours++;
+    Chunk *neighbour = chunkByCoords[key(cx, cz)];
+    neighbour->neighbours++;
     frontier->neighbours++;
-    if (neighbour.neighbours == 4) {
-        frontierChunks.erase(std::remove(frontierChunks.begin(), frontierChunks.end(), neighbour.index), frontierChunks.end());
+    if (neighbour->neighbours == 4) {
+        frontierChunks.erase(std::remove(frontierChunks.begin(), frontierChunks.end(), neighbour), frontierChunks.end());
     }
 }
 
@@ -743,12 +766,12 @@ int VoxelsApplication::onFrontierChunkRemoved(int cx, int cz, double distance) {
         return 0;
     }
 
-    Chunk &chunk = chunks[chunkByCoords[key(cx, cz)]];
-    chunk.neighbours--;
-    if (!(std::find(frontierChunks.begin(), frontierChunks.end(), chunk.index) != frontierChunks.end()) &&
+    Chunk *chunk = chunkByCoords[key(cx, cz)];
+    chunk->neighbours--;
+    if (!(std::find(frontierChunks.begin(), frontierChunks.end(), chunk) != frontierChunks.end()) &&
         (chunkInRenderDistance(cx, cz) ||
         squaredDistanceToChunk(cx, cz) < distance)) {
-        frontierChunks.push_back(chunk.index);
+        frontierChunks.push_back(chunk);
         return 1;
     }
     return 0;

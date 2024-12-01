@@ -3,10 +3,11 @@
 #include "Application.hpp"
 
 #include "core/Camera.hpp"
-#include "core/ThreadPool.hpp"
 #include "opengl/Shader.h"
 #include "world/Chunk.hpp"
 #include "world/WorldMesh.hpp"
+
+#include <list>
 
 typedef struct {
     unsigned int count;
@@ -28,7 +29,7 @@ typedef struct {
 } ChunkData;
 
 typedef struct {
-    int chunkIndex;
+    Chunk *chunk;
     int x;
     int y;
     int z;
@@ -71,24 +72,24 @@ private:
 
     Camera camera;
 
-    ThreadPool threadPool;
-
     bool wireframe = false;
 
     Shader shader;
     Shader drawCommandProgram;
 
-    std::vector<Chunk> chunks;
-    std::vector<size_t> frontierChunks;
-    std::vector<size_t> newlyCreatedChunks;
-    std::unordered_map<size_t, size_t> chunkByCoords;
+    std::list<Chunk> chunks;
+    std::vector<Chunk *> frontierChunks;
+    std::vector<Chunk *> newlyCreatedChunks;
+    std::unordered_map<size_t, Chunk *> chunkByCoords;
     std::vector<ChunkData> chunkData;
     WorldMesh worldMesh;
 
     std::atomic<int> chunkTasksCount = 0;
     std::condition_variable cv;
+    std::condition_variable cvNewlyCreatedChunks;
     std::mutex cvMutex;
     bool chunksReady = false;
+    bool newlyCreatedChunksReady = false;
 
     GLuint chunkDrawCmdBuffer;
     GLuint chunkDataBuffer;

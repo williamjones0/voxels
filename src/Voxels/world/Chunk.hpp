@@ -26,6 +26,7 @@ public:
     Chunk &operator=(const Chunk &other); // Copy assignment operator
     Chunk(Chunk &&other) noexcept; // Move constructor
     Chunk &operator=(Chunk &&other) noexcept; // Move assignment operator
+    bool operator==(const Chunk &other) const; // Comparison operator
 
     int cx;
     int cz;
