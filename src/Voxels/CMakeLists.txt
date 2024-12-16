@@ -18,7 +18,6 @@ add_executable(Voxels
     util/Util.cpp
     world/Chunk.cpp
     world/Mesher.cpp
-    world/WorldMesh.cpp
         Application.cpp
         Application.hpp
         main.cpp
@@ -26,6 +25,7 @@ add_executable(Voxels
         VoxelsApplication.hpp
         VoxelsApplication.cpp
         core/ThreadPool.cpp
+        core/FreeListAllocator.hpp
 )
 
 add_dependencies(Voxels copy_data)

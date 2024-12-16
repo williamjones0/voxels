@@ -4,7 +4,6 @@
 #include <cstdint>
 
 #include "Chunk.hpp"
-#include "WorldMesh.hpp"
 
 class Mesher {
 public:

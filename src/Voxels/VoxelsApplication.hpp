@@ -3,9 +3,9 @@
 #include "Application.hpp"
 
 #include "core/Camera.hpp"
+#include "core/FreeListAllocator.hpp"
 #include "opengl/Shader.h"
 #include "world/Chunk.hpp"
-#include "world/WorldMesh.hpp"
 
 #include <list>
 
@@ -82,7 +82,6 @@ private:
     std::vector<Chunk *> newlyCreatedChunks;
     std::unordered_map<size_t, Chunk *> chunkByCoords;
     std::vector<ChunkData> chunkData;
-    WorldMesh worldMesh;
 
     std::atomic<int> chunkTasksCount = 0;
     std::condition_variable cv;
@@ -91,6 +90,10 @@ private:
     bool chunksReady = false;
     bool newlyCreatedChunksReady = false;
 
+    FreeListAllocator allocator;
+    std::vector<uint32_t> dummyVerticesBuffer;
+
+    GLuint dummyVAO;
     GLuint chunkDrawCmdBuffer;
     GLuint chunkDataBuffer;
     GLuint commandCountBuffer;

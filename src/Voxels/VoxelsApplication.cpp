@@ -9,11 +9,13 @@
 #include "world/Mesher.hpp"
 
 constexpr float PI = 3.14159265359f;
-constexpr int MAX_RENDER_DISTANCE_CHUNKS = 8;
+constexpr int MAX_RENDER_DISTANCE_CHUNKS = 12;
 constexpr int MAX_RENDER_DISTANCE_METRES = MAX_RENDER_DISTANCE_CHUNKS << CHUNK_SIZE_SHIFT;
 constexpr int MAX_CHUNKS = (2 * MAX_RENDER_DISTANCE_CHUNKS + 1) * (2 * MAX_RENDER_DISTANCE_CHUNKS + 1);
 
 constexpr int MAX_CHUNK_TASKS = 16;
+
+constexpr int INITIAL_VERTEX_BUFFER_SIZE = 1 << 25;
 
 bool VoxelsApplication::init() {
     if (!Application::init()) {
@@ -59,15 +61,14 @@ bool VoxelsApplication::load() {
     chunkByCoords = std::unordered_map<size_t, Chunk *>();
     chunkData = std::vector<ChunkData>();
 
-    worldMesh = WorldMesh();
-
     threadPool.start();
+
+    allocator = FreeListAllocator(INITIAL_VERTEX_BUFFER_SIZE, 4096);
+    dummyVerticesBuffer = std::vector<uint32_t>(INITIAL_VERTEX_BUFFER_SIZE, 0);
 
     createChunk(0, 0);
 
-    worldMesh.createBuffers();
-
-    updateVerticesBuffer();
+    glCreateVertexArrays(1, &dummyVAO);
 
     glCreateBuffers(1, &chunkDrawCmdBuffer);
     glNamedBufferStorage(chunkDrawCmdBuffer,
@@ -87,16 +88,18 @@ bool VoxelsApplication::load() {
     glNamedBufferStorage(commandCountBuffer,
                          sizeof(unsigned int),
                          nullptr,
-                         NULL);
+                         GL_DYNAMIC_STORAGE_BIT);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, commandCountBuffer);
     glBindBuffer(GL_PARAMETER_BUFFER, commandCountBuffer);
 
     glCreateBuffers(1, &verticesBuffer);
-    glNamedBufferData(verticesBuffer,
-                      sizeof(uint32_t) * worldMesh.data.size(),
-                      (const void *) worldMesh.data.data(),
-                      GL_DYNAMIC_DRAW);
+    glNamedBufferStorage(verticesBuffer,
+                      sizeof(uint32_t) * INITIAL_VERTEX_BUFFER_SIZE,
+                      nullptr,
+                      GL_DYNAMIC_STORAGE_BIT);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, verticesBuffer);
+
+    updateVerticesBuffer();
 
     shader.use();
     shader.setInt("chunkSizeShift", CHUNK_SIZE_SHIFT);
@@ -114,8 +117,6 @@ void VoxelsApplication::update() {
 
     chunksReady = false;
 
-    // The trouble here is that if the meshing threads from the previous update have not finished, the chunks vector
-    // will be updated and this will make the references invalid, causing a segfault
     while (updateFrontierChunks()) {}
 
     chunkTasksCount = 0;
@@ -128,7 +129,7 @@ void VoxelsApplication::update() {
     }
     cv.notify_all();
 
-    threadPool.waitUntilDone();
+//    threadPool.waitUntilDone();
 
     updateVerticesBuffer();
 
@@ -174,7 +175,7 @@ void VoxelsApplication::render() {
     shader.setMat4("view", view);
     shader.setMat4("projection", projection);
 
-    glBindVertexArray(worldMesh.VAO);
+    glBindVertexArray(dummyVAO);
     glBindBuffer(GL_DRAW_INDIRECT_BUFFER, chunkDrawCmdBuffer);
     glMultiDrawArraysIndirectCount(GL_TRIANGLES, nullptr, 0, MAX_CHUNKS, sizeof(ChunkDrawCommand));
 }
@@ -188,17 +189,25 @@ void VoxelsApplication::updateVerticesBuffer() {
     });
 
     if (!newlyCreatedChunks.empty()) {
-        std::cout << "newlyCreatedChunks.size(): " << newlyCreatedChunks.size() << std::endl;
+//        std::cout << "newlyCreatedChunks.size(): " << newlyCreatedChunks.size() << std::endl;
     }
 
     for (Chunk *chunk : newlyCreatedChunks) {
-        chunk->firstIndex = worldMesh.data.size();
+        auto region = allocator.allocate(chunk->numVertices);
+        if (!region) {
+            throw std::runtime_error("Failed to allocate memory for chunk vertices.");
+        }
 
-        // vvv THIS IS WRONG vvv
-        // suppose chunks 0, 1 and 3 are in newlyCreatedChunks, but chunk 2 is still meshing
-        // then in worldMesh.data, we will have the vertices of chunks 0, 1 and 3, but the indices will be wrong
-        // because the vertices of chunk 2 will be inserted after the vertices of chunk 3
-        worldMesh.data.insert(worldMesh.data.end(), chunk->vertices.begin(), chunk->vertices.end());
+        chunk->firstIndex = region->offset;
+
+        std::copy(chunk->vertices.begin(), chunk->vertices.end(), dummyVerticesBuffer.begin() + chunk->firstIndex);
+
+        glNamedBufferSubData(verticesBuffer,
+                             region->offset * sizeof(uint32_t),
+                             chunk->numVertices * sizeof(uint32_t),
+                             (const void *) chunk->vertices.data());
+
+//        chunk->vertices.clear();
 
         // Update chunk data
         ChunkData cd = {
@@ -213,7 +222,9 @@ void VoxelsApplication::updateVerticesBuffer() {
         };
         chunkData[chunk->index] = cd;
 
-        std::cout << "cx: " << chunk->cx << ", cz: " << chunk->cz << ", firstIndex: " << chunk->firstIndex << ", numVertices: " << chunk->numVertices << std::endl;
+        if (chunk->numVertices == 0) {
+            std::cerr << "Chunk has no vertices!" << std::endl;
+        }
     }
 
 //    for (ChunkData &cd : chunkData) {
@@ -232,10 +243,6 @@ void VoxelsApplication::updateVerticesBuffer() {
 //            std::cerr << "Vertices are not in the correct order!" << std::endl;
 //        }
 //    }
-
-    // Update vertex buffer
-    glNamedBufferData(verticesBuffer, sizeof(uint32_t) * worldMesh.data.size(),
-                      (const void *) worldMesh.data.data(), GL_DYNAMIC_DRAW);
 
     // Update chunk data buffer
     glNamedBufferData(chunkDataBuffer, sizeof(ChunkData) * chunkData.size(),
@@ -630,23 +637,24 @@ void VoxelsApplication::destroyFrontierChunks() {
         int numPromoted = onFrontierChunkRemoved(chunk);
         frontierChunks.erase(frontierChunks.begin() + i);
         chunkByCoords.erase(key(chunk->cx, chunk->cz));
+        allocator.deallocate(chunk->firstIndex, chunk->numVertices);
         toDestroy.push_back(chunk);
         s += numPromoted - 1;
         i--;
     }
 
     // Sort by firstIndex in descending order
-    std::sort(toDestroy.begin(), toDestroy.end(), [this](Chunk *a, Chunk *b) {
+    std::sort(toDestroy.begin(), toDestroy.end(), [](Chunk *a, Chunk *b) {
         return a->firstIndex > b->firstIndex;
     });
 
     // Erase the relevant data from the buffers, remove the chunks from the chunks vector
     // and update frontierChunks and chunkByCoords indices based on the removed chunks
     for (Chunk *chunk : toDestroy) {
-        std::cout << "Destroyed chunk " << chunk->index << " at [" << chunk->cx << ", " << chunk->cz << "]" << std::endl;
+//        std::cout << "Destroyed chunk " << chunk->index << " at [" << chunk->cx << ", " << chunk->cz << "]" << std::endl;
 
-        worldMesh.data.erase(worldMesh.data.begin() + chunk->firstIndex,
-                             worldMesh.data.begin() + chunk->firstIndex + chunk->numVertices);
+//        worldMesh.data.erase(worldMesh.data.begin() + chunk->firstIndex,
+//                             worldMesh.data.begin() + chunk->firstIndex + chunk->numVertices);
 
         chunkData.erase(chunkData.begin() + chunk->index);
 
@@ -658,13 +666,13 @@ void VoxelsApplication::destroyFrontierChunks() {
         it->index = std::distance(chunks.begin(), it);
     }
 
-    // Update firstIndex for all chunks
-    int firstIndex = 0;
-    for (Chunk &chunk : chunks) {
-        chunk.firstIndex = firstIndex;
-        chunkData[chunk.index].firstIndex = firstIndex;
-        firstIndex += chunk.numVertices;
-    }
+//    // Update firstIndex for all chunks
+//    int firstIndex = 0;
+//    for (Chunk &chunk : chunks) {
+//        chunk.firstIndex = firstIndex;
+//        chunkData[chunk.index].firstIndex = firstIndex;
+//        firstIndex += chunk.numVertices;
+//    }
 }
 
 bool VoxelsApplication::ensureChunkIfVisible(int cx, int cz) {
@@ -721,7 +729,7 @@ Chunk *VoxelsApplication::createChunk(int cx, int cz) {
         }
         newlyCreatedChunks.push_back(&chunk);
 
-        std::cout << "Created chunk " << chunk.index << " at [" << chunk.cx << ", " << chunk.cz << "]" << std::endl;
+//        std::cout << "Created chunk " << chunk.index << " at [" << chunk.cx << ", " << chunk.cz << "]" << std::endl;
     });
 
     return &chunk;
