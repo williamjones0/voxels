@@ -61,6 +61,7 @@ private:
     Shader shader;
     Shader drawCommandProgram;
     Shader voxelsTextureProgram;
+    Shader coneTracingProgram;
 
     std::vector<Chunk> chunks;
     std::vector<Chunk> frontierChunks;

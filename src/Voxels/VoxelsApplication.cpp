@@ -47,6 +47,7 @@ bool VoxelsApplication::load() {
     shader = Shader("vert.glsl", "frag.glsl");
     drawCommandProgram = Shader("drawcmd_comp.glsl");
     voxelsTextureProgram = Shader("voxeltexture_comp.glsl");
+    coneTracingProgram = Shader("cone_tracing_vert.glsl", "cone_tracing_frag.glsl");
 
     chunks = std::vector<Chunk>(NUM_CHUNKS);
 
@@ -175,6 +176,7 @@ bool VoxelsApplication::load() {
     glTextureParameteri(voxelsTexture, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
     glTextureStorage3D(voxelsTexture, mipLevels, GL_RGBA16F, WORLD_SIZE, CHUNK_HEIGHT, WORLD_SIZE);
     glBindImageTexture(5, voxelsTexture, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+    glBindTextureUnit(6, voxelsTexture);
 
     updateVoxelsTexture();
 
@@ -185,6 +187,31 @@ bool VoxelsApplication::load() {
     shader.setInt("chunkHeightShift", CHUNK_HEIGHT_SHIFT);
     shader.setInt("windowWidth", windowWidth);
     shader.setInt("windowHeight", windowHeight);
+
+    coneTracingProgram.use();
+    coneTracingProgram.setInt("chunkSizeShift", CHUNK_SIZE_SHIFT);
+    coneTracingProgram.setInt("chunkHeightShift", CHUNK_HEIGHT_SHIFT);
+    coneTracingProgram.setInt("windowWidth", windowWidth);
+    coneTracingProgram.setInt("windowHeight", windowHeight);
+
+    coneTracingProgram.setVec3("material.diffuseColor", glm::vec3(0.278, 0.600, 0.141));
+    coneTracingProgram.setFloat("material.diffuseReflectivity", 1.0f);
+    coneTracingProgram.setVec3("material.specularColor", glm::vec3(1.0f, 1.0f, 1.0f));
+    coneTracingProgram.setFloat("material.specularDiffusion", 2.0f);
+    coneTracingProgram.setFloat("material.specularReflectivity", 0.0f);
+    coneTracingProgram.setFloat("material.emissivity", 0.0f);
+    coneTracingProgram.setFloat("material.refractiveIndex", 1.4f);
+    coneTracingProgram.setFloat("material.transparency", 0.0f);
+
+    coneTracingProgram.setBool("settings.indirectSpecularLight", true);
+    coneTracingProgram.setBool("settings.indirectDiffuseLight", true);
+    coneTracingProgram.setBool("settings.directLight", true);
+    coneTracingProgram.setBool("settings.shadows", true);
+
+    coneTracingProgram.setVec3("pointLights[0].position", glm::vec3(50.0f, 100.0f, 50.0f));
+    coneTracingProgram.setVec3("pointLights[0].color", glm::vec3(1000.0f, 1000.0f, 1000.0f));
+
+    coneTracingProgram.setInt("numberOfLights", 1);
 
     return true;
 }
@@ -234,9 +261,14 @@ void VoxelsApplication::render() {
     // Render
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    shader.use();
-    shader.setMat4("view", view);
-    shader.setMat4("projection", projection);
+    // shader.use();
+    // shader.setMat4("view", view);
+    // shader.setMat4("projection", projection);
+
+    coneTracingProgram.use();
+    coneTracingProgram.setMat4("view", view);
+    coneTracingProgram.setMat4("projection", projection);
+    coneTracingProgram.setVec3("cameraPosition", camera.position);
 
     glBindVertexArray(worldMesh.VAO);
     glBindBuffer(GL_DRAW_INDIRECT_BUFFER, chunkDrawCmdBuffer);
@@ -348,6 +380,8 @@ void VoxelsApplication::updateVoxelsTexture() {
     voxelsTextureProgram.setInt("WORLD_SIZE", WORLD_SIZE);
     voxelsTextureProgram.setInt("CHUNK_HEIGHT", CHUNK_HEIGHT);
     glDispatchCompute(WORLD_SIZE / 8, CHUNK_HEIGHT / 8, WORLD_SIZE / 8);
+
+    glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT);
 }
 
 int step(float edge, float x) {

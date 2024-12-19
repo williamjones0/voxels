@@ -11,6 +11,14 @@ layout (binding = 4) readonly buffer Voxels {
 
 layout (binding = 5, rgba16f) uniform writeonly image3D voxelsTexture;
 
+vec3 get_color(uint type) {
+    switch (type) {
+        case 0: return vec3(0.278, 0.600, 0.141);
+        case 1: return vec3(0.6, 0.1, 0.1);
+    }
+    return vec3(0.0);
+}
+
 void main() {
     ivec3 pos = ivec3(gl_GlobalInvocationID.xyz);
     ivec3 imageSize = imageSize(voxelsTexture);
@@ -27,5 +35,5 @@ void main() {
         return;
     }
 
-    imageStore(voxelsTexture, pos, vec4(0.5, 0.0, 0.0, 1.0));
+    imageStore(voxelsTexture, pos, vec4(get_color(uint(voxel - 1)), 1.0));
 }
