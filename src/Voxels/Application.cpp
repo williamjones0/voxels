@@ -33,6 +33,11 @@ bool Application::init() {
     const auto primaryMonitor = glfwGetPrimaryMonitor();
     const auto videoMode = glfwGetVideoMode(primaryMonitor);
 
+    const auto screenWidth = videoMode->width;
+    const auto screenHeight = videoMode->height;
+    windowWidth = screenWidth * 0.8;
+    windowHeight = screenHeight * 0.8;
+
     windowHandle = glfwCreateWindow(windowWidth, windowHeight, "Voxels", nullptr, nullptr);
     if (windowHandle == nullptr) {
         std::cout << "Failed to create GLFW windowHandle" << std::endl;
@@ -40,8 +45,6 @@ bool Application::init() {
         return false;
     }
 
-    const auto screenWidth = videoMode->width;
-    const auto screenHeight = videoMode->height;
     glfwSetWindowPos(windowHandle, (screenWidth - windowWidth) / 2, (screenHeight - windowHeight) / 2);
 
     glfwMakeContextCurrent(windowHandle);
@@ -90,6 +93,7 @@ bool Application::load() {
                 break;
             case GL_DEBUG_SEVERITY_NOTIFICATION:
                 SEVERITY = "NOTIFICATION";
+                return;
                 break;
         }
         fprintf(stderr, "GL CALLBACK: %s type = 0x%x, severity = %s, message = %s\n",

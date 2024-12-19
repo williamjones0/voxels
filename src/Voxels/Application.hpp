@@ -27,8 +27,8 @@ protected:
 
     GLFWwindow *windowHandle;
 
-    const int windowWidth = 2560 * 0.8;
-    const int windowHeight = 1600 * 0.8;
+    int windowWidth;
+    int windowHeight;
 
     float lastX;
     float lastY;

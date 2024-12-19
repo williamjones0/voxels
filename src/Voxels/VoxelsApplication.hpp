@@ -50,6 +50,7 @@ protected:
     void cleanup() override;
 
 private:
+    void updateVoxelsTexture();
     RaycastResult raycast();
     void updateVoxel(RaycastResult result, bool place);
 
@@ -59,6 +60,7 @@ private:
 
     Shader shader;
     Shader drawCommandProgram;
+    Shader voxelsTextureProgram;
 
     std::vector<Chunk> chunks;
     std::vector<Chunk> frontierChunks;
@@ -69,4 +71,7 @@ private:
     GLuint chunkDataBuffer;
     GLuint commandCountBuffer;
     GLuint verticesBuffer;
+    GLuint voxelsBuffer;
+
+    GLuint voxelsTexture;
 };

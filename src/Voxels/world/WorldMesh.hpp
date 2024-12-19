@@ -12,6 +12,7 @@ public:
     unsigned int VBO{};
 
     std::vector<uint32_t> data;
+    std::vector<int> voxels;
 
     std::vector<unsigned int> chunkVertexStarts;
 

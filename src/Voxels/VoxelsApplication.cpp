@@ -46,6 +46,7 @@ bool VoxelsApplication::load() {
 
     shader = Shader("vert.glsl", "frag.glsl");
     drawCommandProgram = Shader("drawcmd_comp.glsl");
+    voxelsTextureProgram = Shader("voxeltexture_comp.glsl");
 
     chunks = std::vector<Chunk>(NUM_CHUNKS);
 
@@ -154,6 +155,30 @@ bool VoxelsApplication::load() {
                       (const void *) worldMesh.data.data(),
                       GL_DYNAMIC_DRAW);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, verticesBuffer);
+
+    glCreateBuffers(1, &voxelsBuffer);
+    glNamedBufferStorage(voxelsBuffer,
+        sizeof(int) * WORLD_SIZE * WORLD_SIZE * CHUNK_HEIGHT,
+        nullptr,
+        GL_DYNAMIC_STORAGE_BIT);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, voxelsBuffer);
+
+    // Textures
+    int mipLevels = 1 + static_cast<int>(std::floor(std::log2(std::max({WORLD_SIZE, CHUNK_HEIGHT, WORLD_SIZE}))));
+
+    glCreateTextures(GL_TEXTURE_3D, 1, &voxelsTexture);
+    glTextureParameteri(voxelsTexture, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
+    glTextureParameteri(voxelsTexture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTextureParameteri(voxelsTexture, GL_TEXTURE_MAX_LEVEL, mipLevels - 1);
+    glTextureParameteri(voxelsTexture, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(voxelsTexture, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(voxelsTexture, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    glTextureStorage3D(voxelsTexture, mipLevels, GL_RGBA16F, WORLD_SIZE, CHUNK_HEIGHT, WORLD_SIZE);
+    glBindImageTexture(5, voxelsTexture, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
+
+    updateVoxelsTexture();
+
+    glGenerateTextureMipmap(voxelsTexture);
 
     shader.use();
     shader.setInt("chunkSizeShift", CHUNK_SIZE_SHIFT);
@@ -299,6 +324,30 @@ void VoxelsApplication::cleanup() {
     glDeleteBuffers(1, &verticesBuffer);
 
     Application::cleanup();
+}
+
+void VoxelsApplication::updateVoxelsTexture() {
+    std::vector<int> voxels(WORLD_SIZE * WORLD_SIZE * CHUNK_HEIGHT);
+
+    for (Chunk &chunk : chunks) {
+        for (int y = 0; y < CHUNK_HEIGHT; ++y) {
+            for (int z = 0; z < CHUNK_SIZE; ++z) {
+                for (int x = 0; x < CHUNK_SIZE; ++x) {
+                    int v = chunk.load(x, y, z);
+
+                    size_t index = chunk.cx * CHUNK_SIZE + x + (chunk.cz * CHUNK_SIZE + z) * WORLD_SIZE + y * WORLD_SIZE * WORLD_SIZE;
+                    voxels[index] = v;
+                }
+            }
+        }
+    }
+
+    glNamedBufferSubData(voxelsBuffer, 0, sizeof(int) * WORLD_SIZE * WORLD_SIZE * CHUNK_HEIGHT, voxels.data());
+
+    voxelsTextureProgram.use();
+    voxelsTextureProgram.setInt("WORLD_SIZE", WORLD_SIZE);
+    voxelsTextureProgram.setInt("CHUNK_HEIGHT", CHUNK_HEIGHT);
+    glDispatchCompute(WORLD_SIZE / 8, CHUNK_HEIGHT / 8, WORLD_SIZE / 8);
 }
 
 int step(float edge, float x) {
