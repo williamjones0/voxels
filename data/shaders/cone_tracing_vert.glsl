@@ -58,7 +58,7 @@ void main() {
 
     uint vertex = vertices[gl_VertexID];
     float x = float(vertex & chunkSizeMask);
-    float y = float((vertex >> (chunkSizeShift + 1)) & chunkHeightMask);
+    float y = float((vertex >> (chunkSizeShift + 1)) & chunkHeightMask) - 1;
     float z = float((vertex >> (chunkSizeShift + chunkHeightShift + 2)) & chunkSizeMask);
     normal_id = int((vertex >> (2 * chunkSizeShift + chunkHeightShift + 4)) & 7u);
     float ao = float((vertex >> (2 * chunkSizeShift + chunkHeightShift + 7)) & 3u);

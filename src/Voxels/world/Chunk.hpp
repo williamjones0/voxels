@@ -6,10 +6,10 @@
 #include <vector>
 #include <string>
 
-constexpr int WORLD_SIZE = 256;
+constexpr int WORLD_SIZE = 64;
 
 constexpr int CHUNK_SIZE_SHIFT = 4;
-constexpr int CHUNK_HEIGHT_SHIFT = 7;
+constexpr int CHUNK_HEIGHT_SHIFT = 6;
 constexpr int CHUNK_SIZE = 1 << CHUNK_SIZE_SHIFT;
 constexpr int CHUNK_HEIGHT = 1 << CHUNK_HEIGHT_SHIFT;
 

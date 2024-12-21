@@ -7,7 +7,7 @@
 // Light (voxel) cone tracing settings.
 // --------------------------------------
 #define MIPMAP_HARDCAP 5.4f // Too high mipmap levels => glitchiness, too low mipmap levels => sharpness.
-#define VOXEL_SIZE (1/256.0) // Size of a voxel. 128x128x128 => 1/128 = 0.0078125.
+#define VOXEL_SIZE (1/64.0) // Size of a voxel. 128x128x128 => 1/128 = 0.0078125.
 #define SHADOWS 1 // Shadow cone tracing.
 #define DIFFUSE_INDIRECT_FACTOR 0.52f // Just changes intensity of diffuse indirect lighting.
 // --------------------------------------
@@ -65,11 +65,12 @@ in vec3 worldPositionFrag;
 flat in int normal_id;
 
 out vec4 color;
+vec4 TEST_FRAG_COLOR = vec4(0.1, 0.2, 0.3, 1.0);
 
 vec3 get_normal(int id) {
     switch (id) {
-        case 0: return vec3(0.0, 0.0, 1.0);
-        case 1: return vec3(0.0, 0.0, -1.0);
+        case 0: return vec3(0.0, 0.0, -1.0);
+        case 1: return vec3(0.0, 0.0, 1.0);
         case 2: return vec3(-1.0, 0.0, 0.0);
         case 3: return vec3(1.0, 0.0, 0.0);
         case 4: return vec3(0.0, -1.0, 0.0);
@@ -79,6 +80,28 @@ vec3 get_normal(int id) {
 
 vec3 normal = get_normal(normal_id);
 float MAX_DISTANCE = distance(vec3(abs(worldPositionFrag)), vec3(-1));
+
+vec4 SampleVoxels(vec3 World_Position, float lod)  {
+    int VoxelGridWorldSize = 64;
+
+    // move world position back by half a voxel in the opposite direction of the normal
+    World_Position -= normal * 0.5f;
+
+    vec3 Voxel_Texture_UV = World_Position / float(VoxelGridWorldSize);
+
+//    int BOX_SIZE = 64;
+//    if (int(gl_FragCoord.x) % BOX_SIZE < BOX_SIZE / 2 && int(gl_FragCoord.y) % BOX_SIZE < BOX_SIZE / 2) {
+//        if (normal.y == 1.0) {
+//            TEST_FRAG_COLOR.rgb = Voxel_Texture_UV;
+//            TEST_FRAG_COLOR.rgb = (World_Position + normal * 0.5f) / 4.0f;
+////            TEST_FRAG_COLOR.rgb = textureLod(texture3D, vec3(0.1748, 0.04224, 0.09326), lod).rgb;
+//        }
+//    }
+
+//    TEST_FRAG_COLOR.rgb = Voxel_Texture_UV;
+
+    return textureLod(texture3D, Voxel_Texture_UV, lod);
+}
 
 // Returns an attenuation factor given a distance.
 float attenuate(float dist){ dist *= DIST_FACTOR; return 1.0f / (CONSTANT + LINEAR * dist + QUADRATIC * dist * dist); }
@@ -141,7 +164,7 @@ vec3 traceDiffuseVoxelCone(const vec3 from, vec3 direction){
         float l = (1 + CONE_SPREAD * dist / VOXEL_SIZE);
         float level = log2(l);
         float ll = (level + 1) * (level + 1);
-        vec4 voxel = textureLod(texture3D, c, min(MIPMAP_HARDCAP, level));
+        vec4 voxel = SampleVoxels(c, level);
         acc += 0.075 * ll * voxel * pow(1 - voxel.a, 2);
         dist += ll * VOXEL_SIZE * 2;
     }
@@ -330,11 +353,19 @@ void main() {
     if(material.transparency > 0.01f)
         color.rgb = mix(color.rgb, indirectRefractiveLight(viewDirection), material.transparency);
 
-    // Direct light.
-    if(settings.directLight)
-        color.rgb += directLight(viewDirection);
+//    // Direct light.
+//    if(settings.directLight)
+//        color.rgb += directLight(viewDirection);
+
+    color.rgb = SampleVoxels(worldPositionFrag, 0).rgb;
 
     #if (GAMMA_CORRECTION == 1)
         color.rgb = pow(color.rgb, vec3(1.0 / 2.2));
     #endif
+
+    if (TEST_FRAG_COLOR.xyz != vec3(0.1, 0.2, 0.3)) {
+        color = TEST_FRAG_COLOR;
+        color.rgb = pow(color.rgb, vec3(1.0 / 2.2));
+    }
+
 }

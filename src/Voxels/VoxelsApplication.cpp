@@ -78,7 +78,8 @@ bool VoxelsApplication::load() {
 
                 auto startTime = std::chrono::high_resolution_clock::now();
                 chunk.init();
-                chunk.generateVoxels2D();
+                // chunk.generateVoxels2D();
+                chunk.generateVoxels("data/levels/cube64.txt");
                 Mesher::meshChunk(&chunk, WORLD_SIZE, worldMesh, chunkVertices[threadIndex]);
                 auto endTime = std::chrono::high_resolution_clock::now();
                 auto duration = std::chrono::duration_cast<std::chrono::microseconds>(endTime - startTime);
@@ -168,12 +169,11 @@ bool VoxelsApplication::load() {
     int mipLevels = 1 + static_cast<int>(std::floor(std::log2(std::max({WORLD_SIZE, CHUNK_HEIGHT, WORLD_SIZE}))));
 
     glCreateTextures(GL_TEXTURE_3D, 1, &voxelsTexture);
-    glTextureParameteri(voxelsTexture, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_NEAREST);
+    glTextureParameteri(voxelsTexture, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
     glTextureParameteri(voxelsTexture, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTextureParameteri(voxelsTexture, GL_TEXTURE_MAX_LEVEL, mipLevels - 1);
-    glTextureParameteri(voxelsTexture, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTextureParameteri(voxelsTexture, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTextureParameteri(voxelsTexture, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    glTextureParameteri(voxelsTexture, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+    glTextureParameteri(voxelsTexture, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+    glTextureParameteri(voxelsTexture, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_BORDER);
     glTextureStorage3D(voxelsTexture, mipLevels, GL_RGBA16F, WORLD_SIZE, CHUNK_HEIGHT, WORLD_SIZE);
     glBindImageTexture(5, voxelsTexture, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RGBA16F);
     glBindTextureUnit(6, voxelsTexture);
@@ -208,7 +208,7 @@ bool VoxelsApplication::load() {
     coneTracingProgram.setBool("settings.directLight", true);
     coneTracingProgram.setBool("settings.shadows", true);
 
-    coneTracingProgram.setVec3("pointLights[0].position", glm::vec3(50.0f, 100.0f, 50.0f));
+    coneTracingProgram.setVec3("pointLights[0].position", glm::vec3(16.0f, 20.0f, 16.0f));
     coneTracingProgram.setVec3("pointLights[0].color", glm::vec3(1000.0f, 1000.0f, 1000.0f));
 
     coneTracingProgram.setInt("numberOfLights", 1);
