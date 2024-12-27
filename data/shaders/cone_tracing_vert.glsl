@@ -19,7 +19,7 @@ struct ChunkDrawCommand {
     uint chunkIndex;
 };
 
-out vec3 worldPositionFrag;
+out vec3 pos_fs; // worldPositionFrag;
 flat out int normal_id;
 
 uniform mat4 view;
@@ -68,6 +68,6 @@ void main() {
                       0.0, 0.0, 1.0, 0.0,
                       float(chunk.cx << chunkSizeShift), 0, float(chunk.cz << chunkSizeShift), 1.0);
 
-    worldPositionFrag = vec3(model * vec4(x, y, z, 1.0));
+    pos_fs = vec3(model * vec4(x, y, z, 1.0));
     gl_Position = projection * view * model * vec4(x, y, z, 1.0);
 }

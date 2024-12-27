@@ -47,7 +47,8 @@ bool VoxelsApplication::load() {
     shader = Shader("vert.glsl", "frag.glsl");
     drawCommandProgram = Shader("drawcmd_comp.glsl");
     voxelsTextureProgram = Shader("voxeltexture_comp.glsl");
-    coneTracingProgram = Shader("cone_tracing_vert.glsl", "cone_tracing_frag.glsl");
+    // coneTracingProgram = Shader("cone_tracing_vert.glsl", "cone_tracing_frag.glsl");
+    coneTracingProgram2 = Shader("cone_tracing_vert.glsl", "cone_tracing_frag2.glsl");
 
     chunks = std::vector<Chunk>(NUM_CHUNKS);
 
@@ -188,30 +189,73 @@ bool VoxelsApplication::load() {
     shader.setInt("windowWidth", windowWidth);
     shader.setInt("windowHeight", windowHeight);
 
-    coneTracingProgram.use();
-    coneTracingProgram.setInt("chunkSizeShift", CHUNK_SIZE_SHIFT);
-    coneTracingProgram.setInt("chunkHeightShift", CHUNK_HEIGHT_SHIFT);
-    coneTracingProgram.setInt("windowWidth", windowWidth);
-    coneTracingProgram.setInt("windowHeight", windowHeight);
+    // coneTracingProgram.use();
+    // coneTracingProgram.setInt("chunkSizeShift", CHUNK_SIZE_SHIFT);
+    // coneTracingProgram.setInt("chunkHeightShift", CHUNK_HEIGHT_SHIFT);
+    // coneTracingProgram.setInt("windowWidth", windowWidth);
+    // coneTracingProgram.setInt("windowHeight", windowHeight);
+    //
+    // coneTracingProgram.setVec3("material.diffuseColor", glm::vec3(0.278, 0.600, 0.141));
+    // coneTracingProgram.setFloat("material.diffuseReflectivity", 1.0f);
+    // coneTracingProgram.setVec3("material.specularColor", glm::vec3(1.0f, 1.0f, 1.0f));
+    // coneTracingProgram.setFloat("material.specularDiffusion", 2.0f);
+    // coneTracingProgram.setFloat("material.specularReflectivity", 0.0f);
+    // coneTracingProgram.setFloat("material.emissivity", 0.0f);
+    // coneTracingProgram.setFloat("material.refractiveIndex", 1.4f);
+    // coneTracingProgram.setFloat("material.transparency", 0.0f);
+    //
+    // coneTracingProgram.setBool("settings.indirectSpecularLight", true);
+    // coneTracingProgram.setBool("settings.indirectDiffuseLight", true);
+    // coneTracingProgram.setBool("settings.directLight", true);
+    // coneTracingProgram.setBool("settings.shadows", true);
+    //
+    // coneTracingProgram.setVec3("pointLights[0].position", glm::vec3(16.0f, 20.0f, 16.0f));
+    // coneTracingProgram.setVec3("pointLights[0].color", glm::vec3(1000.0f, 1000.0f, 1000.0f));
+    //
+    // coneTracingProgram.setInt("numberOfLights", 1);
 
-    coneTracingProgram.setVec3("material.diffuseColor", glm::vec3(0.278, 0.600, 0.141));
-    coneTracingProgram.setFloat("material.diffuseReflectivity", 1.0f);
-    coneTracingProgram.setVec3("material.specularColor", glm::vec3(1.0f, 1.0f, 1.0f));
-    coneTracingProgram.setFloat("material.specularDiffusion", 2.0f);
-    coneTracingProgram.setFloat("material.specularReflectivity", 0.0f);
-    coneTracingProgram.setFloat("material.emissivity", 0.0f);
-    coneTracingProgram.setFloat("material.refractiveIndex", 1.4f);
-    coneTracingProgram.setFloat("material.transparency", 0.0f);
 
-    coneTracingProgram.setBool("settings.indirectSpecularLight", true);
-    coneTracingProgram.setBool("settings.indirectDiffuseLight", true);
-    coneTracingProgram.setBool("settings.directLight", true);
-    coneTracingProgram.setBool("settings.shadows", true);
+    coneTracingProgram2.use();
+    coneTracingProgram2.setInt("chunkSizeShift", CHUNK_SIZE_SHIFT);
+    coneTracingProgram2.setInt("chunkHeightShift", CHUNK_HEIGHT_SHIFT);
+    coneTracingProgram2.setInt("windowWidth", windowWidth);
+    coneTracingProgram2.setInt("windowHeight", windowHeight);
 
-    coneTracingProgram.setVec3("pointLights[0].position", glm::vec3(16.0f, 20.0f, 16.0f));
-    coneTracingProgram.setVec3("pointLights[0].color", glm::vec3(1000.0f, 1000.0f, 1000.0f));
+    coneTracingProgram2.setVec3("lighting[0].position", glm::vec3(40.0f, 20.0f, 40.0f));
+    coneTracingProgram2.setVec3("lighting[0].color", glm::vec3(1000.0f, 1000.0f, 1000.0f));
+    coneTracingProgram2.setFloat("lighting[0].att_constant", 1.0f);
+    coneTracingProgram2.setFloat("lighting[0].att_linear", 0.7f);
+    coneTracingProgram2.setFloat("lighting[0].att_quadratic", 1.8f);
+    coneTracingProgram2.setInt("lighting_size", 1);
 
-    coneTracingProgram.setInt("numberOfLights", 1);
+    coneTracingProgram2.setFloat("settings.diffuse_dist_factor", 0.1f);
+    coneTracingProgram2.setFloat("settings.occlusion_dist_factor", 0.35f);
+    coneTracingProgram2.setFloat("settings.specular_dist_factor", 0.8f);
+    coneTracingProgram2.setFloat("settings.diffuse_offset", 0.19f);
+    coneTracingProgram2.setFloat("settings.diffuse_origin_offset", 0.05f);
+    coneTracingProgram2.setFloat("settings.occlusion_offset", 0.08f);
+    coneTracingProgram2.setFloat("settings.specular_offset", 0.15f);
+    coneTracingProgram2.setFloat("settings.diffuse_apperture", 0.55f);
+    coneTracingProgram2.setFloat("settings.occlusion_apperture", 0.4f);
+    coneTracingProgram2.setFloat("settings.specular_apperture", 0.04f);
+    coneTracingProgram2.setFloat("settings.shadow_str", 1.5f);
+    coneTracingProgram2.setFloat("settings.shininess_falloff", 3.0f);
+    coneTracingProgram2.setBool("settings.phong", true);
+    coneTracingProgram2.setBool("settings.phong_ambient", true);
+    coneTracingProgram2.setBool("settings.phong_diffuse", true);
+    coneTracingProgram2.setBool("settings.phong_specular", false);
+    coneTracingProgram2.setBool("settings.vox_diffuse", true);
+    coneTracingProgram2.setBool("settings.vox_shadows", true);
+    coneTracingProgram2.setBool("settings.vox_specular", true);
+    coneTracingProgram2.setBool("settings.front_cone", true);
+    coneTracingProgram2.setBool("settings.side_cones", false);
+    coneTracingProgram2.setBool("settings.intermediate_cones", true);
+
+    coneTracingProgram2.setVec3("material.color", glm::vec3(0.278, 0.600, 0.141));
+    coneTracingProgram2.setFloat("material.ambient_str", 0.1f);
+    coneTracingProgram2.setFloat("material.diffuse_str", 0.9f);
+    coneTracingProgram2.setFloat("material.specular_str", 0.0f);
+    coneTracingProgram2.setFloat("material.shininess", 32.0f);
 
     return true;
 }
@@ -265,10 +309,15 @@ void VoxelsApplication::render() {
     // shader.setMat4("view", view);
     // shader.setMat4("projection", projection);
 
-    coneTracingProgram.use();
-    coneTracingProgram.setMat4("view", view);
-    coneTracingProgram.setMat4("projection", projection);
-    coneTracingProgram.setVec3("cameraPosition", camera.position);
+    // coneTracingProgram.use();
+    // coneTracingProgram.setMat4("view", view);
+    // coneTracingProgram.setMat4("projection", projection);
+    // coneTracingProgram.setVec3("cameraPosition", camera.position);
+
+    coneTracingProgram2.use();
+    coneTracingProgram2.setMat4("view", view);
+    coneTracingProgram2.setMat4("projection", projection);
+    coneTracingProgram2.setVec3("viewPos", camera.position);
 
     glBindVertexArray(worldMesh.VAO);
     glBindBuffer(GL_DRAW_INDIRECT_BUFFER, chunkDrawCmdBuffer);
@@ -379,6 +428,8 @@ void VoxelsApplication::updateVoxelsTexture() {
     voxelsTextureProgram.use();
     voxelsTextureProgram.setInt("WORLD_SIZE", WORLD_SIZE);
     voxelsTextureProgram.setInt("CHUNK_HEIGHT", CHUNK_HEIGHT);
+    voxelsTextureProgram.setVec3("light_position", glm::vec3(40.0f, 20.0f, 40.0f));
+    voxelsTextureProgram.setVec3("light_color", glm::vec3(1000.0f, 1000.0f, 1000.0f));
     glDispatchCompute(WORLD_SIZE / 8, CHUNK_HEIGHT / 8, WORLD_SIZE / 8);
 
     glMemoryBarrier(GL_TEXTURE_FETCH_BARRIER_BIT);
