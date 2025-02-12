@@ -16,6 +16,8 @@ constexpr int CHUNK_HEIGHT = 1 << CHUNK_HEIGHT_SHIFT;
 constexpr int NUM_AXIS_CHUNKS = WORLD_SIZE / CHUNK_SIZE;
 constexpr int NUM_CHUNKS = NUM_AXIS_CHUNKS * NUM_AXIS_CHUNKS;
 
+constexpr int VOXELS_SIZE = (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2) * (CHUNK_HEIGHT + 2);
+
 class Chunk {
 public:
     Chunk();
@@ -45,7 +47,11 @@ public:
     unsigned int numVertices;
     unsigned int firstIndex;
 
-    std::vector<int> voxels;
+    bool ready = false;
+    bool dying = false;
+    int meshed = 0;
+
+    std::vector<int> voxels{};
     void store(int x, int y, int z, char v);
     int load(int x, int y, int z);
     void init();

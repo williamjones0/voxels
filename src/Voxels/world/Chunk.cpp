@@ -9,9 +9,34 @@
 
 #define EPSILON 0.000001
 
-Chunk::Chunk() : cx(0), cz(0), minY(CHUNK_HEIGHT), maxY(0), neighbours(0), VAO(0), dataVBO(0), vertices(0), index(0), numVertices(0), firstIndex(0), voxels((CHUNK_SIZE + 2) * (CHUNK_SIZE + 2) * (CHUNK_HEIGHT + 2)) {}
+Chunk::Chunk()
+  : cx(0)
+  , cz(0)
+  , minY(CHUNK_HEIGHT)
+  , maxY(0)
+  , neighbours(0)
+  , VAO(0), dataVBO(0)
+  , vertices(0)
+  , index(0)
+  , numVertices(0)
+  , firstIndex(-1)
+  , voxels(VOXELS_SIZE)
+{}
 
-Chunk::Chunk(int cx, int cz) : cx(cx), cz(cz), minY(CHUNK_HEIGHT), maxY(0), neighbours(0), VAO(0), dataVBO(0), vertices(0), index(0), numVertices(0), firstIndex(0), voxels((CHUNK_SIZE + 2) * (CHUNK_SIZE + 2) * (CHUNK_HEIGHT + 2)) {}
+Chunk::Chunk(int cx, int cz)
+  : cx(cx)
+  , cz(cz)
+  , minY(CHUNK_HEIGHT)
+  , maxY(0)
+  , neighbours(0)
+  , VAO(0)
+  , dataVBO(0)
+  , vertices(0)
+  , index(0)
+  , numVertices(0)
+  , firstIndex(-1)
+  , voxels(VOXELS_SIZE)
+{}
 
 Chunk::Chunk(Chunk const &chunk) {
     cx = chunk.cx;
@@ -47,7 +72,19 @@ Chunk &Chunk::operator=(const Chunk &other) {
     return *this;
 }
 
-Chunk::Chunk(Chunk &&other) noexcept : cx(other.cx), cz(other.cz), minY(other.minY), maxY(other.maxY), neighbours(other.neighbours), VAO(other.VAO), dataVBO(other.dataVBO), vertices(std::move(other.vertices)), index(other.index), numVertices(other.numVertices), firstIndex(other.firstIndex), voxels(std::move(other.voxels)) {
+Chunk::Chunk(Chunk &&other) noexcept
+  : cx(other.cx)
+  , cz(other.cz)
+  , minY(other.minY)
+  , maxY(other.maxY)
+  , neighbours(other.neighbours)
+  , VAO(other.VAO)
+  , dataVBO(other.dataVBO)
+  , vertices(std::move(other.vertices))
+  , index(other.index)
+  , numVertices(other.numVertices)
+  , firstIndex(other.firstIndex)
+  , voxels(std::move(other.voxels)) {
     other.VAO = 0;
     other.dataVBO = 0;
     other.numVertices = 0;
@@ -92,7 +129,7 @@ int Chunk::load(int x, int y, int z) {
 }
 
 void Chunk::init() {
-    voxels = std::vector<int>((CHUNK_SIZE + 2) * (CHUNK_SIZE + 2) * (CHUNK_HEIGHT + 2));
+    voxels = std::vector<int>(VOXELS_SIZE, 0);
 }
 
 void Chunk::generateVoxels2D() {

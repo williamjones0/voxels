@@ -9,7 +9,7 @@
 #include "world/Mesher.hpp"
 
 constexpr float PI = 3.14159265359f;
-constexpr int MAX_RENDER_DISTANCE_CHUNKS = 12;
+constexpr int MAX_RENDER_DISTANCE_CHUNKS = 24;
 constexpr int MAX_RENDER_DISTANCE_METRES = MAX_RENDER_DISTANCE_CHUNKS << CHUNK_SIZE_SHIFT;
 constexpr int MAX_CHUNKS = (2 * MAX_RENDER_DISTANCE_CHUNKS + 1) * (2 * MAX_RENDER_DISTANCE_CHUNKS + 1);
 
@@ -124,10 +124,10 @@ void VoxelsApplication::update() {
     // Lock mutex and set the ready flag, then notify all waiting threads
     // We need to wait for all threads to be created before meshing to ensure that no invalid references are created
     {
-        std::unique_lock<std::mutex> lock(cvMutex);
+        std::unique_lock<std::mutex> lock(cvMutexChunks);
         chunksReady = true;
     }
-    cv.notify_all();
+    cvChunks.notify_all();
 
 //    threadPool.waitUntilDone();
 
@@ -182,6 +182,7 @@ void VoxelsApplication::render() {
 
 void VoxelsApplication::updateVerticesBuffer() {
     newlyCreatedChunksReady = false;
+    cvNewlyCreatedChunks.notify_all();
 
     // Sort newly created chunks by chunk.index so that chunkData is updated in the correct order
     std::sort(newlyCreatedChunks.begin(), newlyCreatedChunks.end(), [](Chunk *a, Chunk *b) {
@@ -193,6 +194,11 @@ void VoxelsApplication::updateVerticesBuffer() {
     }
 
     for (Chunk *chunk : newlyCreatedChunks) {
+        // If the chunk was already destroyed in destroyFrontierChunks, don't allocate and just skip it
+        if (chunk->dying) {
+            continue;
+        }
+
         auto region = allocator.allocate(chunk->numVertices);
         if (!region) {
             throw std::runtime_error("Failed to allocate memory for chunk vertices.");
@@ -207,7 +213,7 @@ void VoxelsApplication::updateVerticesBuffer() {
                              chunk->numVertices * sizeof(uint32_t),
                              (const void *) chunk->vertices.data());
 
-//        chunk->vertices.clear();
+        chunk->vertices.clear();
 
         // Update chunk data
         ChunkData cd = {
@@ -225,6 +231,9 @@ void VoxelsApplication::updateVerticesBuffer() {
         if (chunk->numVertices == 0) {
             std::cerr << "Chunk has no vertices!" << std::endl;
         }
+
+        chunk->ready = true;
+        chunk->meshed = 3;
     }
 
 //    for (ChunkData &cd : chunkData) {
@@ -252,6 +261,7 @@ void VoxelsApplication::updateVerticesBuffer() {
     newlyCreatedChunks.clear();
 
     newlyCreatedChunksReady = true;
+    cvNewlyCreatedChunks.notify_all();
 }
 
 void VoxelsApplication::processInput() {
@@ -291,6 +301,14 @@ void VoxelsApplication::processInput() {
                 }
                 break;
 
+            case GLFW_KEY_X:
+                for (Chunk &chunk : chunks) {
+                    if (chunk.firstIndex == -1) {
+                        std::cout << "busted\n";
+                    }
+                }
+                break;
+
             default:
                 break;
         }
@@ -320,7 +338,7 @@ void VoxelsApplication::processInput() {
     }
 
     if (buttons.contains(GLFW_MOUSE_BUTTON_4) || keys.contains(GLFW_KEY_LEFT_CONTROL)) {
-        camera.movementSpeed = 100.0f;
+        camera.movementSpeed = 500.0f;
     } else {
         camera.movementSpeed = 10.0f;
     }
@@ -637,15 +655,21 @@ void VoxelsApplication::destroyFrontierChunks() {
         int numPromoted = onFrontierChunkRemoved(chunk);
         frontierChunks.erase(frontierChunks.begin() + i);
         chunkByCoords.erase(key(chunk->cx, chunk->cz));
-        allocator.deallocate(chunk->firstIndex, chunk->numVertices);
+
+        // This should only happen if the chunk has already passed through newlyCreatedChunks
+        if (chunk->ready) {
+            allocator.deallocate(chunk->firstIndex, chunk->numVertices);
+        }
+
         toDestroy.push_back(chunk);
+        chunk->dying = true;
         s += numPromoted - 1;
         i--;
     }
 
-    // Sort by firstIndex in descending order
+    // Ensure that we can erase from chunkData properly
     std::sort(toDestroy.begin(), toDestroy.end(), [](Chunk *a, Chunk *b) {
-        return a->firstIndex > b->firstIndex;
+        return a->index > b->index;
     });
 
     // Erase the relevant data from the buffers, remove the chunks from the chunks vector
@@ -713,8 +737,8 @@ Chunk *VoxelsApplication::createChunk(int cx, int cz) {
 
     threadPool.queueTask([&chunk, this]() {
         {
-            std::unique_lock<std::mutex> lock(cvMutex);
-            cv.wait(lock, [this]() { return chunksReady; });
+            std::unique_lock<std::mutex> lock(cvMutexChunks);
+            cvChunks.wait(lock, [this]() { return chunksReady; });
         }
 
         chunk.init();
@@ -722,11 +746,14 @@ Chunk *VoxelsApplication::createChunk(int cx, int cz) {
 
         Mesher::meshChunk(chunk);
 
+        chunk.meshed = 1;
+
         // If newlyCreatedChunks is currently being iterated through, we need to lock the mutex
         {
-            std::unique_lock<std::mutex> lock(cvMutex);
+            std::unique_lock<std::mutex> lock(cvMutexNewlyCreatedChunks);
             cvNewlyCreatedChunks.wait(lock, [this]() { return newlyCreatedChunksReady; });
         }
+        chunk.meshed = 2;
         newlyCreatedChunks.push_back(&chunk);
 
 //        std::cout << "Created chunk " << chunk.index << " at [" << chunk.cx << ", " << chunk.cz << "]" << std::endl;
