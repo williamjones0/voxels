@@ -9,7 +9,7 @@
 #include "world/Mesher.hpp"
 
 constexpr float PI = 3.14159265359f;
-constexpr int MAX_RENDER_DISTANCE_CHUNKS = 24;
+constexpr int MAX_RENDER_DISTANCE_CHUNKS = 12;
 constexpr int MAX_RENDER_DISTANCE_METRES = MAX_RENDER_DISTANCE_CHUNKS << CHUNK_SIZE_SHIFT;
 constexpr int MAX_CHUNKS = (2 * MAX_RENDER_DISTANCE_CHUNKS + 1) * (2 * MAX_RENDER_DISTANCE_CHUNKS + 1);
 
@@ -55,7 +55,6 @@ bool VoxelsApplication::load() {
     drawCommandProgram = Shader("drawcmd_comp.glsl");
 
     chunks = std::list<Chunk>();
-//    chunks.reserve(NUM_CHUNKS);  // Is reserve guaranteed to prevent resizes if the size is less than the capacity?
     frontierChunks = std::vector<Chunk *>();
     newlyCreatedChunks = std::vector<Chunk *>();
     chunkByCoords = std::unordered_map<size_t, Chunk *>();
@@ -129,8 +128,6 @@ void VoxelsApplication::update() {
     }
     cvChunks.notify_all();
 
-//    threadPool.waitUntilDone();
-
     updateVerticesBuffer();
 
     // std::cout << "Frame time: " << deltaTime << "\t FPS: " << (1.0f / deltaTime) << std::endl;
@@ -189,13 +186,14 @@ void VoxelsApplication::updateVerticesBuffer() {
         return a->index < b->index;
     });
 
-    if (!newlyCreatedChunks.empty()) {
-//        std::cout << "newlyCreatedChunks.size(): " << newlyCreatedChunks.size() << std::endl;
-    }
-
     for (Chunk *chunk : newlyCreatedChunks) {
-        // If the chunk was already destroyed in destroyFrontierChunks, don't allocate and just skip it
+        // If the chunk was already destroyed in destroyFrontierChunks, we don't want to allocate, so just skip it
         if (chunk->dying) {
+            continue;
+        }
+
+        // If the chunk wasn't created yet (TODO: somehow?)
+        if (chunk->debug == 0) {
             continue;
         }
 
@@ -233,25 +231,8 @@ void VoxelsApplication::updateVerticesBuffer() {
         }
 
         chunk->ready = true;
-        chunk->meshed = 3;
+        chunk->debug = 3;
     }
-
-//    for (ChunkData &cd : chunkData) {
-//        if (cd.numVertices == 0) {
-//            continue;
-//        }
-//
-//        std::cout << "cx: " << cd.cx << ", cz: " << cd.cz << ", firstIndex: " << cd.firstIndex << ", numVertices: " << cd.numVertices << std::endl;
-//        std::cout << worldMesh.data[cd.firstIndex] << ", " << worldMesh.data[cd.firstIndex + 1] << ", " << worldMesh.data[cd.firstIndex + 2] << std::endl;
-//        std::cout << chunkByCoords[key(cd.cx, cd.cz)]->vertices[0] << ", " << chunkByCoords[key(cd.cx, cd.cz)]->vertices[1] << ", " << chunkByCoords[key(cd.cx, cd.cz)]->vertices[2] << std::endl;
-//        std::cout << std::endl;
-//
-//        if (worldMesh.data[cd.firstIndex] != chunkByCoords[key(cd.cx, cd.cz)]->vertices[0] ||
-//            worldMesh.data[cd.firstIndex + 1] != chunkByCoords[key(cd.cx, cd.cz)]->vertices[1] ||
-//            worldMesh.data[cd.firstIndex + 2] != chunkByCoords[key(cd.cx, cd.cz)]->vertices[2]) {
-//            std::cerr << "Vertices are not in the correct order!" << std::endl;
-//        }
-//    }
 
     // Update chunk data buffer
     glNamedBufferData(chunkDataBuffer, sizeof(ChunkData) * chunkData.size(),
@@ -301,14 +282,6 @@ void VoxelsApplication::processInput() {
                 }
                 break;
 
-            case GLFW_KEY_X:
-                for (Chunk &chunk : chunks) {
-                    if (chunk.firstIndex == -1) {
-                        std::cout << "busted\n";
-                    }
-                }
-                break;
-
             default:
                 break;
         }
@@ -338,7 +311,7 @@ void VoxelsApplication::processInput() {
     }
 
     if (buttons.contains(GLFW_MOUSE_BUTTON_4) || keys.contains(GLFW_KEY_LEFT_CONTROL)) {
-        camera.movementSpeed = 500.0f;
+        camera.movementSpeed = 1000.0f;
     } else {
         camera.movementSpeed = 10.0f;
     }
@@ -647,7 +620,9 @@ void VoxelsApplication::destroyFrontierChunks() {
 
     for (size_t i = 0, s = frontierChunks.size(); i < s; i++) {
         Chunk *chunk = frontierChunks[i];
-        if (chunkInRenderDistance(chunk->cx, chunk->cz)) {
+        // If the chunk's still being initialised, don't destroy it yet since this will invalidate references
+        // It will be destroyed later on anyway
+        if (chunkInRenderDistance(chunk->cx, chunk->cz) || chunk->initialising) {
             continue;
         }
 
@@ -667,7 +642,7 @@ void VoxelsApplication::destroyFrontierChunks() {
         i--;
     }
 
-    // Ensure that we can erase from chunkData properly
+    // Ensure that we can erase properly
     std::sort(toDestroy.begin(), toDestroy.end(), [](Chunk *a, Chunk *b) {
         return a->index > b->index;
     });
@@ -675,11 +650,6 @@ void VoxelsApplication::destroyFrontierChunks() {
     // Erase the relevant data from the buffers, remove the chunks from the chunks vector
     // and update frontierChunks and chunkByCoords indices based on the removed chunks
     for (Chunk *chunk : toDestroy) {
-//        std::cout << "Destroyed chunk " << chunk->index << " at [" << chunk->cx << ", " << chunk->cz << "]" << std::endl;
-
-//        worldMesh.data.erase(worldMesh.data.begin() + chunk->firstIndex,
-//                             worldMesh.data.begin() + chunk->firstIndex + chunk->numVertices);
-
         chunkData.erase(chunkData.begin() + chunk->index);
 
         chunks.remove(*chunk);
@@ -689,14 +659,6 @@ void VoxelsApplication::destroyFrontierChunks() {
     for (auto it = chunks.begin(); it != chunks.end(); ++it) {
         it->index = std::distance(chunks.begin(), it);
     }
-
-//    // Update firstIndex for all chunks
-//    int firstIndex = 0;
-//    for (Chunk &chunk : chunks) {
-//        chunk.firstIndex = firstIndex;
-//        chunkData[chunk.index].firstIndex = firstIndex;
-//        firstIndex += chunk.numVertices;
-//    }
 }
 
 bool VoxelsApplication::ensureChunkIfVisible(int cx, int cz) {
@@ -725,7 +687,7 @@ Chunk *VoxelsApplication::createChunk(int cx, int cz) {
     chunkData.push_back({
         .cx = cx,
         .cz = cz,
-        .minY = 128,
+        .minY = CHUNK_HEIGHT,
         .maxY = 0,
         .numVertices = 0,
         .firstIndex = 0,
@@ -746,17 +708,17 @@ Chunk *VoxelsApplication::createChunk(int cx, int cz) {
 
         Mesher::meshChunk(chunk);
 
-        chunk.meshed = 1;
+        chunk.initialising = false;
+
+        chunk.debug = 1;
 
         // If newlyCreatedChunks is currently being iterated through, we need to lock the mutex
         {
             std::unique_lock<std::mutex> lock(cvMutexNewlyCreatedChunks);
             cvNewlyCreatedChunks.wait(lock, [this]() { return newlyCreatedChunksReady; });
         }
-        chunk.meshed = 2;
+        chunk.debug = 2;
         newlyCreatedChunks.push_back(&chunk);
-
-//        std::cout << "Created chunk " << chunk.index << " at [" << chunk.cx << ", " << chunk.cz << "]" << std::endl;
     });
 
     return &chunk;

@@ -9,8 +9,6 @@ class Mesher {
 public:
     static void meshChunk(Chunk &chunk);
 
-    static long long int totalMesherTime;
-
 private:
     static inline int vertexAO(uint8_t side1, uint8_t side2, uint8_t corner);
 
@@ -19,11 +17,6 @@ private:
     static int dirToIndex(int i, int j, int k);
 
     static bool shouldMeshFace(int x, int y, int z, int i, int j, int k, std::vector<int> &voxels);
-
-    static long long int presenceTime;
-    static long long int voxelAoTime;
-    static long long int aoPushTime;
-    static long long int addVertexTime;
 };
 
 namespace {

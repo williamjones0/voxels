@@ -30,8 +30,8 @@ uniform mat4 projection;
 uniform int chunkSizeShift;
 uniform int chunkHeightShift;
 
-int chunkSizeMask = (1 << (chunkSizeShift + 1)) - 1;
-int chunkHeightMask = (1 << (chunkHeightShift + 1)) - 1;
+uint chunkSizeMask = (1 << (chunkSizeShift + 1)) - 1;
+uint chunkHeightMask = (1 << (chunkHeightShift + 1)) - 1;
 
 layout (binding = 0) readonly buffer DrawCommands {
     ChunkDrawCommand drawCommands[];

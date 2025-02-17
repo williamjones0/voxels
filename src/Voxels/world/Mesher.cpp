@@ -1,7 +1,5 @@
 #include "Mesher.hpp"
 
-#include <chrono>
-
 #include "../util/PerlinNoise.hpp"
 #include "../util/Util.hpp"
 
@@ -24,12 +22,6 @@ constexpr int TOP_NORMAL = 5;
 constexpr int COLOUR_GREEN = 0;
 constexpr int COLOUR_RED = 1;
 
-long long int Mesher::totalMesherTime = 0;
-long long int Mesher::presenceTime = 0;
-long long int Mesher::voxelAoTime = 0;
-long long int Mesher::aoPushTime = 0;
-long long int Mesher::addVertexTime = 0;
-
 inline int Mesher::vertexAO(uint8_t side1, uint8_t side2, uint8_t corner) {
     return (side1 && side2) ? 0 : (3 - (side1 + side2 + corner));
 }
@@ -45,24 +37,17 @@ int Mesher::dirToIndex(int i, int j, int k) {
 }
 
 void Mesher::meshChunk(Chunk &chunk) {
-    auto startTime = std::chrono::high_resolution_clock::now();
     std::vector<int> &voxels = chunk.voxels;
     std::vector<int> positions;
     std::vector<int> colours;
     std::vector<int> normals;
     std::vector<int> ao;
 
-    auto endInitTime = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(endInitTime - startTime);
-    //std::cout << "Initialisation: " << duration.count() << "us" << std::endl;
-
-    auto loopStart = std::chrono::high_resolution_clock::now();
     for (int y = chunk.minY; y < chunk.maxY; ++y) {
         for (int z = 1; z < CHUNK_SIZE + 1; ++z) {
             for (int x = 1; x < CHUNK_SIZE + 1; ++x) {
                 int voxel = voxels[getVoxelIndex(x, y, z, CHUNK_SIZE + 2)];
                 if (voxel != 0 && voxel != 3) {
-                    auto start = std::chrono::high_resolution_clock::now();
                     // Ambient occlusion (computed first so that quads can be flipped if necessary)
                     // (-1, -1, -1) to (1, 1, 1)
                     std::array<bool, 27> presence{};
@@ -76,10 +61,6 @@ void Mesher::meshChunk(Chunk &chunk) {
                             }
                         }
                     }
-
-                    presenceTime += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now() - start).count();
-
-                    start = std::chrono::high_resolution_clock::now();
 
                     std::array<int, 24> voxelAo{};
 
@@ -142,10 +123,6 @@ void Mesher::meshChunk(Chunk &chunk) {
                         presence[dirToIndex(-1, +1, +1)]));  // top right
                     voxelAo[23] = (vertexAO(presence[dirToIndex(+1, 0, +1)], presence[dirToIndex(0, +1, +1)],
                         presence[dirToIndex(+1, +1, +1)]));  // top left
-
-                    voxelAoTime += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now() - start).count();
-
-                    start = std::chrono::high_resolution_clock::now();
 
                     // Top
                     if (shouldMeshFace(x, y, z, 0, 1, 0, voxels)) {
@@ -261,10 +238,6 @@ void Mesher::meshChunk(Chunk &chunk) {
                             ao.push_back(voxelAo[21]);
                         }
                     }
-
-                    aoPushTime += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now() - start).count();
-
-                    start = std::chrono::high_resolution_clock::now();
 
                     // Add vertices
                     int translated_vertices[VERTICES_LENGTH];
@@ -394,25 +367,10 @@ void Mesher::meshChunk(Chunk &chunk) {
                             colours.push_back(COLOUR_RED);
                         }
                     }
-
-                    addVertexTime += std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::high_resolution_clock::now() - start).count();
                 }
             }
         }
     }
-
-    auto loopEnd = std::chrono::high_resolution_clock::now();
-
-    //std::cout << "presenceTime: " << presenceTime / 1000 << "us\n";
-    //std::cout << "voxelAoTime: " << voxelAoTime / 1000 << "us\n";
-    //std::cout << "aoPushTime: " << aoPushTime / 1000 << "us\n";
-    //std::cout << "addVertexTime: " << addVertexTime / 1000 << "us\n";
-
-    totalMesherTime += (presenceTime + voxelAoTime + aoPushTime + addVertexTime) / 1000;
-    //std::cout << "Total mesher time: " << (presenceTime + voxelAoTime + aoPushTime + addVertexTime) / 1000 << "us\n";
-    //std::cout << "Actual loop time: " << std::chrono::duration_cast<std::chrono::microseconds>(loopEnd - loopStart).count() << "us\n";
-
-    auto start = std::chrono::high_resolution_clock::now();
 
     chunk.vertices.reserve(positions.size() / 3);
     for (int i = 0; i < positions.size() / 3; ++i) {
@@ -424,38 +382,14 @@ void Mesher::meshChunk(Chunk &chunk) {
             ((uint32_t)normals[i] << (2 * CHUNK_SIZE_SHIFT + CHUNK_HEIGHT_SHIFT + 4)) |
             ((uint32_t)ao[i] << (2 * CHUNK_SIZE_SHIFT + CHUNK_HEIGHT_SHIFT + 7));
 
-        //uint32_t n = vertex;
-        //std::cout << "vertex: " << std::bitset<32>(n) << "\n";
-
-        //std::cout << "x: " << positions[3 * i]
-        //        << "\ty: " << positions[3 * i + 1]
-        //        << "\tz: " << positions[3 * i + 2]
-        //        << "\tcol: " << colour
-        //        << "\tnor: " << normals[i]
-        //        << "\tao: " << ao[i] << "\n";
-
-        //std::cout << "x: " << (n & CHUNK_SIZE_MASK)
-        //    << "\ty: " << ((n >> (CHUNK_SIZE_SHIFT + 1)) & CHUNK_HEIGHT_MASK)
-        //    << "\tz: " << ((n >> (CHUNK_SIZE_SHIFT + CHUNK_HEIGHT_SHIFT + 2)) & CHUNK_SIZE_MASK)
-        //    << "\tcol: " << ((n >> (2 * CHUNK_SIZE_SHIFT + CHUNK_HEIGHT_SHIFT + 3)) & 1)
-        //    << "\tnor: " << ((n >> (2 * CHUNK_SIZE_SHIFT + CHUNK_HEIGHT_SHIFT + 4)) & 7)
-        //    << "\tao: " << ((n >> (2 * CHUNK_SIZE_SHIFT + CHUNK_HEIGHT_SHIFT + 7)) & 3) << "\n";
-
-        //std::cout << "\n";
-
         chunk.vertices.push_back(vertex);
     }
 
-    //std::cout << "vertex push time: " << std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - start).count() << "us\n";
-
     chunk.numVertices = chunk.vertices.size();
-
-    auto endTime = std::chrono::high_resolution_clock::now();
-    //std::cout << "meshChunk in-function time: " << std::chrono::duration_cast<std::chrono::microseconds>(endTime - startTime).count() << "us\n";
 }
 
 bool Mesher::shouldMeshFace(int x, int y, int z, int i, int j, int k, std::vector<int> &voxels) {
-    bool adjInBounds = inBounds(x + i, y + j, z + k, WORLD_SIZE + 2, CHUNK_HEIGHT);
+    bool adjInBounds = y + j >= 0 && y + j < CHUNK_HEIGHT + 1;
 
     bool isAdjVoxelEmpty = true;
     if (adjInBounds) {

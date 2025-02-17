@@ -1,7 +1,6 @@
 #include "Camera.hpp"
 
 #include <glm/gtc/matrix_transform.hpp>
-#include <iostream>
 
 Camera::Camera(glm::vec3 position, float yaw, float pitch) : position(position), yaw(yaw), pitch(pitch) {
     updateCameraVectors();
@@ -77,7 +76,7 @@ void Camera::processMouse(float xoffset, float yoffset, float scrollyoffset) {
     updateCameraVectors();
 }
 
-glm::mat4 Camera::calculateViewMatrix() {
+glm::mat4 Camera::calculateViewMatrix() const {
     return glm::lookAt(position, position + front, worldUp);
 }
 

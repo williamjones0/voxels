@@ -7,21 +7,7 @@
 #include "../util/PerlinNoise.hpp"
 #include "../util/Util.hpp"
 
-#define EPSILON 0.000001
-
-Chunk::Chunk()
-  : cx(0)
-  , cz(0)
-  , minY(CHUNK_HEIGHT)
-  , maxY(0)
-  , neighbours(0)
-  , VAO(0), dataVBO(0)
-  , vertices(0)
-  , index(0)
-  , numVertices(0)
-  , firstIndex(-1)
-  , voxels(VOXELS_SIZE)
-{}
+constexpr float EPSILON = 0.000001;
 
 Chunk::Chunk(int cx, int cz)
   : cx(cx)
