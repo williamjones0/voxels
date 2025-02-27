@@ -291,17 +291,17 @@ void VoxelsApplication::processInput() {
         switch (button) {
             case GLFW_MOUSE_BUTTON_LEFT:
                 if (!lastFrameButtons.contains(GLFW_MOUSE_BUTTON_LEFT)) {
-                    RaycastResult result = raycast();
-                    if (result.chunk != nullptr) {
-                        updateVoxel(result, false);
+                    auto result = raycast();
+                    if (result) {
+                        updateVoxel(*result, false);
                     }
                 }
                 break;
             case GLFW_MOUSE_BUTTON_RIGHT:
                 if (!lastFrameButtons.contains(GLFW_MOUSE_BUTTON_RIGHT)) {
-                    RaycastResult result = raycast();
-                    if (result.chunk != nullptr) {
-                        updateVoxel(result, true);
+                    auto result = raycast();
+                    if (result) {
+                        updateVoxel(*result, true);
                     }
                 }
                 break;
@@ -332,209 +332,205 @@ int step(float edge, float x) {
     return x < edge ? 0 : 1;
 }
 
-RaycastResult VoxelsApplication::raycast() {
-//    float big = 1e30f;
-//
-//    float ox = camera.position.x;
-//    float oy = camera.position.y - 1;
-//    float oz = camera.position.z;
-//
-//    float dx = camera.front.x;
-//    float dy = camera.front.y;
-//    float dz = camera.front.z;
-//
-//    int px = (int) std::floor(ox);
-//    int py = (int) std::floor(oy);
-//    int pz = (int) std::floor(oz);
-//
-//    float dxi = 1.0f / dx;
-//    float dyi = 1.0f / dy;
-//    float dzi = 1.0f / dz;
-//
-//    int sx = dx > 0 ? 1 : -1;
-//    int sy = dy > 0 ? 1 : -1;
-//    int sz = dz > 0 ? 1 : -1;
-//
-//    float dtx = std::min(dxi * sx, big);
-//    float dty = std::min(dyi * sy, big);
-//    float dtz = std::min(dzi * sz, big);
-//
-//    float tx = abs((px + std::max(sx, 0) - ox) * dxi);
-//    float ty = abs((py + std::max(sy, 0) - oy) * dyi);
-//    float tz = abs((pz + std::max(sz, 0) - oz) * dzi);
-//
-//    int maxSteps = 16;
-//
-//    int cmpx = 0, cmpy = 0, cmpz = 0;
-//
-//    int faceHit = -1;
-//
-//    for (int i = 0; i < maxSteps && py >= 0; i++) {
-//        if (i > 0 && py < CHUNK_HEIGHT) {
-//            int cx = px / CHUNK_SIZE;
-//            int cz = pz / CHUNK_SIZE;
-//
-//            if (0 <= cx && cx <= (WORLD_SIZE / CHUNK_SIZE - 1) && 0 <= cz && cz <= (WORLD_SIZE / CHUNK_SIZE - 1)) {
-//                Chunk *chunk = chunkByCoords[key(cx, cz)];
-//                int v = chunk->load(px % CHUNK_SIZE, py, pz % CHUNK_SIZE);
-//
-//                if (v != 0) {
-//                    std::cout << "Voxel hit at " << px << ", " << py << ", " << pz << ", face: " << faceHit << std::endl;
-//                    return RaycastResult {
-//                            .chunk = chunk,
-//                            .x = px % CHUNK_SIZE,
-//                            .y = py,
-//                            .z = pz % CHUNK_SIZE,
-//                            .face = faceHit
-//                    };
-//                }
-//            }
-//        }
-//
-//        // Advance to next voxel
-//        cmpx = step(tx, tz) * step(tx, ty);
-//        cmpy = step(ty, tx) * step(ty, tz);
-//        cmpz = step(tz, ty) * step(tz, tx);
-//
-//        if (cmpx) {
-//            faceHit = (sx < 0) ? 0 : 1;  // 0: +x, 1: -x
-//        } else if (cmpy) {
-//            faceHit = (sy < 0) ? 2 : 3;  // 2: +y, 3: -y
-//        } else if (cmpz) {
-//            faceHit = (sz < 0) ? 4 : 5;  // 4: +z, 5: -z
-//        }
-//
-//        tx += dtx * cmpx;
-//        ty += dty * cmpy;
-//        tz += dtz * cmpz;
-//
-//        px += sx * cmpx;
-//        py += sy * cmpy;
-//        pz += sz * cmpz;
-//    }
+std::optional<RaycastResult> VoxelsApplication::raycast() {
+    float big = 1e30f;
 
-    return RaycastResult {
-            .chunk = nullptr,
-            .x = -1,
-            .y = -1,
-            .z = -1,
-            .face = -1
-    };
+    float ox = camera.position.x;
+    float oy = camera.position.y - 1;
+    float oz = camera.position.z;
+
+    float dx = camera.front.x;
+    float dy = camera.front.y;
+    float dz = camera.front.z;
+
+    int px = (int) std::floor(ox);
+    int py = (int) std::floor(oy);
+    int pz = (int) std::floor(oz);
+
+    float dxi = 1.0f / dx;
+    float dyi = 1.0f / dy;
+    float dzi = 1.0f / dz;
+
+    int sx = dx > 0 ? 1 : -1;
+    int sy = dy > 0 ? 1 : -1;
+    int sz = dz > 0 ? 1 : -1;
+
+    float dtx = std::min(dxi * sx, big);
+    float dty = std::min(dyi * sy, big);
+    float dtz = std::min(dzi * sz, big);
+
+    float tx = abs((px + std::max(sx, 0) - ox) * dxi);
+    float ty = abs((py + std::max(sy, 0) - oy) * dyi);
+    float tz = abs((pz + std::max(sz, 0) - oz) * dzi);
+
+    int maxSteps = 16;
+
+    int cmpx = 0, cmpy = 0, cmpz = 0;
+
+    int faceHit = -1;
+
+    for (int i = 0; i < maxSteps && py >= 0; i++) {
+        if (i > 0 && py < CHUNK_HEIGHT) {
+            int cx = std::floor((float)px / CHUNK_SIZE);
+            int cz = std::floor((float)pz / CHUNK_SIZE);
+
+            int localX = (px % CHUNK_SIZE + CHUNK_SIZE) % CHUNK_SIZE;
+            int localZ = (pz % CHUNK_SIZE + CHUNK_SIZE) % CHUNK_SIZE;
+
+            Chunk *chunk = chunkByCoords[key(cx, cz)];
+            int v = chunk->load(localX, py, localZ);
+
+            if (v != 0) {
+                std::cout << "Voxel hit at " << px << ", " << py << ", " << pz << ", face: " << faceHit << std::endl;
+                return RaycastResult {
+                        .cx = cx,
+                        .cz = cz,
+                        .x = localX,
+                        .y = py,
+                        .z = localZ,
+                        .face = faceHit
+                };
+            }
+        }
+
+        // Advance to next voxel
+        cmpx = step(tx, tz) * step(tx, ty);
+        cmpy = step(ty, tx) * step(ty, tz);
+        cmpz = step(tz, ty) * step(tz, tx);
+
+        if (cmpx) {
+            faceHit = (sx < 0) ? 0 : 1;  // 0: +x, 1: -x
+        } else if (cmpy) {
+            faceHit = (sy < 0) ? 2 : 3;  // 2: +y, 3: -y
+        } else if (cmpz) {
+            faceHit = (sz < 0) ? 4 : 5;  // 4: +z, 5: -z
+        }
+
+        tx += dtx * cmpx;
+        ty += dty * cmpy;
+        tz += dtz * cmpz;
+
+        px += sx * cmpx;
+        py += sy * cmpy;
+        pz += sz * cmpz;
+    }
+
+    return std::nullopt;
 }
 
 void VoxelsApplication::updateVoxel(RaycastResult result, bool place) {
-//    Chunk *chunk = result.chunk;
-//
-//    if (place) {
-//        if (result.face == 0) {
-//            if (result.x == CHUNK_SIZE - 1) {
-//                if (chunk->cx == WORLD_SIZE / CHUNK_SIZE - 1) {
-//                    return;
-//                }
-//                chunk = chunkByCoords[key(chunk->cx + 1, chunk->cz)];
-//                result.x = 0;
-//            } else {
-//                result.x++;
-//            }
-//        } else if (result.face == 1) {
-//            if (result.x == 0) {
-//                if (chunk->cx == 0) {
-//                    return;
-//                }
-//                chunk = chunkByCoords[key(chunk->cx - 1, chunk->cz)];
-//                result.x = CHUNK_SIZE - 1;
-//            } else {
-//                result.x--;
-//            }
-//        } else if (result.face == 2) {
-//            if (result.y == CHUNK_HEIGHT - 2) {
-//                return;
-//            }
-//            result.y++;
-//        } else if (result.face == 3) {
-//            if (result.y == 0) {
-//                return;
-//            }
-//            result.y--;
-//        } else if (result.face == 4) {
-//            if (result.z == CHUNK_SIZE - 1) {
-//                if (chunk->cz == WORLD_SIZE / CHUNK_SIZE - 1) {
-//                    return;
-//                }
-//                chunk = chunkByCoords[key(chunk->cx, chunk->cz + 1)];
-//                result.z = 0;
-//            } else {
-//                result.z++;
-//            }
-//        } else if (result.face == 5) {
-//            if (result.z == 0) {
-//                if (chunk->cz == 0) {
-//                    return;
-//                }
-//                chunk = chunkByCoords[key(chunk->cx, chunk->cz - 1)];
-//                result.z = CHUNK_SIZE - 1;
-//            } else {
-//                result.z--;
-//            }
-//        }
-//    }
-//
-//    // Change voxel value
-//    chunk->store(result.x, result.y, result.z, place ? 1 : 0);
-//
-//    // Update minY and maxY
-//    chunk->minY = std::min(chunk->minY, result.y);
-//    chunk->maxY = std::max(chunk->maxY, result.y + 2);
-//
-//    std::vector<Chunk *> chunksToMesh;
-//    chunksToMesh.push_back(chunk);
-//
-//    // If the voxel is on a chunk boundary, update the neighboring chunk(s)
-//    if (result.x == 0 && chunk->cx > 0) {
-//        Chunk *negXChunk = chunkByCoords[key(chunk->cx - 1, chunk->cz)];
-//        negXChunk->store(CHUNK_SIZE, result.y, result.z, place ? 1 : 0);
-//        chunksToMesh.push_back(negXChunk);
-//
-//        if (result.z == 0 && chunk->cz > 0) {
-//            Chunk *negXNegZChunk = chunkByCoords[key(chunk->cx - 1, chunk->cz - 1)];
-//            negXNegZChunk->store(CHUNK_SIZE, result.y, CHUNK_SIZE, place ? 1 : 0);
-//            chunksToMesh.push_back(negXNegZChunk);
-//        } else if (result.z == CHUNK_SIZE - 1 && chunk->cz < WORLD_SIZE / CHUNK_SIZE - 1) {
-//            Chunk *negXPosZChunk = chunkByCoords[key(chunk->cx - 1, chunk->cz + 1)];
-//            negXPosZChunk->store(CHUNK_SIZE, result.y, -1, place ? 1 : 0);
-//            chunksToMesh.push_back(negXPosZChunk);
-//        }
-//    } else if (result.x == CHUNK_SIZE - 1 && chunk->cx < WORLD_SIZE / CHUNK_SIZE - 1) {
-//        Chunk *posXChunk = chunkByCoords[key(chunk->cx + 1, chunk->cz)];
-//        posXChunk->store(-1, result.y, result.z, place ? 1 : 0);
-//        chunksToMesh.push_back(posXChunk);
-//
-//        if (result.z == 0 && chunk->cz > 0) {
-//            Chunk *posXNegZChunk = chunkByCoords[key(chunk->cx + 1, chunk->cz - 1)];
-//            posXNegZChunk->store(-1, result.y, CHUNK_SIZE, place ? 1 : 0);
-//            chunksToMesh.push_back(posXNegZChunk);
-//        } else if (result.z == CHUNK_SIZE - 1 && chunk->cz < WORLD_SIZE / CHUNK_SIZE - 1) {
-//            Chunk *posXPosZChunk = chunkByCoords[key(chunk->cx + 1, chunk->cz + 1)];
-//            posXPosZChunk->store(-1, result.y, -1, place ? 1 : 0);
-//            chunksToMesh.push_back(posXPosZChunk);
-//        }
-//    }
-//
-//    if (result.z == 0 && chunk->cz > 0) {
-//        Chunk *negZChunk = chunkByCoords[key(chunk->cx, chunk->cz - 1)];
-//        negZChunk->store(result.x, result.y, CHUNK_SIZE, place ? 1 : 0);
-//        chunksToMesh.push_back(negZChunk);
-//    } else if (result.z == CHUNK_SIZE - 1 && chunk->cz < WORLD_SIZE / CHUNK_SIZE - 1) {
-//        Chunk *posZChunk = chunkByCoords[key(chunk->cx, chunk->cz + 1)];
-//        posZChunk->store(result.x, result.y, -1, place ? 1 : 0);
-//        chunksToMesh.push_back(posZChunk);
-//    }
-//
-//    // Sort by firstIndex descending
-//    std::sort(chunksToMesh.begin(), chunksToMesh.end(), [](Chunk *a, Chunk *b) {
-//        return a->firstIndex > b->firstIndex;
-//    });
-//
+    Chunk *chunk = chunkByCoords[key(result.cx, result.cz)];
+
+    if (place) {
+        if (result.face == 0) {
+            if (result.x == CHUNK_SIZE - 1) {
+                chunk = chunkByCoords[key(chunk->cx + 1, chunk->cz)];
+                result.x = 0;
+            } else {
+                result.x++;
+            }
+        } else if (result.face == 1) {
+            if (result.x == 0) {
+                chunk = chunkByCoords[key(chunk->cx - 1, chunk->cz)];
+                result.x = CHUNK_SIZE - 1;
+            } else {
+                result.x--;
+            }
+        } else if (result.face == 2) {
+            if (result.y == CHUNK_HEIGHT - 2) {
+                return;
+            }
+            result.y++;
+        } else if (result.face == 3) {
+            if (result.y == 0) {
+                return;
+            }
+            result.y--;
+        } else if (result.face == 4) {
+            if (result.z == CHUNK_SIZE - 1) {
+                chunk = chunkByCoords[key(chunk->cx, chunk->cz + 1)];
+                result.z = 0;
+            } else {
+                result.z++;
+            }
+        } else if (result.face == 5) {
+            if (result.z == 0) {
+                chunk = chunkByCoords[key(chunk->cx, chunk->cz - 1)];
+                result.z = CHUNK_SIZE - 1;
+            } else {
+                result.z--;
+            }
+        }
+    }
+
+    // Change voxel value
+    chunk->store(result.x, result.y, result.z, place ? 1 : 0);
+
+    // Update minY and maxY
+    chunk->minY = std::min(chunk->minY, result.y);
+    chunk->maxY = std::max(chunk->maxY, result.y + 2);
+
+    std::vector<Chunk *> chunksToMesh;
+    chunksToMesh.push_back(chunk);
+
+    // If the voxel is on a chunk boundary, update the neighboring chunk(s)
+    if (result.x == 0) {
+        Chunk *negXChunk = chunkByCoords[key(chunk->cx - 1, chunk->cz)];
+        negXChunk->store(CHUNK_SIZE, result.y, result.z, place ? 1 : 0);
+        chunksToMesh.push_back(negXChunk);
+
+        if (result.z == 0) {
+            Chunk *negXNegZChunk = chunkByCoords[key(chunk->cx - 1, chunk->cz - 1)];
+            negXNegZChunk->store(CHUNK_SIZE, result.y, CHUNK_SIZE, place ? 1 : 0);
+            chunksToMesh.push_back(negXNegZChunk);
+        } else if (result.z == CHUNK_SIZE - 1) {
+            Chunk *negXPosZChunk = chunkByCoords[key(chunk->cx - 1, chunk->cz + 1)];
+            negXPosZChunk->store(CHUNK_SIZE, result.y, -1, place ? 1 : 0);
+            chunksToMesh.push_back(negXPosZChunk);
+        }
+    } else if (result.x == CHUNK_SIZE - 1) {
+        Chunk *posXChunk = chunkByCoords[key(chunk->cx + 1, chunk->cz)];
+        posXChunk->store(-1, result.y, result.z, place ? 1 : 0);
+        chunksToMesh.push_back(posXChunk);
+
+        if (result.z == 0) {
+            Chunk *posXNegZChunk = chunkByCoords[key(chunk->cx + 1, chunk->cz - 1)];
+            posXNegZChunk->store(-1, result.y, CHUNK_SIZE, place ? 1 : 0);
+            chunksToMesh.push_back(posXNegZChunk);
+        } else if (result.z == CHUNK_SIZE - 1) {
+            Chunk *posXPosZChunk = chunkByCoords[key(chunk->cx + 1, chunk->cz + 1)];
+            posXPosZChunk->store(-1, result.y, -1, place ? 1 : 0);
+            chunksToMesh.push_back(posXPosZChunk);
+        }
+    }
+
+    if (result.z == 0) {
+        Chunk *negZChunk = chunkByCoords[key(chunk->cx, chunk->cz - 1)];
+        negZChunk->store(result.x, result.y, CHUNK_SIZE, place ? 1 : 0);
+        chunksToMesh.push_back(negZChunk);
+    } else if (result.z == CHUNK_SIZE - 1) {
+        Chunk *posZChunk = chunkByCoords[key(chunk->cx, chunk->cz + 1)];
+        posZChunk->store(result.x, result.y, -1, place ? 1 : 0);
+        chunksToMesh.push_back(posZChunk);
+    }
+
+    for (Chunk *chunk : chunksToMesh) {
+        threadPool.queueTask([chunk, this]() {
+            allocator.deallocate(chunk->firstIndex, chunk->numVertices);
+
+            chunk->initialising = true;
+            Mesher::meshChunk(*chunk);
+            chunk->initialising = false;
+
+            // If newlyCreatedChunks is currently being iterated through, we need to lock the mutex
+            {
+                std::unique_lock<std::mutex> lock(cvMutexNewlyCreatedChunks);
+                cvNewlyCreatedChunks.wait(lock, [this]() { return newlyCreatedChunksReady; });
+            }
+            newlyCreatedChunks.push_back(chunk);
+        });
+    }
+
 //    // Erase old vertex data and move chunks to the end of the vectors to preserve order
 //    for (Chunk *chunk : chunksToMesh) {
 //        worldMesh.data.erase(worldMesh.data.begin() + chunk->firstIndex,

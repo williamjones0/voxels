@@ -29,7 +29,8 @@ typedef struct {
 } ChunkData;
 
 typedef struct {
-    Chunk *chunk;
+    int cx;
+    int cz;
     int x;
     int y;
     int z;
@@ -52,7 +53,7 @@ protected:
     void cleanup() override;
 
 private:
-    RaycastResult raycast();
+    std::optional<RaycastResult> raycast();
     void updateVoxel(RaycastResult result, bool place);
     bool updateFrontierChunks();
     void destroyFrontierChunks();
