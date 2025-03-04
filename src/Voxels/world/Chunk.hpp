@@ -13,6 +13,15 @@ constexpr int CHUNK_HEIGHT = 1 << CHUNK_HEIGHT_SHIFT;
 
 constexpr int VOXELS_SIZE = (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2) * (CHUNK_HEIGHT + 2);
 
+enum class GenerationType {
+    FLAT,
+    PERLIN_2D,
+    PERLIN_3D,
+    FILE_LOAD
+};
+
+constexpr int EMPTY_VOXEL = 0;
+
 class Chunk {
 public:
     Chunk(int cx, int cz);
@@ -50,6 +59,8 @@ public:
     void store(int x, int y, int z, char v);
     int load(int x, int y, int z);
     void init();
+    void generate(GenerationType type);
+    void generateFlat();
     void generateVoxels2D();
     void generateVoxels3D();
     void generateVoxels(const std::string &path);

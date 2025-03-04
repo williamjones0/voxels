@@ -8,7 +8,7 @@ if(MSVC)
         set(CMAKE_RUNTIME_OUTPUT_DIRECTORY_${OUTPUTCONFIG} ${CMAKE_CURRENT_BINARY_DIR})
         set(CMAKE_LIBRARY_OUTPUT_DIRECTORY_${OUTPUTCONFIG} ${CMAKE_CURRENT_BINARY_DIR})
         set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY_${OUTPUTCONFIG} ${CMAKE_CURRENT_BINARY_DIR})
-    endforeach(OUTPUTCONFIG CMAKE_CONFIGURATION_TYPES)
+    endforeach(OUTPUTCONFIG ${CMAKE_CONFIGURATION_TYPES})
 endif()
 
 add_custom_target(copy_data ALL COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/data ${CMAKE_CURRENT_BINARY_DIR}/data)   
@@ -18,14 +18,23 @@ add_executable(Voxels
     util/Util.cpp
     world/Chunk.cpp
     world/Mesher.cpp
-        Application.cpp
-        Application.hpp
-        main.cpp
-        main.cpp
-        VoxelsApplication.hpp
-        VoxelsApplication.cpp
-        core/ThreadPool.cpp
-        core/FreeListAllocator.hpp
+    Application.cpp
+    Application.hpp
+    main.cpp
+    main.cpp
+    VoxelsApplication.hpp
+    VoxelsApplication.cpp
+    core/ThreadPool.cpp
+    core/FreeListAllocator.hpp
+    player/Q3PlayerController.cpp
+    player/Q3PlayerController.hpp
+    io/Input.cpp
+    io/Input.hpp
+    player/CharacterController.hpp
+    player/CharacterController.cpp
+    world/WorldManager.cpp
+    world/WorldManager.hpp
+    core/Transform.hpp
 )
 
 add_dependencies(Voxels copy_data)

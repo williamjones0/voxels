@@ -120,33 +120,8 @@ void Application::update() {
 
 void Application::render() {}
 
-void Application::processInput() {
-    lastFrameKeys = keys;
-    lastFrameButtons = buttons;
-}
+void Application::processInput() {}
 
 void Application::cleanup() {
-    threadPool.stop();
-
     glfwTerminate();
 }
-
-void Application::key_callback(int key, int scancode, int action, int mods) {
-    if (action == GLFW_PRESS) {
-        keys.insert(key);
-    } else if (action == GLFW_RELEASE) {
-        keys.erase(key);
-    }
-}
-
-void Application::mouse_button_callback(int button, int action, int mods) {
-    if (action == GLFW_PRESS) {
-        buttons.insert(button);
-    } else if (action == GLFW_RELEASE) {
-        buttons.erase(button);
-    }
-}
-
-void Application::cursor_position_callback(double xposIn, double yposIn) {}
-
-void Application::scroll_callback(double xoffset, double yoffset) {}

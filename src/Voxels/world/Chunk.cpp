@@ -9,6 +9,10 @@
 
 constexpr float EPSILON = 0.000001;
 
+constexpr unsigned int seed = 123456u;
+constexpr siv::PerlinNoise::seed_type s = seed;
+const siv::PerlinNoise perlin{ s };
+
 Chunk::Chunk(int cx, int cz)
   : cx(cx)
   , cz(cz)
@@ -21,7 +25,6 @@ Chunk::Chunk(int cx, int cz)
   , index(0)
   , numVertices(0)
   , firstIndex(-1)
-  , voxels(VOXELS_SIZE)
 {}
 
 Chunk::Chunk(Chunk const &chunk) {
@@ -118,13 +121,49 @@ void Chunk::init() {
     voxels = std::vector<int>(VOXELS_SIZE, 0);
 }
 
-void Chunk::generateVoxels2D() {
-    unsigned int seed = 123456u;
-    const siv::PerlinNoise::seed_type s = seed;
-    const siv::PerlinNoise perlin{ s };
+void Chunk::generate(GenerationType type) {
+    switch (type) {
+        case GenerationType::FLAT:
+            generateFlat();
+            break;
+        case GenerationType::PERLIN_2D:
+            generateVoxels2D();
+            break;
+        case GenerationType::PERLIN_3D:
+            generateVoxels3D();
+            break;
+        case GenerationType::FILE_LOAD:
+            generateVoxels("data/levels/level0.txt");
+            break;
+    }
+}
 
+void Chunk::generateFlat() {
+    for (int y = 0; y < CHUNK_HEIGHT; ++y) {
+        for (int z = -1; z < CHUNK_SIZE + 1; ++z) {
+            for (int x = -1; x < CHUNK_SIZE + 1; ++x) {
+                int index = getVoxelIndex(x + 1, y + 1, z + 1, CHUNK_SIZE + 2);
+
+                if (y == CHUNK_HEIGHT / 2) {
+                    voxels[index] = 1;
+                } else if (y < CHUNK_HEIGHT / 2) {
+                    voxels[index] = 2;
+                }
+            }
+        }
+    }
+
+    minY = 0;
+    maxY = CHUNK_HEIGHT / 2 + 2;
+}
+
+double terrainNoise(int x, int z) {
+    return clamp(perlin.octave2D_01(x * 0.01, z * 0.01, 1), 0.0, 1.0 - EPSILON);
+}
+
+void Chunk::generateVoxels2D() {
     int heightMap[CHUNK_SIZE + 2][CHUNK_SIZE + 2];
-    heightMap[0][0] = clamp(perlin.octave2D_01((cx * CHUNK_SIZE * 0.01), (cz * CHUNK_SIZE * 0.01), 4), 0.0, 1.0 - EPSILON) * CHUNK_HEIGHT;
+    heightMap[0][0] = static_cast<int>(terrainNoise(cx * CHUNK_SIZE, cz * CHUNK_SIZE) * CHUNK_HEIGHT);
 
     for (int z = -1; z < CHUNK_SIZE + 1; ++z) {
         for (int x = -1; x < CHUNK_SIZE + 1; ++x) {
@@ -132,14 +171,14 @@ void Chunk::generateVoxels2D() {
             int noise_z = cz * CHUNK_SIZE + z + 1;
 
             // Calculate adjacent noise values in the +x and +z directions
-            const double noise10 = clamp(perlin.octave2D_01(((noise_x + 1) * 0.01), (noise_z * 0.01), 4), 0.0, 1.0 - EPSILON);
-            const double noise01 = clamp(perlin.octave2D_01((noise_x * 0.01), ((noise_z + 1) * 0.01), 4), 0.0, 1.0 - EPSILON);
+            const double noise10 = terrainNoise(noise_x + 1, noise_z);
+            const double noise01 = terrainNoise(noise_x, noise_z + 1);
 
             if (x != CHUNK_SIZE) {
-                heightMap[x + 2][z + 1] = noise10 * CHUNK_HEIGHT;
+                heightMap[x + 2][z + 1] = static_cast<int>(noise10 * CHUNK_HEIGHT);
             }
             if (z != CHUNK_SIZE) {
-                heightMap[x + 1][z + 2] = noise01 * CHUNK_HEIGHT;
+                heightMap[x + 1][z + 2] = static_cast<int>(noise01 * CHUNK_HEIGHT);
             }
 
             int y = heightMap[x + 1][z + 1];
@@ -184,18 +223,14 @@ void Chunk::generateVoxels2D() {
 }
 
 void Chunk::generateVoxels3D() {
-    unsigned int seed = 123456u;
-    const siv::PerlinNoise::seed_type s = seed;
-    const siv::PerlinNoise perlin{ s };
-
     for (int y = -1; y < CHUNK_HEIGHT + 1; ++y) {
         for (int z = -1; z < CHUNK_SIZE + 1; ++z) {
             for (int x = -1; x < CHUNK_SIZE + 1; ++x) {
-                float noise_x = cx * CHUNK_SIZE + x + 1;
-                float noise_y = y + 1;
-                float noise_z = cz * CHUNK_SIZE + z + 1;
+                auto noise_x = static_cast<float>(cx * CHUNK_SIZE + x + 1);
+                auto noise_y = static_cast<float>(y + 1);
+                auto noise_z = static_cast<float>(cz * CHUNK_SIZE + z + 1);
 
-                float noise = perlin.octave3D_01(noise_x * 0.01, noise_y * 0.01, noise_z * 0.01, 4);
+                double noise = perlin.octave3D_01(noise_x * 0.01, noise_y * 0.01, noise_z * 0.01, 4);
 
                 if (noise > 0.5) {
                     voxels[getVoxelIndex(x + 1, y + 1, z + 1, CHUNK_SIZE + 2)] = 1;

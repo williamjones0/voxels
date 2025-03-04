@@ -2,9 +2,14 @@
 
 #include <vector>
 #include <iostream>
+#include "../world/Chunk.hpp"
 
 int getVoxelIndex(int x, int y, int z, int size);
-float clamp(float x, float low, float high);
+
+template <typename T>
+T clamp(T x, T low, T high) {
+    return std::max(low, std::min(x, high));
+}
 
 template<typename T>
 void debugPrint(std::vector<T> &vec, int stride) {

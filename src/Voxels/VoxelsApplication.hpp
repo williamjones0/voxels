@@ -6,6 +6,9 @@
 #include "core/FreeListAllocator.hpp"
 #include "opengl/Shader.h"
 #include "world/Chunk.hpp"
+#include "io/Input.hpp"
+#include "player/Q3PlayerController.hpp"
+#include "world/WorldManager.hpp"
 
 #include <list>
 
@@ -20,17 +23,6 @@ typedef struct {
 typedef struct {
     int cx;
     int cz;
-    int minY;
-    int maxY;
-    unsigned int numVertices;
-    unsigned int firstIndex;
-    unsigned int _pad0;
-    unsigned int _pad1;
-} ChunkData;
-
-typedef struct {
-    int cx;
-    int cz;
     int x;
     int y;
     int z;
@@ -38,12 +30,6 @@ typedef struct {
 } RaycastResult;
 
 class VoxelsApplication final : public Application {
-public:
-    void key_callback(int key, int scancode, int action, int mods) override;
-    void mouse_button_callback(int button, int action, int mods) override;
-    void cursor_position_callback(double xposIn, double yposIn) override;
-    void scroll_callback(double xoffset, double yoffset) override;
-
 protected:
     bool init() override;
     bool load() override;
@@ -55,45 +41,17 @@ protected:
 private:
     std::optional<RaycastResult> raycast();
     void updateVoxel(RaycastResult result, bool place);
-    bool updateFrontierChunks();
-    void destroyFrontierChunks();
-    bool ensureChunkIfVisible(int cx, int cz);
-    Chunk *ensureChunk(int cx, int cz);
-    Chunk *createChunk(int cx, int cz);
-    void addFrontier(Chunk *chunk);
-    void updateFrontierNeighbour(Chunk *frontier, int cx, int cz);
-    bool createNewFrontierChunks();
-    int onFrontierChunkRemoved(Chunk *frontierChunk);
-    int onFrontierChunkRemoved(int cx, int cz, double distance);
-    bool chunkInRenderDistance(int cx, int cz);
-    double squaredDistanceToChunk(int cx, int cz) const;
-    static size_t key(int i, int j);
 
-    void updateVerticesBuffer();
-
-    Camera camera;
+    Camera camera = Camera(glm::vec3(8.0f, 400.0f, 8.0f));
+    CharacterController characterController = CharacterController(worldManager);
+    Q3PlayerController playerController = Q3PlayerController(camera, characterController);
 
     bool wireframe = false;
 
     Shader shader;
     Shader drawCommandProgram;
 
-    std::list<Chunk> chunks;
-    std::vector<Chunk *> frontierChunks;
-    std::vector<Chunk *> newlyCreatedChunks;
-    std::unordered_map<size_t, Chunk *> chunkByCoords;
-    std::vector<ChunkData> chunkData;
-
-    std::atomic<int> chunkTasksCount = 0;
-    std::condition_variable cvChunks;
-    std::condition_variable cvNewlyCreatedChunks;
-    std::mutex cvMutexChunks;
-    std::mutex cvMutexNewlyCreatedChunks;
-    bool chunksReady = false;
-    bool newlyCreatedChunksReady = false;
-
-    FreeListAllocator allocator;
-    std::vector<uint32_t> dummyVerticesBuffer;
+    WorldManager worldManager = WorldManager(camera);
 
     GLuint dummyVAO;
     GLuint chunkDrawCmdBuffer;
