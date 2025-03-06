@@ -2,6 +2,8 @@
 
 #include "../io/Input.hpp"
 #include "GLFW/glfw3.h"
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/rotate_vector.hpp>
 
 void Q3PlayerController::update(float dt) {
     deltaTime = dt;
@@ -48,6 +50,12 @@ void Q3PlayerController::update(float dt) {
     glm::quat xRotQuat = glm::angleAxis((float)xRot, glm::vec3(1, 0, 0));
     glm::quat yRotQuat = glm::angleAxis((float)yRot, glm::vec3(0, 1, 0));
     camera.transform.rotation = xRotQuat * yRotQuat;
+
+    // TODO: Update camera front
+    glm::vec3 camFront = glm::vec3(0, 0, -1);
+    camFront = glm::rotateX(camFront, -(float)xRot);
+    camFront = glm::rotateY(camFront, -(float)yRot);
+    camera.front = camFront;
 
     character.move(playerVelocity * deltaTime);
 

@@ -35,6 +35,8 @@ add_executable(Voxels
     world/WorldManager.cpp
     world/WorldManager.hpp
     core/Transform.hpp
+    player/Q1PlayerController.hpp
+    player/Q1PlayerController.cpp
 )
 
 add_dependencies(Voxels copy_data)

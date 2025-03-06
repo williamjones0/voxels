@@ -7,8 +7,9 @@
 #include "opengl/Shader.h"
 #include "world/Chunk.hpp"
 #include "io/Input.hpp"
-#include "player/Q3PlayerController.hpp"
 #include "world/WorldManager.hpp"
+#include "player/Q1PlayerController.hpp"
+#include "player/Q3PlayerController.hpp"
 
 #include <list>
 

@@ -8,7 +8,7 @@ Camera::Camera(glm::vec3 position)
 }
 
 void Camera::update() {
-    front = transform.transformDirection(glm::vec3(0.0f, 0.0f, -1.0f));
+    // front = transform.transformDirection(glm::vec3(0.0f, 0.0f, -1.0f));
 
     right = glm::normalize(glm::cross(front, worldUp));
     up = glm::normalize(glm::cross(right, front));
