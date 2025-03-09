@@ -21,6 +21,7 @@ public:
     void update(float deltaTime);
 
     float speed = 0;
+    glm::vec3 playerVelocity = glm::vec3(0, 0, 0);
 
 private:
     Camera &camera;
@@ -38,7 +39,6 @@ private:
 
     CharacterController &character;
     glm::vec3 moveDirectionNorm = glm::vec3(0, 0, 0);
-    glm::vec3 playerVelocity = glm::vec3(0, 0, 0);
 
     bool jumpQueued = false;
 

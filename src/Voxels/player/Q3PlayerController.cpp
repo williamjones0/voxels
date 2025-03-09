@@ -57,9 +57,11 @@ void Q3PlayerController::update(float dt) {
     camFront = glm::rotateY(camFront, -(float)yRot);
     camera.front = camFront;
 
-    character.move(playerVelocity * deltaTime);
+    character.move(playerVelocity, deltaTime);
 
-    camera.transform.position = character.transform.position + glm::vec3(0, 1.7f, 0);
+    // TODO: The character's position looks like it should include the 1.7f PLAYER_EYE_HEIGHT
+    // but it only appears to be 0.7f
+    camera.transform.position = character.transform.position + glm::vec3(0, 1.0f, 0);
 
     speed = glm::length(glm::vec3(playerVelocity.x, 0, playerVelocity.z));
 }

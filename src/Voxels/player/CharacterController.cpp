@@ -2,18 +2,20 @@
 
 #include <cmath>
 
-void CharacterController::move(glm::vec3 velocity) {
+void CharacterController::move(glm::vec3 &velocity, float dt) {
     isGrounded = false;
-    handleCollisions(velocity);
+    handleCollisions(velocity, dt);
 }
 
-void CharacterController::handleCollisions(glm::vec3 velocity) {
+void CharacterController::handleCollisions(glm::vec3 &velocity, float dt) {
     std::vector<Contact> contacts;
-    collisionDetection(velocity, contacts);
-    collisionResponse(velocity, contacts);
+    collisionDetection(velocity, dt, contacts);
+    collisionResponse(velocity, dt, contacts);
 }
 
-void CharacterController::collisionDetection(glm::vec3 v, std::vector<Contact> &contacts) {
+void CharacterController::collisionDetection(glm::vec3 &velocity, float dt, std::vector<Contact> &contacts) {
+    glm::vec3 v = velocity * dt;
+
     float dx = v.x;
     float dy = v.y;
     float dz = v.z;
@@ -33,7 +35,7 @@ void CharacterController::collisionDetection(glm::vec3 v, std::vector<Contact> &
                     continue;
                 }
 
-                intersectSweptAabbAabb(x, y, z, static_cast<float>(transform.position.x - x), static_cast<float>(transform.position.y - y), static_cast<float>(transform.position.z - z), dx, dy, dz, contacts);
+                intersectSweptAabbAabb(x, y, z, transform.position.x - static_cast<float>(x), transform.position.y - static_cast<float>(y), transform.position.z - static_cast<float>(z), dx, dy, dz, contacts);
             }
         }
     }
@@ -71,12 +73,14 @@ void CharacterController::intersectSweptAabbAabb(int x, int y, int z, float px, 
     contacts.push_back(c);
 }
 
-void CharacterController::collisionResponse(glm::vec3 v, std::vector<Contact> &contacts) {
+void CharacterController::collisionResponse(glm::vec3 &velocity, float dt, std::vector<Contact> &contacts) {
+    glm::vec3 v = velocity * dt;
     std::sort(contacts.begin(), contacts.end());
 
     int minX = INT_MIN, maxX = INT_MAX, minY = INT_MIN, maxY = INT_MAX, minZ = INT_MIN, maxZ = INT_MAX;
     float elapsedTime = 0;
     float dx = v.x, dy = v.y, dz = v.z;
+    bool goUp = false;
     for (auto contact : contacts) {
         if (contact.x <= minX || contact.y <= minY || contact.z <= minZ || contact.x >= maxX || contact.y >= maxY || contact.z >= maxZ)
             continue;
@@ -86,21 +90,36 @@ void CharacterController::collisionResponse(glm::vec3 v, std::vector<Contact> &c
         if (contact.nx != 0) {
             minX = dx < 0 ? std::max(minX, contact.x) : minX;
             maxX = dx < 0 ? maxX : std::min(maxX, contact.x);
-            v.x = 0.0f;
-            dx = 0.0f;
+            if (worldManager.load(contact.x, contact.y + 1, contact.z) == EMPTY_VOXEL) {
+                goUp = true;
+            } else {
+                velocity.x = 0.0f;
+                dx = 0.0f;
+            }
         } else if (contact.ny != 0) {
             isGrounded = dy < 0;
             minY = dy < 0 ? std::max(minY, contact.y) : contact.y - (int) PLAYER_HEIGHT;
             maxY = dy < 0 ? contact.y + (int) std::ceil(PLAYER_HEIGHT) + 1 : std::min(maxY, contact.y);
-            v.y = 0.0f;
+            velocity.y = 0.0f;
             dy = 0.0f;
         } else if (contact.nz != 0) {
             minZ = dz < 0 ? std::max(minZ, contact.z) : minZ;
             maxZ = dz < 0 ? maxZ : std::min(maxZ, contact.z);
-            v.z = 0.0f;
-            dz = 0.0f;
+            if (worldManager.load(contact.x, contact.y + 1, contact.z) == EMPTY_VOXEL) {
+                goUp = true;
+            } else {
+                velocity.z = 0.0f;
+                dz = 0.0f;
+            }
         }
     }
     float trem = 1.0f - elapsedTime;
     transform.position += glm::vec3(dx * trem, dy * trem, dz * trem);
+    if (goUp) {
+        transform.position.y -= PLAYER_EYE_HEIGHT;
+        transform.position.y += 1.0f;
+        transform.position.y = std::floor(transform.position.y) + 0.01f;
+        transform.position.y += PLAYER_EYE_HEIGHT;
+        isGrounded = true;
+    }
 }

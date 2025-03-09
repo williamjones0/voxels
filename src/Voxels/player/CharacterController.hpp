@@ -12,7 +12,7 @@ public:
 
     bool isGrounded = false;
 
-    void move(glm::vec3 velocity);
+    void move(glm::vec3 &velocity, float dt);
 
 private:
     class Contact {
@@ -38,8 +38,8 @@ private:
     float PLAYER_EYE_HEIGHT = 1.7f;
     float PLAYER_HEIGHT = 1.8f;
 
-    void handleCollisions(glm::vec3 velocity);
-    void collisionDetection(glm::vec3 v, std::vector<Contact> &contacts);
+    void handleCollisions(glm::vec3 &velocity, float dt);
+    void collisionDetection(glm::vec3 &velocity, float dt, std::vector<Contact> &contacts);
     void intersectSweptAabbAabb(int x, int y, int z, float px, float py, float pz, float dx, float dy, float dz, std::vector<Contact> &contacts);
-    void collisionResponse(glm::vec3 velocity, std::vector<Contact> &contacts);
+    void collisionResponse(glm::vec3 &velocity, float dt, std::vector<Contact> &contacts);
 };

@@ -55,7 +55,7 @@ void Q1PlayerController::update(float dt) {
     camFront = glm::rotateY(camFront, -(float)yRot);
     camera.front = camFront;
 
-    character.move(playerVelocity * deltaTime);
+    character.move(playerVelocity, deltaTime);
 
     camera.transform.position = character.transform.position + glm::vec3(0, 1.7f, 0);
 
