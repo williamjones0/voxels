@@ -128,11 +128,6 @@ Chunk *WorldManager::createChunk(int cx, int cz) {
     chunkTasksCount++;
 
     threadPool.queueTask([&chunk, this]() {
-        {
-            std::unique_lock<std::mutex> lock(cvMutexChunks);
-            cvChunks.wait(lock, [this]() { return chunksReady; });
-        }
-
         chunk.init();
         chunk.generate(GenerationType::PERLIN_2D);
 
@@ -146,9 +141,9 @@ Chunk *WorldManager::createChunk(int cx, int cz) {
         {
             std::unique_lock<std::mutex> lock(cvMutexNewlyCreatedChunks);
             cvNewlyCreatedChunks.wait(lock, [this]() { return newlyCreatedChunksReady; });
+            chunk.debug = 2;
+            newlyCreatedChunks.push_back(&chunk);
         }
-        chunk.debug = 2;
-        newlyCreatedChunks.push_back(&chunk);
     });
 
     return &chunk;
@@ -221,11 +216,6 @@ size_t WorldManager::key(int i, int j) {
 void WorldManager::updateVerticesBuffer(GLuint verticesBuffer, GLuint chunkDataBuffer) {
     newlyCreatedChunksReady = false;
     cvNewlyCreatedChunks.notify_all();
-
-    // Sort newly created chunks by chunk.index so that chunkData is updated in the correct order
-    std::sort(newlyCreatedChunks.begin(), newlyCreatedChunks.end(), [](Chunk *a, Chunk *b) {
-        return a->index < b->index;
-    });
 
     for (Chunk *chunk : newlyCreatedChunks) {
         // If the chunk was already destroyed in destroyFrontierChunks, we don't want to allocate, so just skip it

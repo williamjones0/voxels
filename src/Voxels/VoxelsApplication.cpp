@@ -96,19 +96,9 @@ void VoxelsApplication::update() {
 
     camera.update();
 
-    worldManager.chunksReady = false;
-
     while (worldManager.updateFrontierChunks()) {}
 
     worldManager.chunkTasksCount = 0;
-
-    // Lock mutex and set the ready flag, then notify all waiting threads
-    // We need to wait for all threads to be created before meshing to ensure that no invalid references are created
-    {
-        std::unique_lock<std::mutex> lock(worldManager.cvMutexChunks);
-        worldManager.chunksReady = true;
-    }
-    worldManager.cvChunks.notify_all();
 
     worldManager.updateVerticesBuffer(verticesBuffer, chunkDataBuffer);
 
