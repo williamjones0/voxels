@@ -5,6 +5,15 @@
 
 class Q3PlayerController {
 public:
+    Q3PlayerController(Camera &camera, CharacterController &character)
+        : camera(camera), character(character) {}
+
+    void update(float deltaTime);
+
+    float speed = 0;
+    glm::vec3 playerVelocity = glm::vec3(0, 0, 0);
+
+private:
     class MovementSettings {
     public:
         float maxSpeed;
@@ -15,15 +24,6 @@ public:
             : maxSpeed(maxSpeed), acceleration(acceleration), deceleration(deceleration) {}
     };
 
-    Q3PlayerController(Camera &camera, CharacterController &character)
-        : camera(camera), character(character) {}
-
-    void update(float deltaTime);
-
-    float speed = 0;
-    glm::vec3 playerVelocity = glm::vec3(0, 0, 0);
-
-private:
     Camera &camera;
 
     float deltaTime = 0;

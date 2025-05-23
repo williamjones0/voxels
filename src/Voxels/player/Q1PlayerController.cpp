@@ -8,7 +8,7 @@
 void Q1PlayerController::update(float dt) {
     deltaTime = dt;
 
-    // TODO: fix this input system
+    // TODO: change this input system to use a controls enum instead of the key itself
     int xMovement = 0;
     if (Input::isKeyDown(GLFW_KEY_A)) {
         xMovement--;

@@ -37,6 +37,8 @@ add_executable(Voxels
     core/Transform.hpp
     player/Q1PlayerController.hpp
     player/Q1PlayerController.cpp
+    player/FlyPlayerController.hpp
+    player/FlyPlayerController.cpp
 )
 
 add_dependencies(Voxels copy_data)
