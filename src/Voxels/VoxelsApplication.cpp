@@ -3,6 +3,9 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/string_cast.hpp>
 
+#include <tracy/Tracy.hpp>
+#include <tracy/TracyOpenGL.hpp>
+
 #include <iostream>
 #include <algorithm>
 
@@ -92,6 +95,8 @@ bool VoxelsApplication::load() {
 }
 
 void VoxelsApplication::update() {
+    ZoneScoped;
+
     Application::update();
 
     camera.update();
@@ -117,6 +122,8 @@ void VoxelsApplication::update() {
 }
 
 void VoxelsApplication::render() {
+    ZoneScoped;
+
     glm::mat4 projection = glm::perspective((float) (camera.FOV * PI / 180),
                                             (float) windowWidth / (float) windowHeight, 0.1f, 5000.0f);
     glm::mat4 view = camera.calculateViewMatrix();

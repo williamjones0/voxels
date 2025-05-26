@@ -26,9 +26,9 @@ typedef struct {
 } ChunkData;
 
 constexpr int INITIAL_VERTEX_BUFFER_SIZE = 1 << 25;
-constexpr int MAX_CHUNK_TASKS = 16;
+constexpr int MAX_CHUNK_TASKS = 32;
 
-constexpr int MAX_RENDER_DISTANCE_CHUNKS = 12;
+constexpr int MAX_RENDER_DISTANCE_CHUNKS = 36;
 constexpr int MAX_RENDER_DISTANCE_METRES = MAX_RENDER_DISTANCE_CHUNKS << CHUNK_SIZE_SHIFT;
 constexpr int MAX_CHUNKS = (2 * MAX_RENDER_DISTANCE_CHUNKS + 1) * (2 * MAX_RENDER_DISTANCE_CHUNKS + 1);
 

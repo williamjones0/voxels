@@ -1,4 +1,5 @@
 #include "Application.hpp"
+#include "tracy/Tracy.hpp"
 
 #include <iostream>
 
@@ -105,11 +106,15 @@ bool Application::load() {
 }
 
 void Application::loop() {
+    ZoneScoped;
+
     update();
     processInput();
     render();
     glfwPollEvents();
     glfwSwapBuffers(windowHandle);
+
+    FrameMark;
 }
 
 void Application::update() {

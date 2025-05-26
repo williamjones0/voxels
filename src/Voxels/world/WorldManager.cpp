@@ -2,6 +2,7 @@
 
 #include "Mesher.hpp"
 #include "../util/Util.hpp"
+#include "tracy/Tracy.hpp"
 
 WorldManager::WorldManager(Camera &camera) : camera(camera) {
     load();
@@ -18,11 +19,15 @@ void WorldManager::load() {
 }
 
 bool WorldManager::updateFrontierChunks() {
+    ZoneScoped;
+
     destroyFrontierChunks();
     return createNewFrontierChunks();
 }
 
 bool WorldManager::createNewFrontierChunks() {
+    ZoneScoped;
+
     std::sort(frontierChunks.begin(), frontierChunks.end(), [this](Chunk *a, Chunk *b) {
         return squaredDistanceToChunk(a->cx, a->cz) < squaredDistanceToChunk(b->cx, b->cz);
     });
@@ -46,6 +51,8 @@ bool WorldManager::createNewFrontierChunks() {
 }
 
 void WorldManager::destroyFrontierChunks() {
+    ZoneScoped;
+
     std::vector<Chunk *> toDestroy;
 
     for (size_t i = 0, s = frontierChunks.size(); i < s; i++) {
@@ -86,8 +93,9 @@ void WorldManager::destroyFrontierChunks() {
     }
 
     // Update chunk indexes in case chunks were removed
-    for (auto it = chunks.begin(); it != chunks.end(); ++it) {
-        it->index = std::distance(chunks.begin(), it);
+    size_t index = 0;
+    for (auto &chunk : chunks) {
+        chunk.index = index++;
     }
 }
 
@@ -108,6 +116,8 @@ Chunk *WorldManager::ensureChunk(int cx, int cz) {
 }
 
 Chunk *WorldManager::createChunk(int cx, int cz) {
+    ZoneScoped;
+
     chunks.emplace_back(cx, cz);
     Chunk &chunk = chunks.back();
     size_t chunkIndex = chunks.size() - 1;
@@ -128,6 +138,8 @@ Chunk *WorldManager::createChunk(int cx, int cz) {
     chunkTasksCount++;
 
     threadPool.queueTask([&chunk, this]() {
+        ZoneScoped;
+
         chunk.init();
         chunk.generate(GenerationType::PERLIN_2D);
 
@@ -214,6 +226,8 @@ size_t WorldManager::key(int i, int j) {
 }
 
 void WorldManager::updateVerticesBuffer(GLuint verticesBuffer, GLuint chunkDataBuffer) {
+    ZoneScoped;
+
     newlyCreatedChunksReady = false;
     cvNewlyCreatedChunks.notify_all();
 
