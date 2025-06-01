@@ -390,7 +390,12 @@ void VoxelsApplication::updateVoxel(RaycastResult result, bool place) {
     for (Chunk *chunk : chunksToMesh) {
         // TODO: make a function in worldManager to queue a chunk mesh task so the thread pool itself isn't exposed
         worldManager.threadPool.queueTask([chunk, this]() {
-            worldManager.allocator.deallocate(chunk->firstIndex, chunk->numVertices);
+            // Don't allocate while other threads are allocating
+            {
+                std::unique_lock<std::mutex> lock(worldManager.cvMutexAllocator);
+                worldManager.cvAllocator.wait(lock, [this]() { return worldManager.allocator.ready; });
+                worldManager.allocator.deallocate(chunk->firstIndex, chunk->numVertices);
+            }
 
             chunk->initialising = true;
             Mesher::meshChunk(*chunk);
@@ -400,8 +405,8 @@ void VoxelsApplication::updateVoxel(RaycastResult result, bool place) {
             {
                 std::unique_lock<std::mutex> lock(worldManager.cvMutexNewlyCreatedChunks);
                 worldManager.cvNewlyCreatedChunks.wait(lock, [this]() { return worldManager.newlyCreatedChunksReady; });
+                worldManager.newlyCreatedChunks.push_back(chunk);
             }
-            worldManager.newlyCreatedChunks.push_back(chunk);
         });
     }
 }

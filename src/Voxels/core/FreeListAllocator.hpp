@@ -16,6 +16,8 @@ struct Region {
 
 class FreeListAllocator {
 public:
+    bool ready = true;
+
     FreeListAllocator() = default;
 
     FreeListAllocator(size_t bufferSize, size_t alignment)
@@ -50,6 +52,8 @@ public:
     }
 
     void deallocate(size_t offset, size_t length) {
+        ready = false;
+
         length = align(length, alignment); // Round up size to alignment
         Region region{offset, length};
 
@@ -59,6 +63,8 @@ public:
 
         // Merge adjacent regions
         mergeFreeRegions();
+
+        ready = true;
     }
 
     void printFreeRegions() const {

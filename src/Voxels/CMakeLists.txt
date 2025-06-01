@@ -1,4 +1,3 @@
-
 if(MSVC)
     set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
     set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
@@ -13,15 +12,13 @@ endif()
 
 add_custom_target(copy_data ALL COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/data ${CMAKE_CURRENT_BINARY_DIR}/data)   
 
-add_executable(Voxels
+add_library(VoxelsLib
     core/Camera.cpp
     util/Util.cpp
     world/Chunk.cpp
     world/Mesher.cpp
     Application.cpp
     Application.hpp
-    main.cpp
-    main.cpp
     VoxelsApplication.hpp
     VoxelsApplication.cpp
     core/ThreadPool.cpp
@@ -43,8 +40,13 @@ add_executable(Voxels
     world/Level.cpp
 )
 
+target_include_directories(VoxelsLib PUBLIC include)
+
+target_link_libraries(VoxelsLib
+    PUBLIC glad glfw imgui glm cgltf stb_image spdlog TracyClient
+)
+
+add_executable(Voxels main.cpp)
+target_link_libraries(Voxels PRIVATE VoxelsLib)
+
 add_dependencies(Voxels copy_data)
-
-target_include_directories(Voxels PRIVATE include)
-
-target_link_libraries(Voxels PRIVATE glad glfw imgui glm cgltf stb_image spdlog TracyClient)

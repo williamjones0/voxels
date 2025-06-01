@@ -107,8 +107,11 @@ void WorldManager::destroyFrontierChunks() {
 }
 
 bool WorldManager::ensureChunkIfVisible(int cx, int cz) {
+    int maxChunkX = (int) std::ceil((double) level.maxX / CHUNK_SIZE) - 1;
+    int maxChunkZ = (int) std::ceil((double) level.maxZ / CHUNK_SIZE) - 1;
+
     if (!chunkInRenderDistance(cx, cz) ||
-        (generationType == GenerationType::LevelLoad) && (cx < 0 || cx > level.maxX || cz < 0 || cz > level.maxZ)) {
+        (generationType == GenerationType::LevelLoad) && (cx < 0 || cx > maxChunkX || cz < 0 || cz > maxChunkZ)) {
         return false;
     }
 

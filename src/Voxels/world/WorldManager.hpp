@@ -72,9 +72,13 @@ public:
     std::vector<ChunkData> chunkData;
 
     std::atomic<int> chunkTasksCount = 0;
+
     std::condition_variable cvNewlyCreatedChunks;
     std::mutex cvMutexNewlyCreatedChunks;
     bool newlyCreatedChunksReady = false;
+
+    std::condition_variable cvAllocator;
+    std::mutex cvMutexAllocator;
 
     FreeListAllocator allocator = FreeListAllocator(INITIAL_VERTEX_BUFFER_SIZE, 4096);
     ThreadPool threadPool;

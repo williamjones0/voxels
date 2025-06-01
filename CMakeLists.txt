@@ -15,3 +15,4 @@ endif ()
 
 add_subdirectory(lib)
 add_subdirectory(src/Voxels)
+add_subdirectory(test/Voxels)
