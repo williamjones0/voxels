@@ -111,9 +111,9 @@ void VoxelsApplication::update() {
 
     // std::cout << "Frame time: " << deltaTime << "\t FPS: " << (1.0f / deltaTime) << std::endl;
     std::string title = "Voxels | FPS: " + std::to_string((int) (1.0f / deltaTime)) +
-                        " | X: " + std::to_string(characterController.transform.position.x) +
-                        ", Y: " + std::to_string(characterController.transform.position.y) +
-                        ", Z: " + std::to_string(characterController.transform.position.z) +
+                        " | X: " + std::to_string(camera.transform.position.x) +
+                        ", Y: " + std::to_string(camera.transform.position.y) +
+                        ", Z: " + std::to_string(camera.transform.position.z) +
                         " | speed: " + std::to_string(playerController.speed) +
                         " | vel: " + glm::to_string(playerController.playerVelocity) +
                         " | front: " + glm::to_string(camera.front);

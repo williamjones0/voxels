@@ -4,6 +4,7 @@
 #include "../core/FreeListAllocator.hpp"
 #include "../core/ThreadPool.hpp"
 #include "../core/Camera.hpp"
+#include "Level.hpp"
 
 #include <glad/glad.h>
 
@@ -34,7 +35,8 @@ constexpr int MAX_CHUNKS = (2 * MAX_RENDER_DISTANCE_CHUNKS + 1) * (2 * MAX_RENDE
 
 class WorldManager {
 public:
-    explicit WorldManager(Camera &camera);
+    explicit WorldManager(Camera &camera, GenerationType generationType = GenerationType::Perlin2D,
+                          std::string_view levelFile = "data/levels/level0.txt");
 
     void load();
 
@@ -58,6 +60,10 @@ public:
     int load(int x, int y, int z);
 
     void cleanup();
+
+    GenerationType generationType;
+
+    Level level;
 
     std::list<Chunk> chunks;
     std::vector<Chunk *> frontierChunks;

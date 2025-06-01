@@ -1,11 +1,18 @@
 #include "WorldManager.hpp"
 
+#include <fstream>
+#include <sstream>
+
 #include "Mesher.hpp"
 #include "../util/Util.hpp"
 #include "tracy/Tracy.hpp"
 
-WorldManager::WorldManager(Camera &camera) : camera(camera) {
+WorldManager::WorldManager(Camera &camera, GenerationType generationType, std::string_view levelFile)
+    : camera(camera), generationType(generationType) {
     load();
+    if (generationType == GenerationType::LevelLoad) {
+        level.read(levelFile);
+    }
 }
 
 void WorldManager::load() {
@@ -100,7 +107,8 @@ void WorldManager::destroyFrontierChunks() {
 }
 
 bool WorldManager::ensureChunkIfVisible(int cx, int cz) {
-    if (!chunkInRenderDistance(cx, cz)) {
+    if (!chunkInRenderDistance(cx, cz) ||
+        (generationType == GenerationType::LevelLoad) && (cx < 0 || cx > level.maxX || cz < 0 || cz > level.maxZ)) {
         return false;
     }
 
@@ -141,7 +149,7 @@ Chunk *WorldManager::createChunk(int cx, int cz) {
         ZoneScoped;
 
         chunk.init();
-        chunk.generate(GenerationType::PERLIN_2D);
+        chunk.generate(generationType, level);
 
         Mesher::meshChunk(chunk);
 

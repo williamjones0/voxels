@@ -39,6 +39,8 @@ add_executable(Voxels
     player/Q1PlayerController.cpp
     player/FlyPlayerController.hpp
     player/FlyPlayerController.cpp
+    world/Level.hpp
+    world/Level.cpp
 )
 
 add_dependencies(Voxels copy_data)

@@ -121,19 +121,19 @@ void Chunk::init() {
     voxels = std::vector<int>(VOXELS_SIZE, 0);
 }
 
-void Chunk::generate(GenerationType type) {
+void Chunk::generate(GenerationType type, const Level& level) {
     switch (type) {
-        case GenerationType::FLAT:
+        case GenerationType::Flat:
             generateFlat();
             break;
-        case GenerationType::PERLIN_2D:
+        case GenerationType::Perlin2D:
             generateVoxels2D();
             break;
-        case GenerationType::PERLIN_3D:
+        case GenerationType::Perlin3D:
             generateVoxels3D();
             break;
-        case GenerationType::FILE_LOAD:
-            generateVoxels("data/levels/level0.txt");
+        case GenerationType::LevelLoad:
+            generateVoxels(level);
             break;
     }
 }
@@ -245,37 +245,28 @@ void Chunk::generateVoxels3D() {
     maxY = std::min(CHUNK_HEIGHT, maxY + 2);
 }
 
-void Chunk::generateVoxels(const std::string &path) {
-    std::ifstream infile(path);
+void Chunk::generateVoxels(const Level& level) {
+    for (int y = 0; y < CHUNK_HEIGHT; ++y) {
+        for (int z = -1; z < CHUNK_SIZE + 1; ++z) {
+            for (int x = -1; x < CHUNK_SIZE + 1; ++x) {
+                int gx = cx * CHUNK_SIZE + x;
+                int gz = cz * CHUNK_SIZE + z;
 
-    std::string line;
-    int y = 0;
-    int gz = 0;
-    while (std::getline(infile, line)) {
-        if (line.empty()) {
-            y++;
-            gz = 0;
-            continue;
-        }
-
-        if (gz >= cz * CHUNK_SIZE - 1 && gz < (cz + 1) * CHUNK_SIZE + 1) {
-            std::istringstream iss(line);
-            int value;
-            int gx = 0;
-            while (iss >> value) {
-                if (gx >= cx * CHUNK_SIZE - 1 && gx < (cx + 1) * CHUNK_SIZE + 1) {
-                    int x = gx - cx * CHUNK_SIZE;
-                    int z = gz - cz * CHUNK_SIZE;
-                    voxels[getVoxelIndex(x + 1, y + 1, z + 1, CHUNK_SIZE + 2)] = value;
+                if (gx < 0 || gz < 0 || gx >= level.maxX || gz >= level.maxZ || y >= level.maxY) {
+                    continue; // Out of bounds
                 }
-                gx++;
+
+                int value = level.data[y * level.maxX * level.maxZ + gz * level.maxX + gx];
+
+                voxels[getVoxelIndex(x + 1, y + 1, z + 1, CHUNK_SIZE + 2)] = value;
+
+                if (value != EMPTY_VOXEL) {
+                    minY = std::min(y, minY);
+                    maxY = std::max(y, maxY);
+                }
             }
         }
-        gz++;
     }
 
-    minY = 0;
-    maxY = std::min(CHUNK_HEIGHT, y + 2);
-
-    infile.close();
+    maxY = std::min(CHUNK_HEIGHT, maxY + 2);
 }

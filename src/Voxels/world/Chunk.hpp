@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Level.hpp"
+
 #include <glm/glm.hpp>
 
 #include <cstdint>
@@ -14,10 +16,10 @@ constexpr int CHUNK_HEIGHT = 1 << CHUNK_HEIGHT_SHIFT;
 constexpr int VOXELS_SIZE = (CHUNK_SIZE + 2) * (CHUNK_SIZE + 2) * (CHUNK_HEIGHT + 2);
 
 enum class GenerationType {
-    FLAT,
-    PERLIN_2D,
-    PERLIN_3D,
-    FILE_LOAD
+    Flat,
+    Perlin2D,
+    Perlin3D,
+    LevelLoad
 };
 
 constexpr int EMPTY_VOXEL = 0;
@@ -59,9 +61,9 @@ public:
     void store(int x, int y, int z, char v);
     int load(int x, int y, int z);
     void init();
-    void generate(GenerationType type);
+    void generate(GenerationType type, const Level& level);
     void generateFlat();
     void generateVoxels2D();
     void generateVoxels3D();
-    void generateVoxels(const std::string &path);
+    void generateVoxels(const Level& level);
 };
