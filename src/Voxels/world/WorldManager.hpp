@@ -75,7 +75,7 @@ public:
 
     std::condition_variable cvNewlyCreatedChunks;
     std::mutex cvMutexNewlyCreatedChunks;
-    bool newlyCreatedChunksReady = false;
+    bool newlyCreatedChunksReady = true;
 
     std::condition_variable cvAllocator;
     std::mutex cvMutexAllocator;

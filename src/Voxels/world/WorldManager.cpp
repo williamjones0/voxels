@@ -161,11 +161,18 @@ Chunk *WorldManager::createChunk(int cx, int cz) {
         chunk.debug = 1;
 
         // If newlyCreatedChunks is currently being iterated through, we need to lock the mutex
+        // Additionally, only one thread should be in this critical section at the same time
         {
             std::unique_lock<std::mutex> lock(cvMutexNewlyCreatedChunks);
             cvNewlyCreatedChunks.wait(lock, [this]() { return newlyCreatedChunksReady; });
+
+            newlyCreatedChunksReady = false;
+
             chunk.debug = 2;
             newlyCreatedChunks.push_back(&chunk);
+
+            newlyCreatedChunksReady = true;
+            cvNewlyCreatedChunks.notify_one();  // only need to wake up one thread
         }
     });
 
@@ -239,66 +246,70 @@ size_t WorldManager::key(int i, int j) {
 void WorldManager::updateVerticesBuffer(GLuint verticesBuffer, GLuint chunkDataBuffer) {
     ZoneScoped;
 
-    newlyCreatedChunksReady = false;
-    cvNewlyCreatedChunks.notify_all();
+    {
+        std::unique_lock<std::mutex> lock(cvMutexNewlyCreatedChunks);
+        cvNewlyCreatedChunks.wait(lock, [this]() { return newlyCreatedChunksReady; });
 
-    for (Chunk *chunk : newlyCreatedChunks) {
-        // If the chunk was already destroyed in destroyFrontierChunks, we don't want to allocate, so just skip it
-        if (chunk->dying) {
-            continue;
+        newlyCreatedChunksReady = false;
+
+        for (Chunk *chunk: newlyCreatedChunks) {
+            // If the chunk was already destroyed in destroyFrontierChunks, we don't want to allocate, so just skip it
+            if (chunk->dying) {
+                continue;
+            }
+
+            // If the chunk wasn't created yet (TODO: somehow?)
+            if (chunk->debug == 0) {
+                continue;
+            }
+
+            auto region = allocator.allocate(chunk->numVertices);
+            if (!region) {
+                throw std::runtime_error("Failed to allocate memory for chunk vertices.");
+            }
+
+            chunk->firstIndex = region->offset;
+
+            // std::copy(chunk->vertices.begin(), chunk->vertices.end(), dummyVerticesBuffer.begin() + chunk->firstIndex);
+
+            glNamedBufferSubData(verticesBuffer,
+                                 region->offset * sizeof(uint32_t),
+                                 chunk->numVertices * sizeof(uint32_t),
+                                 (const void *) chunk->vertices.data());
+
+            chunk->vertices.clear();
+
+            // Update chunk data
+            ChunkData cd = {
+                    .cx = chunk->cx,
+                    .cz = chunk->cz,
+                    .minY = chunk->minY,
+                    .maxY = chunk->maxY,
+                    .numVertices = chunk->numVertices,
+                    .firstIndex = chunk->firstIndex,
+                    ._pad0 = 0,
+                    ._pad1 = 0,
+            };
+            chunkData[chunk->index] = cd;
+
+            if (chunk->numVertices == 0) {
+                std::cerr << "Chunk has no vertices!" << std::endl;
+            }
+
+            chunk->ready = true;
+            chunk->debug = 3;
         }
 
-        // If the chunk wasn't created yet (TODO: somehow?)
-        if (chunk->debug == 0) {
-            continue;
-        }
+        // Update chunk data buffer
+        glNamedBufferData(chunkDataBuffer, sizeof(ChunkData) * chunkData.size(),
+                          (const void *) chunkData.data(), GL_DYNAMIC_DRAW);
 
-        auto region = allocator.allocate(chunk->numVertices);
-        if (!region) {
-            throw std::runtime_error("Failed to allocate memory for chunk vertices.");
-        }
+        // Clear newly created chunks
+        newlyCreatedChunks.clear();
 
-        chunk->firstIndex = region->offset;
-
-        // std::copy(chunk->vertices.begin(), chunk->vertices.end(), dummyVerticesBuffer.begin() + chunk->firstIndex);
-
-        glNamedBufferSubData(verticesBuffer,
-                             region->offset * sizeof(uint32_t),
-                             chunk->numVertices * sizeof(uint32_t),
-                             (const void *) chunk->vertices.data());
-
-        chunk->vertices.clear();
-
-        // Update chunk data
-        ChunkData cd = {
-                .cx = chunk->cx,
-                .cz = chunk->cz,
-                .minY = chunk->minY,
-                .maxY = chunk->maxY,
-                .numVertices = chunk->numVertices,
-                .firstIndex = chunk->firstIndex,
-                ._pad0 = 0,
-                ._pad1 = 0,
-        };
-        chunkData[chunk->index] = cd;
-
-        if (chunk->numVertices == 0) {
-            std::cerr << "Chunk has no vertices!" << std::endl;
-        }
-
-        chunk->ready = true;
-        chunk->debug = 3;
+        newlyCreatedChunksReady = true;
+        cvNewlyCreatedChunks.notify_one();  // only need to wake up one thread
     }
-
-    // Update chunk data buffer
-    glNamedBufferData(chunkDataBuffer, sizeof(ChunkData) * chunkData.size(),
-                      (const void *) chunkData.data(), GL_DYNAMIC_DRAW);
-
-    // Clear newly created chunks
-    newlyCreatedChunks.clear();
-
-    newlyCreatedChunksReady = true;
-    cvNewlyCreatedChunks.notify_all();
 }
 
 Chunk *WorldManager::getChunk(int cx, int cz) {
