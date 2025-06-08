@@ -7,15 +7,9 @@
 #include "../util/Util.hpp"
 #include "tracy/Tracy.hpp"
 
-WorldManager::WorldManager(Camera &camera, GenerationType generationType, std::string_view levelFile)
-    : camera(camera), generationType(generationType) {
-    load();
-    if (generationType == GenerationType::LevelLoad) {
-        level.read(levelFile);
-    }
-}
-
-void WorldManager::load() {
+WorldManager::WorldManager(Camera &camera, GenerationType generationType, const std::filesystem::path &levelFile)
+    : camera(camera), generationType(generationType), levelFile(levelFile)
+{
     chunks = std::list<Chunk>();
     frontierChunks = std::vector<Chunk *>();
     newlyCreatedChunks = std::vector<Chunk *>();
@@ -23,6 +17,10 @@ void WorldManager::load() {
     chunkData = std::vector<ChunkData>();
 
     threadPool.start();
+
+    if (generationType == GenerationType::LevelLoad) {
+        level.read(levelFile);
+    }
 }
 
 bool WorldManager::updateFrontierChunks() {
@@ -340,6 +338,22 @@ void WorldManager::queueMeshChunk(Chunk *chunk) {
             newlyCreatedChunks.push_back(chunk);
         }
     });
+}
+
+void WorldManager::save() {
+    level.data.clear();
+    level.data.reserve(level.maxX * level.maxZ * level.maxY);
+    for (int y = 0; y < level.maxY; ++y) {
+        for (int z = 0; z < level.maxZ; ++z) {
+            for (int x = 0; x < level.maxX; ++x) {
+                int voxel = load(x, y, z);
+                level.data.push_back(voxel);
+            }
+        }
+    }
+    level.save(levelFile);
+
+    std::cout << "Level saved to " << levelFile << std::endl;
 }
 
 int WorldManager::load(int x, int y, int z) {

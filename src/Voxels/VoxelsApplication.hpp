@@ -55,7 +55,11 @@ private:
     Shader shader;
     Shader drawCommandProgram;
 
-    WorldManager worldManager = WorldManager(camera, GenerationType::Perlin2D, "data/levels/level0.json");
+    WorldManager worldManager = WorldManager(
+            camera,
+            GenerationType::LevelLoad,
+            std::filesystem::path(PROJECT_SOURCE_DIR) / "data/levels/level0.json"
+    );
 
     GLuint dummyVAO;
     GLuint chunkDrawCmdBuffer;

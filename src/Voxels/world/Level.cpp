@@ -2,6 +2,8 @@
 
 #include <fstream>
 #include <sstream>
+#include <iostream>
+#include <filesystem>
 
 #include <nlohmann/json.hpp>
 
@@ -12,11 +14,12 @@ Level::Level() {
     colors[2] = glm::vec3(0.600, 0.100, 0.100);
 }
 
-void Level::read(std::string_view filepath) {
-    std::ifstream infile(filepath.data());
+void Level::read(const std::filesystem::path &filepath) {
+    std::cout << "Reading level file: " << filepath << std::endl;
+    std::ifstream infile(filepath);
 
     if (!infile.is_open()) {
-        throw std::runtime_error("Failed to open level file: " + std::string(filepath));
+        throw std::runtime_error("Failed to open level file: " + filepath.string());
     }
 
     json levelJson = json::parse(infile);
@@ -49,38 +52,48 @@ void Level::read(std::string_view filepath) {
     infile.close();
 }
 
-void Level::read_txt(std::string_view filepath) {
-    std::ifstream infile(filepath.data());
+void Level::save(const std::filesystem::path &filepath) {
+    std::cout << "Saving level file: " << filepath << std::endl;
 
-    if (!infile.is_open()) {
-        throw std::runtime_error("Failed to open level file: " + std::string(filepath));
+    json levelJson;
+
+    // Palette
+    json paletteJson;
+    for (int i = 0; i < colors.size(); ++i) {
+        paletteJson[std::to_string(i)] = {colors[i].r, colors[i].g, colors[i].b};
     }
+    levelJson["palette"] = paletteJson;
 
-    // The first three numbers on the first line are the width, depth and height of the world
-    std::string line;
-    if (std::getline(infile, line)) {
-        std::istringstream iss(line);
-        iss >> maxX >> maxZ >> maxY;
-    } else {
-        throw std::runtime_error("Failed to read level file: " + std::string(filepath));
-    }
+    // Bounds
+    levelJson["bounds"]["x"] = {0, maxX};
+    levelJson["bounds"]["z"] = {0, maxZ};
+    levelJson["bounds"]["y"] = {0, maxY};
 
-    data.clear();
-    data.reserve(maxX * maxZ * maxY);
-    while (std::getline(infile, line)) {
-        if (line.empty()) {
-            continue;
+    // Data
+    json dataJson;
+    int count = 1;
+    bool need_to_add = false;
+    for (size_t i = 1; i < data.size(); ++i) {
+        if (data[i] == data[i - 1]) {
+            count++;
+            need_to_add = true;
+        } else {
+            dataJson.push_back({data[i - 1], count});
+            count = 1;
+            need_to_add = false;
         }
-        std::istringstream iss(line);
-        int value;
-        while (iss >> value) {
-            data.push_back(value);
-        }
+    }
+    if (need_to_add) {
+        dataJson.push_back({data.back(), count});
     }
 
-    if (data.size() != maxX * maxZ * maxY) {
-        throw std::runtime_error("Level file data size does not match specified dimensions");
+    levelJson["data"] = dataJson;
+
+    std::ofstream outfile(filepath);
+    if (!outfile.is_open()) {
+        throw std::runtime_error("Failed to open level file for writing: " + filepath.string());
     }
 
-    infile.close();
+    outfile << levelJson.dump(4);
+    outfile.close();
 }

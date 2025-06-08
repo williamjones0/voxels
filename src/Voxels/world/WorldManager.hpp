@@ -8,12 +8,13 @@
 
 #include <glad/glad.h>
 
-#include <list>
-#include <vector>
-#include <unordered_map>
-#include <condition_variable>
-#include <mutex>
 #include <atomic>
+#include <condition_variable>
+#include <filesystem>
+#include <list>
+#include <mutex>
+#include <unordered_map>
+#include <vector>
 
 typedef struct {
     int cx;
@@ -36,9 +37,7 @@ constexpr int MAX_CHUNKS = (2 * MAX_RENDER_DISTANCE_CHUNKS + 1) * (2 * MAX_RENDE
 class WorldManager {
 public:
     explicit WorldManager(Camera &camera, GenerationType generationType = GenerationType::Perlin2D,
-                          std::string_view levelFile = "data/levels/level0.txt");
-
-    void load();
+                          const std::filesystem::path &levelFile = "data/levels/level0.txt");
 
     bool updateFrontierChunks();
     void destroyFrontierChunks();
@@ -59,11 +58,14 @@ public:
 
     void queueMeshChunk(Chunk *chunk);
 
+    void save();
+
     int load(int x, int y, int z);
 
     void cleanup();
 
     GenerationType generationType;
+    const std::filesystem::path levelFile;
 
     Level level;
 

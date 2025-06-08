@@ -46,8 +46,6 @@ bool VoxelsApplication::load() {
     shader = Shader("vert.glsl", "frag.glsl");
     drawCommandProgram = Shader("drawcmd_comp.glsl");
 
-    worldManager.load();
-
 //    dummyVerticesBuffer = std::vector<uint32_t>(INITIAL_VERTEX_BUFFER_SIZE, 0);
 
     worldManager.createChunk(0, 0);
@@ -207,6 +205,10 @@ void VoxelsApplication::processInput() {
         if (result) {
             updateVoxel(*result, true);
         }
+    }
+
+    if (Input::isKeyPress(GLFW_KEY_P)) {
+        worldManager.save();
     }
 
     Input::update();

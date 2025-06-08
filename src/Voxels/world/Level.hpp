@@ -1,8 +1,7 @@
 #pragma once
 
 #include <array>
-#include <string_view>
-#include <unordered_map>
+#include <filesystem>
 #include <vector>
 
 #include <glm/vec3.hpp>
@@ -18,6 +17,6 @@ public:
 
     std::array<glm::vec3, 16> colors {};
 
-    void read(std::string_view file);
-    void read_txt(std::string_view filepath);
+    void read(const std::filesystem::path &filepath);
+    void save(const std::filesystem::path &filepath);
 };

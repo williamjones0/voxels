@@ -50,3 +50,4 @@ add_executable(Voxels main.cpp)
 target_link_libraries(Voxels PRIVATE VoxelsLib)
 
 add_dependencies(Voxels copy_data)
+add_definitions(-DPROJECT_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
