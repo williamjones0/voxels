@@ -87,9 +87,31 @@ bool VoxelsApplication::load() {
 
     shader.use();
     shader.setInt("chunkSizeShift", CHUNK_SIZE_SHIFT);
-    shader.setInt("chunkHeightShift", CHUNK_HEIGHT_SHIFT);
     shader.setInt("windowWidth", windowWidth);
     shader.setInt("windowHeight", windowHeight);
+
+    shader.setUInt("xBits", VertexFormat::X_BITS);
+    shader.setUInt("yBits", VertexFormat::Y_BITS);
+    shader.setUInt("zBits", VertexFormat::Z_BITS);
+    shader.setUInt("colourBits", VertexFormat::COLOUR_BITS);
+    shader.setUInt("normalBits", VertexFormat::NORMAL_BITS);
+    shader.setUInt("aoBits", VertexFormat::AO_BITS);
+
+    shader.setUInt("xShift", VertexFormat::X_SHIFT);
+    shader.setUInt("yShift", VertexFormat::Y_SHIFT);
+    shader.setUInt("zShift", VertexFormat::Z_SHIFT);
+    shader.setUInt("colourShift", VertexFormat::COLOUR_SHIFT);
+    shader.setUInt("normalShift", VertexFormat::NORMAL_SHIFT);
+    shader.setUInt("aoShift", VertexFormat::AO_SHIFT);
+
+    shader.setUInt("xMask", VertexFormat::X_MASK);
+    shader.setUInt("yMask", VertexFormat::Y_MASK);
+    shader.setUInt("zMask", VertexFormat::Z_MASK);
+    shader.setUInt("colourMask", VertexFormat::COLOUR_MASK);
+    shader.setUInt("normalMask", VertexFormat::NORMAL_MASK);
+    shader.setUInt("aoMask", VertexFormat::AO_MASK);
+
+    shader.setVec3Array("palette", worldManager.level.colors.data(), worldManager.level.colors.size());
 
     return true;
 }
@@ -398,7 +420,7 @@ void VoxelsApplication::updateVoxel(RaycastResult result, bool place) {
             }
 
             chunk->initialising = true;
-            Mesher::meshChunk(*chunk);
+            Mesher::meshChunk(*chunk, worldManager.generationType);
             chunk->initialising = false;
 
             // If newlyCreatedChunks is currently being iterated through, we need to lock the mutex

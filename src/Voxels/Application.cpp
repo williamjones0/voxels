@@ -108,11 +108,26 @@ bool Application::load() {
 void Application::loop() {
     ZoneScoped;
 
-    update();
-    processInput();
-    render();
-    glfwPollEvents();
-    glfwSwapBuffers(windowHandle);
+    {
+        ZoneScopedN("Update");
+        update();
+    }
+    {
+        ZoneScopedN("Process Input");
+        processInput();
+    }
+    {
+        ZoneScopedN("Render");
+        render();
+    }
+    {
+        ZoneScopedN("Poll Events");
+        glfwPollEvents();
+    }
+    {
+        ZoneScopedN("Swap Buffers");
+        glfwSwapBuffers(windowHandle);
+    }
 
     FrameMark;
 }

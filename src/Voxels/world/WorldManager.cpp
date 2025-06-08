@@ -154,7 +154,7 @@ Chunk *WorldManager::createChunk(int cx, int cz) {
         chunk.init();
         chunk.generate(generationType, level);
 
-        Mesher::meshChunk(chunk);
+        Mesher::meshChunk(chunk, generationType);
 
         chunk.initialising = false;
 

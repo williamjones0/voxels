@@ -28,10 +28,30 @@ uniform mat4 projection;
 
 // Vertex packing format uniforms
 uniform int chunkSizeShift;
-uniform int chunkHeightShift;
 
-uint chunkSizeMask = (1 << (chunkSizeShift + 1)) - 1;
-uint chunkHeightMask = (1 << (chunkHeightShift + 1)) - 1;
+uniform uint xBits;
+uniform uint yBits;
+uniform uint zBits;
+uniform uint colourBits;
+uniform uint normalBits;
+uniform uint aoBits;
+
+uniform uint xShift;
+uniform uint yShift;
+uniform uint zShift;
+uniform uint colourShift;
+uniform uint normalShift;
+uniform uint aoShift;
+
+uniform uint xMask;
+uniform uint yMask;
+uniform uint zMask;
+uniform uint colourMask;
+uniform uint normalMask;
+uniform uint aoMask;
+
+// Colour palette
+uniform vec3 palette[16];
 
 layout (binding = 0) readonly buffer DrawCommands {
     ChunkDrawCommand drawCommands[];
@@ -45,25 +65,18 @@ layout (binding = 3) readonly buffer Vertices {
     uint vertices[];
 };
 
-vec3 get_color(uint type) {
-    switch (type) {
-        case 0: return vec3(0.278, 0.600, 0.141);
-        case 1: return vec3(0.6, 0.1, 0.1);
-    }
-    return vec3(0.0);
-}
-
 void main() {
     ChunkDrawCommand drawCommand = drawCommands[gl_DrawID];
     Chunk chunk = chunks[drawCommand.chunkIndex];
 
     uint vertex = vertices[gl_VertexID];
-    float x = float(vertex & chunkSizeMask);
-    float y = float((vertex >> (chunkSizeShift + 1)) & chunkHeightMask);
-    float z = float((vertex >> (chunkSizeShift + chunkHeightShift + 2)) & chunkSizeMask);
-    ourColor = get_color(uint((vertex >> (2 * chunkSizeShift + chunkHeightShift + 3)) & 1u));
-    normal = int((vertex >> (2 * chunkSizeShift + chunkHeightShift + 4)) & 7u);
-    float ao = float((vertex >> (2 * chunkSizeShift + chunkHeightShift + 7)) & 3u);
+    float x = float(vertex & xMask);
+    float y = float((vertex >> yShift) & yMask);
+    float z = float((vertex >> zShift) & zMask);
+    uint colourIndex = (vertex >> colourShift) & colourMask;
+    ourColor = palette[colourIndex];
+    normal = int((vertex >> normalShift) & normalMask);
+    float ao = float((vertex >> aoShift) & aoMask);
 
     mat4 model = mat4(1.0, 0.0, 0.0, 0.0,
                       0.0, 1.0, 0.0, 0.0,
