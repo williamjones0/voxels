@@ -22,15 +22,15 @@ protected:
     virtual void processInput();
     virtual void cleanup();
 
-    GLFWwindow *windowHandle;
+    GLFWwindow *windowHandle = nullptr;
 
-    const int windowWidth = 2560 * 0.8;
-    const int windowHeight = 1600 * 0.8;
+    int windowWidth = 2560 * 0.8;
+    int windowHeight = 1600 * 0.8;
 
-    float lastX;
-    float lastY;
+    float lastX = 0.0f;
+    float lastY = 0.0f;
     bool firstMouse = true;
 
-    float deltaTime;
+    float deltaTime = 0.0f;
     float lastFrame = 0;
 };

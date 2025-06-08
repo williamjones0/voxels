@@ -34,6 +34,12 @@ bool Application::init() {
     const auto primaryMonitor = glfwGetPrimaryMonitor();
     const auto videoMode = glfwGetVideoMode(primaryMonitor);
 
+    const auto screenWidth = videoMode->width;
+    const auto screenHeight = videoMode->height;
+
+    windowWidth = static_cast<int>(screenWidth * 0.8);
+    windowHeight = static_cast<int>(screenHeight * 0.8);
+
     windowHandle = glfwCreateWindow(windowWidth, windowHeight, "Voxels", nullptr, nullptr);
     if (windowHandle == nullptr) {
         std::cout << "Failed to create GLFW windowHandle" << std::endl;
@@ -41,8 +47,6 @@ bool Application::init() {
         return false;
     }
 
-    const auto screenWidth = videoMode->width;
-    const auto screenHeight = videoMode->height;
     glfwSetWindowPos(windowHandle, (screenWidth - windowWidth) / 2, (screenHeight - windowHeight) / 2);
 
     glfwMakeContextCurrent(windowHandle);
