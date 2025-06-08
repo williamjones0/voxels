@@ -312,8 +312,12 @@ void WorldManager::updateVerticesBuffer(GLuint verticesBuffer, GLuint chunkDataB
     }
 }
 
-Chunk *WorldManager::getChunk(int cx, int cz) {
-    return chunkByCoords[key(cx, cz)];
+std::optional<Chunk *> WorldManager::getChunk(int cx, int cz) {
+    auto it = chunkByCoords.find(key(cx, cz));
+    if (it != chunkByCoords.end()) {
+        return it->second;
+    }
+    return std::nullopt;
 }
 
 int WorldManager::load(int x, int y, int z) {

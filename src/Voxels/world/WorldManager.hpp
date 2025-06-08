@@ -55,7 +55,7 @@ public:
     static size_t key(int i, int j);
 
     void updateVerticesBuffer(GLuint verticesBuffer, GLuint chunkDataBuffer);
-    Chunk *getChunk(int cx, int cz);
+    std::optional<Chunk *> getChunk(int cx, int cz);
 
     int load(int x, int y, int z);
 

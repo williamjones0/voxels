@@ -42,6 +42,7 @@ protected:
 
 private:
     std::optional<RaycastResult> raycast();
+    void tryStoreVoxel(int cx, int cz, int x, int y, int z, bool place, std::vector<Chunk *> &chunksToMesh);
     void updateVoxel(RaycastResult result, bool place);
 
     Camera camera = Camera(glm::vec3(8.0f, 400.0f, 8.0f));

@@ -272,7 +272,12 @@ std::optional<RaycastResult> VoxelsApplication::raycast() {
             int localX = (px % CHUNK_SIZE + CHUNK_SIZE) % CHUNK_SIZE;
             int localZ = (pz % CHUNK_SIZE + CHUNK_SIZE) % CHUNK_SIZE;
 
-            Chunk *chunk = worldManager.getChunk(cx, cz);
+            auto chunkOpt = worldManager.getChunk(cx, cz);
+            if (!chunkOpt) {
+                std::cout << "Chunk not found at (" << cx << ", " << cz << ")" << std::endl;
+                return std::nullopt;
+            }
+            Chunk *chunk = chunkOpt.value();
             int v = chunk->load(localX, py, localZ);
 
             if (v != 0) {
@@ -313,100 +318,71 @@ std::optional<RaycastResult> VoxelsApplication::raycast() {
     return std::nullopt;
 }
 
+void VoxelsApplication::tryStoreVoxel(int cx, int cz, int x, int y, int z, bool place, std::vector<Chunk *> &chunksToMesh) {
+    auto chunkOpt = worldManager.getChunk(cx, cz);
+    if (!chunkOpt) {
+        return;
+    }
+
+    Chunk *chunk = chunkOpt.value();
+    chunk->store(x, y, z, place ? 1 : 0);
+    chunksToMesh.push_back(chunk);
+}
+
 void VoxelsApplication::updateVoxel(RaycastResult result, bool place) {
-    Chunk *chunk = worldManager.getChunk(result.cx, result.cz);
+    auto &[cx, cz, x, y, z, face] = result;
 
     if (place) {
-        if (result.face == 0) {
-            if (result.x == CHUNK_SIZE - 1) {
-                chunk = worldManager.getChunk(chunk->cx + 1, chunk->cz);
-                result.x = 0;
-            } else {
-                result.x++;
-            }
-        } else if (result.face == 1) {
-            if (result.x == 0) {
-                chunk = worldManager.getChunk(chunk->cx - 1, chunk->cz);
-                result.x = CHUNK_SIZE - 1;
-            } else {
-                result.x--;
-            }
-        } else if (result.face == 2) {
-            if (result.y == CHUNK_HEIGHT - 2) {
+        switch (face) {
+            case 0: (x == CHUNK_SIZE - 1) ? (++cx, x = 0) : ++x; break;
+            case 1: (x == 0)              ? (--cx, x = CHUNK_SIZE - 1) : --x; break;
+            case 2: if (y < CHUNK_HEIGHT - 2) ++y; break;
+            case 3: if (y > 0) --y; break;
+            case 4: (z == CHUNK_SIZE - 1) ? (++cz, z = 0) : ++z; break;
+            case 5: (z == 0)              ? (--cz, z = CHUNK_SIZE - 1) : --z; break;
+            default:
+                std::cerr << "Invalid face: " << face << std::endl;
                 return;
-            }
-            result.y++;
-        } else if (result.face == 3) {
-            if (result.y == 0) {
-                return;
-            }
-            result.y--;
-        } else if (result.face == 4) {
-            if (result.z == CHUNK_SIZE - 1) {
-                chunk = worldManager.getChunk(chunk->cx, chunk->cz + 1);
-                result.z = 0;
-            } else {
-                result.z++;
-            }
-        } else if (result.face == 5) {
-            if (result.z == 0) {
-                chunk = worldManager.getChunk(chunk->cx, chunk->cz - 1);
-                result.z = CHUNK_SIZE - 1;
-            } else {
-                result.z--;
-            }
         }
     }
 
-    // Change voxel value
-    chunk->store(result.x, result.y, result.z, place ? 1 : 0);
+    auto chunkOpt = worldManager.getChunk(cx, cz);
+    if (!chunkOpt) {
+        std::cerr << "Chunk not found at (" << cx << ", " << cz << ")" << std::endl;
+        return;
+    }
 
-    // Update minY and maxY
-    chunk->minY = std::min(chunk->minY, result.y);
-    chunk->maxY = std::max(chunk->maxY, result.y + 2);
+    Chunk *chunk = chunkOpt.value();
+
+    // Change voxel value
+    chunk->store(x, y, z, place ? 1 : 0);
 
     std::vector<Chunk *> chunksToMesh;
     chunksToMesh.push_back(chunk);
 
     // If the voxel is on a chunk boundary, update the neighboring chunk(s)
-    if (result.x == 0) {
-        Chunk *negXChunk = worldManager.getChunk(chunk->cx - 1, chunk->cz);
-        negXChunk->store(CHUNK_SIZE, result.y, result.z, place ? 1 : 0);
-        chunksToMesh.push_back(negXChunk);
+    if (x == 0) {
+        tryStoreVoxel(cx - 1, cz, CHUNK_SIZE, y, z, place, chunksToMesh);
 
-        if (result.z == 0) {
-            Chunk *negXNegZChunk = worldManager.getChunk(chunk->cx - 1, chunk->cz - 1);
-            negXNegZChunk->store(CHUNK_SIZE, result.y, CHUNK_SIZE, place ? 1 : 0);
-            chunksToMesh.push_back(negXNegZChunk);
-        } else if (result.z == CHUNK_SIZE - 1) {
-            Chunk *negXPosZChunk = worldManager.getChunk(chunk->cx - 1, chunk->cz + 1);
-            negXPosZChunk->store(CHUNK_SIZE, result.y, -1, place ? 1 : 0);
-            chunksToMesh.push_back(negXPosZChunk);
+        if (z == 0) {
+            tryStoreVoxel(cx - 1, cz - 1, CHUNK_SIZE, y, CHUNK_SIZE, place, chunksToMesh);
+        } else if (z == CHUNK_SIZE - 1) {
+            tryStoreVoxel(cx - 1, cz + 1, CHUNK_SIZE, y, -1, place, chunksToMesh);
         }
-    } else if (result.x == CHUNK_SIZE - 1) {
-        Chunk *posXChunk = worldManager.getChunk(chunk->cx + 1, chunk->cz);
-        posXChunk->store(-1, result.y, result.z, place ? 1 : 0);
-        chunksToMesh.push_back(posXChunk);
+    } else if (x == CHUNK_SIZE - 1) {
+        tryStoreVoxel(cx + 1, cz, -1, y, z, place, chunksToMesh);
 
-        if (result.z == 0) {
-            Chunk *posXNegZChunk = worldManager.getChunk(chunk->cx + 1, chunk->cz - 1);
-            posXNegZChunk->store(-1, result.y, CHUNK_SIZE, place ? 1 : 0);
-            chunksToMesh.push_back(posXNegZChunk);
-        } else if (result.z == CHUNK_SIZE - 1) {
-            Chunk *posXPosZChunk = worldManager.getChunk(chunk->cx + 1, chunk->cz + 1);
-            posXPosZChunk->store(-1, result.y, -1, place ? 1 : 0);
-            chunksToMesh.push_back(posXPosZChunk);
+        if (z == 0) {
+            tryStoreVoxel(cx + 1, cz - 1, -1, y, CHUNK_SIZE, place, chunksToMesh);
+        } else if (z == CHUNK_SIZE - 1) {
+            tryStoreVoxel(cx + 1, cz + 1, -1, y, -1, place, chunksToMesh);
         }
     }
 
-    if (result.z == 0) {
-        Chunk *negZChunk = worldManager.getChunk(chunk->cx, chunk->cz - 1);
-        negZChunk->store(result.x, result.y, CHUNK_SIZE, place ? 1 : 0);
-        chunksToMesh.push_back(negZChunk);
-    } else if (result.z == CHUNK_SIZE - 1) {
-        Chunk *posZChunk = worldManager.getChunk(chunk->cx, chunk->cz + 1);
-        posZChunk->store(result.x, result.y, -1, place ? 1 : 0);
-        chunksToMesh.push_back(posZChunk);
+    if (z == 0) {
+        tryStoreVoxel(cx, cz - 1, x, y, CHUNK_SIZE, place, chunksToMesh);
+    } else if (z == CHUNK_SIZE - 1) {
+        tryStoreVoxel(cx, cz + 1, x, y, -1, place, chunksToMesh);
     }
 
     for (Chunk *chunk : chunksToMesh) {
