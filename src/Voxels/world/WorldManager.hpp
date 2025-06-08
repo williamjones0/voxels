@@ -57,6 +57,8 @@ public:
     void updateVerticesBuffer(GLuint verticesBuffer, GLuint chunkDataBuffer);
     std::optional<Chunk *> getChunk(int cx, int cz);
 
+    void queueMeshChunk(Chunk *chunk);
+
     int load(int x, int y, int z);
 
     void cleanup();

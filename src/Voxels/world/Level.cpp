@@ -7,6 +7,11 @@
 
 using json = nlohmann::json;
 
+Level::Level() {
+    colors[1] = glm::vec3(0.278, 0.600, 0.141);
+    colors[2] = glm::vec3(0.600, 0.100, 0.100);
+}
+
 void Level::read(std::string_view filepath) {
     std::ifstream infile(filepath.data());
 

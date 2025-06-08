@@ -320,6 +320,28 @@ std::optional<Chunk *> WorldManager::getChunk(int cx, int cz) {
     return std::nullopt;
 }
 
+void WorldManager::queueMeshChunk(Chunk *chunk) {
+    threadPool.queueTask([chunk, this]() {
+        // Don't allocate while other threads are allocating
+        {
+            std::unique_lock<std::mutex> lock(cvMutexAllocator);
+            cvAllocator.wait(lock, [this]() { return allocator.ready; });
+            allocator.deallocate(chunk->firstIndex, chunk->numVertices);
+        }
+
+        chunk->initialising = true;
+        Mesher::meshChunk(*chunk, generationType);
+        chunk->initialising = false;
+
+        // If newlyCreatedChunks is currently being iterated through, we need to lock the mutex
+        {
+            std::unique_lock<std::mutex> lock(cvMutexNewlyCreatedChunks);
+            cvNewlyCreatedChunks.wait(lock, [this]() { return newlyCreatedChunksReady; });
+            newlyCreatedChunks.push_back(chunk);
+        }
+    });
+}
+
 int WorldManager::load(int x, int y, int z) {
     int cx = x >> CHUNK_SIZE_SHIFT;
     int cz = z >> CHUNK_SIZE_SHIFT;

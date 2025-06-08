@@ -9,6 +9,8 @@
 
 class Level {
 public:
+    Level();
+
     std::vector<int> data;
     int maxX = 0;
     int maxZ = 0;
