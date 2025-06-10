@@ -332,7 +332,7 @@ void VoxelsApplication::tryStoreVoxel(int cx, int cz, int x, int y, int z, bool 
 }
 
 void VoxelsApplication::updateVoxel(RaycastResult result, bool place) {
-    auto &[cx, cz, x, y, z, face] = result;
+    auto [cx, cz, x, y, z, face] = result;
 
     if (place) {
         switch (face) {
@@ -390,4 +390,25 @@ void VoxelsApplication::updateVoxel(RaycastResult result, bool place) {
     for (Chunk *chunk : chunksToMesh) {
         worldManager.queueMeshChunk(chunk);
     }
+}
+
+size_t VoxelsApplication::enlargeVerticesBuffer(size_t currentCapacity) {
+    size_t newCapacity = currentCapacity * 2;
+
+    GLuint newBuffer;
+    glCreateBuffers(1, &newBuffer);
+    glNamedBufferStorage(newBuffer,
+                         sizeof(uint32_t) * newCapacity,
+                         nullptr,
+                         GL_DYNAMIC_STORAGE_BIT);
+
+    glCopyNamedBufferSubData(verticesBuffer, newBuffer, 0, 0, sizeof(uint32_t) * currentCapacity);
+
+    glDeleteBuffers(1, &verticesBuffer);
+    verticesBuffer = newBuffer;
+
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, verticesBuffer);
+
+    std::cout << "Enlarged vertices buffer to " << newCapacity << " elements." << std::endl;
+    return newCapacity;
 }

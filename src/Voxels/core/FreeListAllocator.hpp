@@ -20,13 +20,16 @@ public:
 
     FreeListAllocator() = default;
 
-    FreeListAllocator(size_t bufferSize, size_t alignment)
-            : bufferSize(bufferSize), alignment(alignment) {
+    FreeListAllocator(size_t bufferSize, size_t alignment, std::function<size_t(size_t)> outOfCapacityCallback)
+        : bufferSize(bufferSize), alignment(alignment), outOfCapacityCallback(std::move(outOfCapacityCallback))
+    {
         // Initially, the whole buffer is a single free region
         freeRegions.push_back({0, bufferSize});
     }
 
-    std::optional<Region> allocate(size_t vertexCount) {
+    Region allocate(size_t vertexCount) {
+        ready = false;
+
         size_t alignedSize = align(vertexCount, alignment); // Round up size to alignment
         for (auto it = freeRegions.begin(); it != freeRegions.end(); ++it) {
             // Check if this region can fit the aligned allocation
@@ -43,12 +46,15 @@ public:
                 }
 
                 // Return the allocated region
+                ready = true;
                 return Region{regionStart, alignedSize};
             }
         }
 
-        // If no suitable free region found, return std::nullopt
-        return std::nullopt;
+        outOfCapacity();
+
+        ready = true;
+        return allocate(vertexCount);
     }
 
     void deallocate(size_t offset, size_t length) {
@@ -78,6 +84,7 @@ private:
     size_t bufferSize{};
     size_t alignment{};
     std::list<Region> freeRegions;
+    std::function<size_t(size_t)> outOfCapacityCallback;
 
     static size_t align(size_t offset, size_t alignment) {
         return (offset + alignment - 1) & ~(alignment - 1);
@@ -94,5 +101,11 @@ private:
                 ++it;
             }
         }
+    }
+
+    void outOfCapacity() {
+        size_t newCapacity = outOfCapacityCallback(bufferSize);
+        freeRegions.push_back({bufferSize, bufferSize});
+        bufferSize = newCapacity;
     }
 };

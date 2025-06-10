@@ -7,8 +7,16 @@
 #include "../util/Util.hpp"
 #include "tracy/Tracy.hpp"
 
-WorldManager::WorldManager(Camera &camera, GenerationType generationType, const std::filesystem::path &levelFile)
-    : camera(camera), generationType(generationType), levelFile(levelFile)
+WorldManager::WorldManager(Camera &camera, std::function<size_t(size_t)> outOfCapacityCallback, GenerationType generationType, const std::filesystem::path &levelFile)
+    : camera(camera),
+      outOfCapacityCallback(std::move(outOfCapacityCallback)),
+      generationType(generationType),
+      levelFile(levelFile),
+      allocator(FreeListAllocator(
+              INITIAL_VERTEX_BUFFER_SIZE,
+              4096,
+              outOfCapacityCallback
+      ))
 {
     chunks = std::list<Chunk>();
     frontierChunks = std::vector<Chunk *>();
@@ -241,7 +249,7 @@ size_t WorldManager::key(int i, int j) {
     return (size_t) i << 32 | (unsigned int) j;
 }
 
-void WorldManager::updateVerticesBuffer(GLuint verticesBuffer, GLuint chunkDataBuffer) {
+void WorldManager::updateVerticesBuffer(GLuint &verticesBuffer, GLuint &chunkDataBuffer) {
     ZoneScoped;
 
     {
@@ -262,16 +270,11 @@ void WorldManager::updateVerticesBuffer(GLuint verticesBuffer, GLuint chunkDataB
             }
 
             auto region = allocator.allocate(chunk->numVertices);
-            if (!region) {
-                throw std::runtime_error("Failed to allocate memory for chunk vertices.");
-            }
 
-            chunk->firstIndex = region->offset;
-
-            // std::copy(chunk->vertices.begin(), chunk->vertices.end(), dummyVerticesBuffer.begin() + chunk->firstIndex);
+            chunk->firstIndex = region.offset;
 
             glNamedBufferSubData(verticesBuffer,
-                                 region->offset * sizeof(uint32_t),
+                                 region.offset * sizeof(uint32_t),
                                  chunk->numVertices * sizeof(uint32_t),
                                  (const void *) chunk->vertices.data());
 

@@ -16,7 +16,7 @@
 #include <unordered_map>
 #include <vector>
 
-typedef struct {
+struct ChunkData {
     int cx;
     int cz;
     int minY;
@@ -25,18 +25,18 @@ typedef struct {
     unsigned int firstIndex;
     unsigned int _pad0;
     unsigned int _pad1;
-} ChunkData;
+};
 
-constexpr int INITIAL_VERTEX_BUFFER_SIZE = 1 << 25;
+constexpr int INITIAL_VERTEX_BUFFER_SIZE = 1 << 20;
 constexpr int MAX_CHUNK_TASKS = 32;
 
-constexpr int MAX_RENDER_DISTANCE_CHUNKS = 36;
+constexpr int MAX_RENDER_DISTANCE_CHUNKS = 64;
 constexpr int MAX_RENDER_DISTANCE_METRES = MAX_RENDER_DISTANCE_CHUNKS << CHUNK_SIZE_SHIFT;
 constexpr int MAX_CHUNKS = (2 * MAX_RENDER_DISTANCE_CHUNKS + 1) * (2 * MAX_RENDER_DISTANCE_CHUNKS + 1);
 
 class WorldManager {
 public:
-    explicit WorldManager(Camera &camera, GenerationType generationType = GenerationType::Perlin2D,
+    explicit WorldManager(Camera &camera, std::function<size_t(size_t)> outOfCapacityCallback, GenerationType generationType = GenerationType::Perlin2D,
                           const std::filesystem::path &levelFile = "data/levels/level0.txt");
 
     bool updateFrontierChunks();
@@ -53,7 +53,7 @@ public:
     double squaredDistanceToChunk(int cx, int cz) const;
     static size_t key(int i, int j);
 
-    void updateVerticesBuffer(GLuint verticesBuffer, GLuint chunkDataBuffer);
+    void updateVerticesBuffer(GLuint &verticesBuffer, GLuint &chunkDataBuffer);
     std::optional<Chunk *> getChunk(int cx, int cz);
 
     void queueMeshChunk(Chunk *chunk);
@@ -84,10 +84,12 @@ public:
     std::condition_variable cvAllocator;
     std::mutex cvMutexAllocator;
 
-    FreeListAllocator allocator = FreeListAllocator(INITIAL_VERTEX_BUFFER_SIZE, 4096);
+    FreeListAllocator allocator;
     ThreadPool threadPool;
 
 private:
     Camera &camera;
     std::vector<uint32_t> dummyVerticesBuffer;
+
+    std::function<size_t(size_t)> outOfCapacityCallback;
 };
