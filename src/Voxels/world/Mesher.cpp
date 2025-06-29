@@ -19,11 +19,116 @@ constexpr int RIGHT_NORMAL = 3;
 constexpr int BOTTOM_NORMAL = 4;
 constexpr int TOP_NORMAL = 5;
 
+namespace {
+    constexpr int cube_vertices[] = {
+            // Front
+            0, 0, 0,
+            1, 0, 0,
+            1, 1, 0,
+            1, 1, 0,
+            0, 1, 0,
+            0, 0, 0,
+
+            // Back
+            0, 0, 1,
+            1, 0, 1,
+            1, 1, 1,
+            1, 1, 1,
+            0, 1, 1,
+            0, 0, 1,
+
+            // Left
+            0, 1, 1,
+            0, 1, 0,
+            0, 0, 0,
+            0, 0, 0,
+            0, 0, 1,
+            0, 1, 1,
+
+            // Right
+            1, 1, 1,
+            1, 1, 0,
+            1, 0, 0,
+            1, 0, 0,
+            1, 0, 1,
+            1, 1, 1,
+
+            // Bottom
+            0, 0, 0,
+            1, 0, 0,
+            1, 0, 1,
+            1, 0, 1,
+            0, 0, 1,
+            0, 0, 0,
+
+            // Top
+            0, 1, 0,
+            1, 1, 0,
+            1, 1, 1,
+            1, 1, 1,
+            0, 1, 1,
+            0, 1, 0
+    };
+
+    constexpr int flipped_cube_vertices[] = {
+            // Front
+            0, 0, 0,
+            1, 0, 0,
+            0, 1, 0,
+            0, 1, 0,
+            1, 0, 0,
+            1, 1, 0,
+
+            // Back
+            0, 0, 1,
+            1, 0, 1,
+            0, 1, 1,
+            0, 1, 1,
+            1, 0, 1,
+            1, 1, 1,
+
+            // Left
+            0, 1, 1,
+            0, 1, 0,
+            0, 0, 1,
+            0, 0, 1,
+            0, 1, 0,
+            0, 0, 0,
+
+            // Right
+            1, 1, 1,
+            1, 1, 0,
+            1, 0, 1,
+            1, 0, 1,
+            1, 1, 0,
+            1, 0, 0,
+
+            // Bottom
+            0, 0, 0,
+            1, 0, 0,
+            0, 0, 1,
+            0, 0, 1,
+            1, 0, 0,
+            1, 0, 1,
+
+            // Top
+            0, 1, 0,
+            1, 1, 0,
+            0, 1, 1,
+            0, 1, 1,
+            1, 1, 0,
+            1, 1, 1,
+    };
+}
+
 inline int Mesher::vertexAO(uint8_t side1, uint8_t side2, uint8_t corner) {
+    if (side1 == 1 || side2 == 1) corner = 0;
     return (side1 && side2) ? 0 : (3 - (side1 + side2 + corner));
 }
 
-bool Mesher::inBounds(int x, int y, int z, int size, int height) {
+bool Mesher::inBounds(int x, int y, int z) {
+    constexpr int size = CHUNK_SIZE + 2;
+    constexpr int height = CHUNK_HEIGHT;
     return (0 <= x && x < size)
         && (0 <= y && y < height)
         && (0 <= z && z < size);
@@ -55,7 +160,7 @@ void Mesher::meshChunk(Chunk &chunk, GenerationType generationType) {
                 for (int i = -1; i <= 1; ++i) {
                     for (int j = -1; j <= 1; ++j) {
                         for (int k = -1; k <= 1; ++k) {
-                            presence[index] = inBounds(x + i, y + j, z + k, CHUNK_SIZE + 2, CHUNK_HEIGHT)
+                            presence[index] = inBounds(x + i, y + j, z + k)
                                 && voxels[getVoxelIndex(x + i, y + j, z + k, CHUNK_SIZE + 2)] != 0;
                             ++index;
                         }
@@ -66,63 +171,63 @@ void Mesher::meshChunk(Chunk &chunk, GenerationType generationType) {
 
                 // Top
                 voxelAo[0] = (vertexAO(presence[dirToIndex(0, +1, -1)], presence[dirToIndex(-1, +1, 0)],
-                    presence[dirToIndex(-1, +1, -1)]));  // bottom left   a00
+                                       presence[dirToIndex(-1, +1, -1)]));  // bottom left   a00
                 voxelAo[1] = (vertexAO(presence[dirToIndex(0, +1, -1)], presence[dirToIndex(+1, +1, 0)],
-                    presence[dirToIndex(+1, +1, -1)]));  // bottom right  a10
+                                       presence[dirToIndex(+1, +1, -1)]));  // bottom right  a10
                 voxelAo[2] = (vertexAO(presence[dirToIndex(0, +1, +1)], presence[dirToIndex(+1, +1, 0)],
-                    presence[dirToIndex(+1, +1, +1)]));  // top right     a11
+                                       presence[dirToIndex(+1, +1, +1)]));  // top right     a11
                 voxelAo[3] = (vertexAO(presence[dirToIndex(0, +1, +1)], presence[dirToIndex(-1, +1, 0)],
-                    presence[dirToIndex(-1, +1, +1)]));  // top left      a01
+                                       presence[dirToIndex(-1, +1, +1)]));  // top left      a01
 
                 // Bottom
                 voxelAo[4] = (vertexAO(presence[dirToIndex(0, -1, -1)], presence[dirToIndex(-1, -1, 0)],
-                    presence[dirToIndex(-1, -1, -1)]));  // bottom left
+                                       presence[dirToIndex(-1, -1, -1)]));  // bottom left
                 voxelAo[5] = (vertexAO(presence[dirToIndex(0, -1, -1)], presence[dirToIndex(+1, -1, 0)],
-                    presence[dirToIndex(+1, -1, -1)]));  // bottom right
+                                       presence[dirToIndex(+1, -1, -1)]));  // bottom right
                 voxelAo[6] = (vertexAO(presence[dirToIndex(0, -1, +1)], presence[dirToIndex(+1, -1, 0)],
-                    presence[dirToIndex(+1, -1, +1)]));  // top right
+                                       presence[dirToIndex(+1, -1, +1)]));  // top right
                 voxelAo[7] = (vertexAO(presence[dirToIndex(0, -1, +1)], presence[dirToIndex(-1, -1, 0)],
-                    presence[dirToIndex(-1, -1, +1)]));  // top left
+                                       presence[dirToIndex(-1, -1, +1)]));  // top left
 
                 // Left
                 voxelAo[8] = (vertexAO(presence[dirToIndex(-1, 0, +1)], presence[dirToIndex(-1, -1, 0)],
-                    presence[dirToIndex(-1, -1, +1)]));  // bottom left
+                                       presence[dirToIndex(-1, -1, +1)]));  // bottom left
                 voxelAo[9] = (vertexAO(presence[dirToIndex(-1, 0, -1)], presence[dirToIndex(-1, -1, 0)],
-                    presence[dirToIndex(-1, -1, -1)]));  // bottom right
+                                       presence[dirToIndex(-1, -1, -1)]));  // bottom right
                 voxelAo[10] = (vertexAO(presence[dirToIndex(-1, 0, -1)], presence[dirToIndex(-1, +1, 0)],
-                    presence[dirToIndex(-1, +1, -1)]));  // top right
+                                        presence[dirToIndex(-1, +1, -1)]));  // top right
                 voxelAo[11] = (vertexAO(presence[dirToIndex(-1, 0, +1)], presence[dirToIndex(-1, +1, 0)],
-                    presence[dirToIndex(-1, +1, +1)]));  // top left
+                                        presence[dirToIndex(-1, +1, +1)]));  // top left
 
                 // Right
                 voxelAo[12] = (vertexAO(presence[dirToIndex(+1, 0, -1)], presence[dirToIndex(+1, -1, 0)],
-                    presence[dirToIndex(+1, -1, -1)]));  // bottom left
+                                        presence[dirToIndex(+1, -1, -1)]));  // bottom left
                 voxelAo[13] = (vertexAO(presence[dirToIndex(+1, 0, +1)], presence[dirToIndex(+1, -1, 0)],
-                    presence[dirToIndex(+1, -1, +1)]));  // bottom right
+                                        presence[dirToIndex(+1, -1, +1)]));  // bottom right
                 voxelAo[14] = (vertexAO(presence[dirToIndex(+1, 0, +1)], presence[dirToIndex(+1, +1, 0)],
-                    presence[dirToIndex(+1, +1, +1)]));  // top right
+                                        presence[dirToIndex(+1, +1, +1)]));  // top right
                 voxelAo[15] = (vertexAO(presence[dirToIndex(+1, 0, -1)], presence[dirToIndex(+1, +1, 0)],
-                    presence[dirToIndex(+1, +1, -1)]));  // top left
+                                        presence[dirToIndex(+1, +1, -1)]));  // top left
 
                 // Front
                 voxelAo[16] = (vertexAO(presence[dirToIndex(-1, 0, -1)], presence[dirToIndex(0, -1, -1)],
-                    presence[dirToIndex(-1, -1, -1)]));  // bottom left
+                                        presence[dirToIndex(-1, -1, -1)]));  // bottom left
                 voxelAo[17] = (vertexAO(presence[dirToIndex(+1, 0, -1)], presence[dirToIndex(0, -1, -1)],
-                    presence[dirToIndex(+1, -1, -1)]));  // bottom right
+                                        presence[dirToIndex(+1, -1, -1)]));  // bottom right
                 voxelAo[18] = (vertexAO(presence[dirToIndex(+1, 0, -1)], presence[dirToIndex(0, +1, -1)],
-                    presence[dirToIndex(+1, +1, -1)]));  // top right
+                                        presence[dirToIndex(+1, +1, -1)]));  // top right
                 voxelAo[19] = (vertexAO(presence[dirToIndex(-1, 0, -1)], presence[dirToIndex(0, +1, -1)],
-                    presence[dirToIndex(-1, +1, -1)]));  // top left
+                                        presence[dirToIndex(-1, +1, -1)]));  // top left
 
                 // Back
                 voxelAo[20] = (vertexAO(presence[dirToIndex(+1, 0, +1)], presence[dirToIndex(0, -1, +1)],
-                    presence[dirToIndex(+1, -1, +1)]));  // bottom left
+                                        presence[dirToIndex(+1, -1, +1)]));  // bottom left
                 voxelAo[21] = (vertexAO(presence[dirToIndex(-1, 0, +1)], presence[dirToIndex(0, -1, +1)],
-                    presence[dirToIndex(-1, -1, +1)]));  // bottom right
+                                        presence[dirToIndex(-1, -1, +1)]));  // bottom right
                 voxelAo[22] = (vertexAO(presence[dirToIndex(-1, 0, +1)], presence[dirToIndex(0, +1, +1)],
-                    presence[dirToIndex(-1, +1, +1)]));  // top right
+                                        presence[dirToIndex(-1, +1, +1)]));  // top right
                 voxelAo[23] = (vertexAO(presence[dirToIndex(+1, 0, +1)], presence[dirToIndex(0, +1, +1)],
-                    presence[dirToIndex(+1, +1, +1)]));  // top left
+                                        presence[dirToIndex(+1, +1, +1)]));  // top left
 
                 // Top
                 if (shouldMeshFace(x, y, z, 0, 1, 0, voxels)) {
@@ -184,7 +289,7 @@ void Mesher::meshChunk(Chunk &chunk, GenerationType generationType) {
 
                 // Right
                 if (shouldMeshFace(x, y, z, 1, 0, 0, voxels)) {
-                    if (voxelAo[12] + voxelAo[14] > voxelAo[15] + voxelAo[13]) {
+                    if (voxelAo[12] + voxelAo[14] <= voxelAo[15] + voxelAo[13]) {
                         ao.push_back(voxelAo[14]);
                         ao.push_back(voxelAo[15]);
                         ao.push_back(voxelAo[13]);
@@ -203,7 +308,7 @@ void Mesher::meshChunk(Chunk &chunk, GenerationType generationType) {
 
                 // Front
                 if (shouldMeshFace(x, y, z, 0, 0, -1, voxels)) {
-                    if (voxelAo[16] + voxelAo[18] > voxelAo[19] + voxelAo[17]) {
+                    if (voxelAo[16] + voxelAo[18] <= voxelAo[19] + voxelAo[17]) {
                         ao.push_back(voxelAo[16]);
                         ao.push_back(voxelAo[17]);
                         ao.push_back(voxelAo[19]);
@@ -258,10 +363,10 @@ void Mesher::meshChunk(Chunk &chunk, GenerationType generationType) {
                 if (shouldMeshFace(x, y, z, 0, 1, 0, voxels)) {
                     if (voxelAo[0] + voxelAo[2] <= voxelAo[3] + voxelAo[1]) {
                         positions.insert(positions.end(), &translated_flipped_vertices[TOP_FACE],
-                            &translated_flipped_vertices[TOP_FACE + 18]);
+                                         &translated_flipped_vertices[TOP_FACE + 18]);
                     } else {
                         positions.insert(positions.end(), &translated_vertices[TOP_FACE],
-                            &translated_vertices[TOP_FACE + 18]);
+                                         &translated_vertices[TOP_FACE + 18]);
                     }
                     for (int i = 0; i < 6; i++) {
                         normals.push_back(TOP_NORMAL);
@@ -273,10 +378,10 @@ void Mesher::meshChunk(Chunk &chunk, GenerationType generationType) {
                 if (shouldMeshFace(x, y, z, 0, -1, 0, voxels)) {
                     if (voxelAo[4] + voxelAo[6] > voxelAo[7] + voxelAo[5]) {
                         positions.insert(positions.end(), &translated_flipped_vertices[BOTTOM_FACE],
-                            &translated_flipped_vertices[BOTTOM_FACE + 18]);
+                                         &translated_flipped_vertices[BOTTOM_FACE + 18]);
                     } else {
                         positions.insert(positions.end(), &translated_vertices[BOTTOM_FACE],
-                            &translated_vertices[BOTTOM_FACE + 18]);
+                                         &translated_vertices[BOTTOM_FACE + 18]);
                     }
                     for (int i = 0; i < 6; i++) {
                         normals.push_back(BOTTOM_NORMAL);
@@ -288,10 +393,10 @@ void Mesher::meshChunk(Chunk &chunk, GenerationType generationType) {
                 if (shouldMeshFace(x, y, z, -1, 0, 0, voxels)) {
                     if (voxelAo[8] + voxelAo[10] > voxelAo[11] + voxelAo[9]) {
                         positions.insert(positions.end(), &translated_flipped_vertices[LEFT_FACE],
-                            &translated_flipped_vertices[LEFT_FACE + 18]);
+                                         &translated_flipped_vertices[LEFT_FACE + 18]);
                     } else {
                         positions.insert(positions.end(), &translated_vertices[LEFT_FACE],
-                            &translated_vertices[LEFT_FACE + 18]);
+                                         &translated_vertices[LEFT_FACE + 18]);
                     }
                     for (int i = 0; i < 6; i++) {
                         normals.push_back(LEFT_NORMAL);
@@ -301,12 +406,12 @@ void Mesher::meshChunk(Chunk &chunk, GenerationType generationType) {
 
                 // Right
                 if (shouldMeshFace(x, y, z, 1, 0, 0, voxels)) {
-                    if (voxelAo[12] + voxelAo[14] > voxelAo[15] + voxelAo[13]) {
+                    if (voxelAo[12] + voxelAo[14] <= voxelAo[15] + voxelAo[13]) {
                         positions.insert(positions.end(), &translated_flipped_vertices[RIGHT_FACE],
-                            &translated_flipped_vertices[RIGHT_FACE + 18]);
+                                         &translated_flipped_vertices[RIGHT_FACE + 18]);
                     } else {
                         positions.insert(positions.end(), &translated_vertices[RIGHT_FACE],
-                            &translated_vertices[RIGHT_FACE + 18]);
+                                         &translated_vertices[RIGHT_FACE + 18]);
                     }
                     for (int i = 0; i < 6; i++) {
                         normals.push_back(RIGHT_NORMAL);
@@ -316,12 +421,12 @@ void Mesher::meshChunk(Chunk &chunk, GenerationType generationType) {
 
                 // Front
                 if (shouldMeshFace(x, y, z, 0, 0, -1, voxels)) {
-                    if (voxelAo[16] + voxelAo[18] > voxelAo[19] + voxelAo[17]) {
+                    if (voxelAo[16] + voxelAo[18] <= voxelAo[19] + voxelAo[17]) {
                         positions.insert(positions.end(), &translated_flipped_vertices[FRONT_FACE],
-                            &translated_flipped_vertices[FRONT_FACE + 18]);
+                                         &translated_flipped_vertices[FRONT_FACE + 18]);
                     } else {
                         positions.insert(positions.end(), &translated_vertices[FRONT_FACE],
-                            &translated_vertices[FRONT_FACE + 18]);
+                                         &translated_vertices[FRONT_FACE + 18]);
                     }
                     for (int i = 0; i < 6; i++) {
                         normals.push_back(FRONT_NORMAL);
@@ -333,10 +438,10 @@ void Mesher::meshChunk(Chunk &chunk, GenerationType generationType) {
                 if (shouldMeshFace(x, y, z, 0, 0, 1, voxels)) {
                     if (voxelAo[20] + voxelAo[22] > voxelAo[23] + voxelAo[21]) {
                         positions.insert(positions.end(), &translated_flipped_vertices[BACK_FACE],
-                            &translated_flipped_vertices[BACK_FACE + 18]);
+                                         &translated_flipped_vertices[BACK_FACE + 18]);
                     } else {
                         positions.insert(positions.end(), &translated_vertices[BACK_FACE],
-                            &translated_vertices[BACK_FACE + 18]);
+                                         &translated_vertices[BACK_FACE + 18]);
                     }
                     for (int i = 0; i < 6; i++) {
                         normals.push_back(BACK_NORMAL);
@@ -350,12 +455,12 @@ void Mesher::meshChunk(Chunk &chunk, GenerationType generationType) {
     chunk.vertices.reserve(positions.size() / 3);
     for (int i = 0; i < positions.size() / 3; ++i) {
         uint32_t vertex =
-            (uint32_t)positions[3 * i] |
-            ((uint32_t)positions[3 * i + 1] << VertexFormat::Y_SHIFT) |
-            ((uint32_t)positions[3 * i + 2] << VertexFormat::Z_SHIFT) |
-            ((uint32_t)colours[i / 6] << VertexFormat::COLOUR_SHIFT) |
-            ((uint32_t)normals[i] << VertexFormat::NORMAL_SHIFT) |
-            ((uint32_t)ao[i] << VertexFormat::AO_SHIFT);
+                (uint32_t)positions[3 * i] |
+                ((uint32_t)positions[3 * i + 1] << VertexFormat::Y_SHIFT) |
+                ((uint32_t)positions[3 * i + 2] << VertexFormat::Z_SHIFT) |
+                ((uint32_t)colours[i / 6] << VertexFormat::COLOUR_SHIFT) |
+                ((uint32_t)normals[i] << VertexFormat::NORMAL_SHIFT) |
+                ((uint32_t)ao[i] << VertexFormat::AO_SHIFT);
 
         chunk.vertices.push_back(vertex);
     }

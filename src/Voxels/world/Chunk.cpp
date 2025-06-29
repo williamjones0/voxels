@@ -1,8 +1,6 @@
 #include "Chunk.hpp"
 
 #include <iostream>
-#include <fstream>
-#include <sstream>
 
 #include "../util/PerlinNoise.hpp"
 #include "../util/Util.hpp"
@@ -26,86 +24,6 @@ Chunk::Chunk(int cx, int cz)
   , numVertices(0)
   , firstIndex(-1)
 {}
-
-Chunk::Chunk(Chunk const &chunk) {
-    cx = chunk.cx;
-    cz = chunk.cz;
-    minY = chunk.minY;
-    maxY = chunk.maxY;
-    neighbours = chunk.neighbours;
-    VAO = chunk.VAO;
-    dataVBO = chunk.dataVBO;
-    vertices = chunk.vertices;
-    index = chunk.index;
-    numVertices = chunk.numVertices;
-    firstIndex = chunk.firstIndex;
-    voxels = chunk.voxels;
-}
-
-
-Chunk &Chunk::operator=(const Chunk &other) {
-    if (this != &other) {
-        cx = other.cx;
-        cz = other.cz;
-        minY = other.minY;
-        maxY = other.maxY;
-        neighbours = other.neighbours;
-        VAO = other.VAO;
-        dataVBO = other.dataVBO;
-        vertices = other.vertices;
-        index = other.index;
-        numVertices = other.numVertices;
-        firstIndex = other.firstIndex;
-        voxels = other.voxels;
-    }
-    return *this;
-}
-
-Chunk::Chunk(Chunk &&other) noexcept
-  : cx(other.cx)
-  , cz(other.cz)
-  , minY(other.minY)
-  , maxY(other.maxY)
-  , neighbours(other.neighbours)
-  , VAO(other.VAO)
-  , dataVBO(other.dataVBO)
-  , vertices(std::move(other.vertices))
-  , index(other.index)
-  , numVertices(other.numVertices)
-  , firstIndex(other.firstIndex)
-  , voxels(std::move(other.voxels)) {
-    other.VAO = 0;
-    other.dataVBO = 0;
-    other.numVertices = 0;
-    other.firstIndex = 0;
-}
-
-Chunk &Chunk::operator=(Chunk &&other) noexcept {
-    if (this != &other) {
-        cx = other.cx;
-        cz = other.cz;
-        minY = other.minY;
-        maxY = other.maxY;
-        neighbours = other.neighbours;
-        VAO = other.VAO;
-        dataVBO = other.dataVBO;
-        vertices = std::move(other.vertices);
-        index = other.index;
-        numVertices = other.numVertices;
-        firstIndex = other.firstIndex;
-        voxels = std::move(other.voxels);
-
-        other.VAO = 0;
-        other.dataVBO = 0;
-        other.numVertices = 0;
-        other.firstIndex = 0;
-    }
-    return *this;
-}
-
-bool Chunk::operator==(const Chunk &other) const {
-    return cx == other.cx && cz == other.cz;
-}
 
 void Chunk::store(int x, int y, int z, char v) {
     voxels[getVoxelIndex(x + 1, y + 1, z + 1, CHUNK_SIZE + 2)] = v;

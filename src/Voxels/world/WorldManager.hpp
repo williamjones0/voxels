@@ -36,7 +36,7 @@ constexpr int MAX_CHUNKS = (2 * MAX_RENDER_DISTANCE_CHUNKS + 1) * (2 * MAX_RENDE
 
 class WorldManager {
 public:
-    explicit WorldManager(Camera &camera, std::function<size_t(size_t)> outOfCapacityCallback, GenerationType generationType = GenerationType::Perlin2D,
+    WorldManager(Camera &camera, std::function<size_t(size_t)> outOfCapacityCallback, GenerationType generationType = GenerationType::Perlin2D,
                           const std::filesystem::path &levelFile = "data/levels/level0.txt");
 
     bool updateFrontierChunks();

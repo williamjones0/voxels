@@ -28,12 +28,12 @@ class Chunk {
 public:
     Chunk(int cx, int cz);
 
-    Chunk(const Chunk &chunk);
+    Chunk(const Chunk &chunk) = default;                // Copy constructor
+    Chunk(Chunk &&other) noexcept = default;            // Move constructor
+    Chunk &operator=(const Chunk &other) = default;     // Copy assignment operator
+    Chunk &operator=(Chunk &&other) noexcept = default; // Move assignment operator
 
-    Chunk &operator=(const Chunk &other); // Copy assignment operator
-    Chunk(Chunk &&other) noexcept; // Move constructor
-    Chunk &operator=(Chunk &&other) noexcept; // Move assignment operator
-    bool operator==(const Chunk &other) const; // Comparison operator
+    bool operator==(const Chunk &other) const = default; // Comparison operator
 
     int cx;
     int cz;
