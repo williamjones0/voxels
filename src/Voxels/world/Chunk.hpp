@@ -42,9 +42,6 @@ public:
 
     int neighbours;
 
-    unsigned int VAO;
-    unsigned int dataVBO;
-
     std::vector<uint32_t> vertices;
 
     size_t index;
@@ -53,7 +50,7 @@ public:
     unsigned int firstIndex;
 
     bool ready = false;
-    bool dying = false;
+    bool destroyed = false;
     bool initialising = true;
     int debug = 0;
 

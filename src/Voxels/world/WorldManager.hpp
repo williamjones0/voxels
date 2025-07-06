@@ -69,7 +69,7 @@ public:
 
     Level level;
 
-    std::list<Chunk> chunks;
+    std::vector<Chunk> chunks;
     std::vector<Chunk *> frontierChunks;
     std::vector<Chunk *> newlyCreatedChunks;
     std::unordered_map<size_t, Chunk *> chunkByCoords;

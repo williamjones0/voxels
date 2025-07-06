@@ -18,11 +18,14 @@ WorldManager::WorldManager(Camera &camera, std::function<size_t(size_t)> outOfCa
               outOfCapacityCallback
       ))
 {
-    chunks = std::list<Chunk>();
+    chunks = std::vector<Chunk>();
     frontierChunks = std::vector<Chunk *>();
     newlyCreatedChunks = std::vector<Chunk *>();
     chunkByCoords = std::unordered_map<size_t, Chunk *>();
     chunkData = std::vector<ChunkData>();
+
+    chunks.reserve(MAX_CHUNKS);
+    chunkData.resize(MAX_CHUNKS);
 
     threadPool.start();
 
@@ -66,49 +69,32 @@ bool WorldManager::createNewFrontierChunks() {
 void WorldManager::destroyFrontierChunks() {
     ZoneScoped;
 
-    std::vector<Chunk *> toDestroy;
+    {
+        ZoneScopedN("Iterate over frontier chunks");
+        for (size_t i = 0, s = frontierChunks.size(); i < s; i++) {
+            Chunk *chunk = frontierChunks[i];
+            // If the chunk's still being initialised, don't destroy it yet since this will invalidate references
+            // It will be destroyed later on anyway
+            if (chunkInRenderDistance(chunk->cx, chunk->cz) || chunk->initialising) {
+                continue;
+            }
 
-    for (size_t i = 0, s = frontierChunks.size(); i < s; i++) {
-        Chunk *chunk = frontierChunks[i];
-        // If the chunk's still being initialised, don't destroy it yet since this will invalidate references
-        // It will be destroyed later on anyway
-        if (chunkInRenderDistance(chunk->cx, chunk->cz) || chunk->initialising) {
-            continue;
+            // Promote neighbours to frontier if necessary and destroy chunk
+            int numPromoted = onFrontierChunkRemoved(chunk);
+            frontierChunks.erase(frontierChunks.begin() + i);
+            chunkByCoords.erase(key(chunk->cx, chunk->cz));
+
+            // This should only happen if the chunk has already passed through newlyCreatedChunks
+            if (chunk->ready) {
+                ZoneScopedN("Deallocate chunk vertices");
+                allocator.deallocate(chunk->firstIndex, chunk->numVertices);
+            }
+
+            chunk->destroyed = true;
+            chunkData[chunk->index].numVertices = 0;  // Don't render the chunk any more
+            s += numPromoted - 1;
+            i--;
         }
-
-        // Promote neighbours to frontier if necessary and destroy chunk
-        int numPromoted = onFrontierChunkRemoved(chunk);
-        frontierChunks.erase(frontierChunks.begin() + i);
-        chunkByCoords.erase(key(chunk->cx, chunk->cz));
-
-        // This should only happen if the chunk has already passed through newlyCreatedChunks
-        if (chunk->ready) {
-            allocator.deallocate(chunk->firstIndex, chunk->numVertices);
-        }
-
-        toDestroy.push_back(chunk);
-        chunk->dying = true;
-        s += numPromoted - 1;
-        i--;
-    }
-
-    // Ensure that we can erase properly
-    std::sort(toDestroy.begin(), toDestroy.end(), [](Chunk *a, Chunk *b) {
-        return a->index > b->index;
-    });
-
-    // Erase the relevant data from the buffers, remove the chunks from the chunks vector
-    // and update frontierChunks and chunkByCoords indices based on the removed chunks
-    for (Chunk *chunk : toDestroy) {
-        chunkData.erase(chunkData.begin() + chunk->index);
-
-        chunks.remove(*chunk);
-    }
-
-    // Update chunk indexes in case chunks were removed
-    size_t index = 0;
-    for (auto &chunk : chunks) {
-        chunk.index = index++;
     }
 }
 
@@ -135,13 +121,23 @@ Chunk *WorldManager::ensureChunk(int cx, int cz) {
 Chunk *WorldManager::createChunk(int cx, int cz) {
     ZoneScoped;
 
-    chunks.emplace_back(cx, cz);
-    Chunk &chunk = chunks.back();
-    size_t chunkIndex = chunks.size() - 1;
-    chunk.index = chunkIndex;
+    // Find the first free slot in the chunks vector
+    size_t index = 0;
+    while (index < chunks.size() && !chunks[index].destroyed) {
+        index++;
+    }
+
+    if (index < chunks.size()) {
+        chunks[index] = Chunk(cx, cz);
+    } else {
+        chunks.emplace_back(cx, cz);
+    }
+
+    Chunk &chunk = chunks[index];
+    chunk.index = index;
     chunkByCoords[key(cx, cz)] = &chunk;
     addFrontier(&chunk);
-    chunkData.push_back({
+    chunkData[index] = {
             .cx = cx,
             .cz = cz,
             .minY = CHUNK_HEIGHT,
@@ -150,7 +146,7 @@ Chunk *WorldManager::createChunk(int cx, int cz) {
             .firstIndex = 0,
             ._pad0 = 0,
             ._pad1 = 0,
-    });
+    };
 
     chunkTasksCount++;
 
@@ -260,7 +256,7 @@ void WorldManager::updateVerticesBuffer(GLuint &verticesBuffer, GLuint &chunkDat
 
         for (Chunk *chunk: newlyCreatedChunks) {
             // If the chunk was already destroyed in destroyFrontierChunks, we don't want to allocate, so just skip it
-            if (chunk->dying) {
+            if (chunk->destroyed) {
                 continue;
             }
 
