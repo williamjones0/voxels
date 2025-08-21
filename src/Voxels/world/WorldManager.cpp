@@ -87,7 +87,11 @@ void WorldManager::destroyFrontierChunks() {
             // This should only happen if the chunk has already passed through newlyCreatedChunks
             if (chunk->ready) {
                 ZoneScopedN("Deallocate chunk vertices");
-                allocator.deallocate(chunk->firstIndex, chunk->numVertices);
+                {
+                    std::unique_lock<std::mutex> lock(cvMutexAllocator);
+                    cvAllocator.wait(lock, [this]() { return allocator.ready; });
+                    allocator.deallocate(chunk->firstIndex, chunk->numVertices);
+                }
             }
 
             chunk->destroyed = true;
@@ -156,8 +160,14 @@ Chunk *WorldManager::createChunk(int cx, int cz) {
         chunk.init();
         chunk.generate(generationType, level);
 
-        Mesher::meshChunk(chunk, generationType);
+//        Mesher::meshChunk(chunk, generationType);
 
+        chunk.initialising = true;
+        // Ensure only one thread meshes this chunk at a time
+        {
+            std::unique_lock<std::mutex> chunkLock(*chunk.mutex);
+            Mesher::meshChunk(chunk, generationType);
+        }
         chunk.initialising = false;
 
         chunk.debug = 1;
@@ -265,7 +275,12 @@ void WorldManager::updateVerticesBuffer(GLuint &verticesBuffer, GLuint &chunkDat
                 continue;
             }
 
-            auto region = allocator.allocate(chunk->numVertices);
+            Region region{};
+            {
+                std::unique_lock<std::mutex> lock(cvMutexAllocator);
+                cvAllocator.wait(lock, [this]() { return allocator.ready; });
+                region = allocator.allocate(chunk->numVertices);
+            }
 
             chunk->firstIndex = region.offset;
 
@@ -319,6 +334,7 @@ std::optional<Chunk *> WorldManager::getChunk(int cx, int cz) {
 
 void WorldManager::queueMeshChunk(Chunk *chunk) {
     threadPool.queueTask([chunk, this]() {
+        // First, free up the appropriate region in the vertex buffer
         // Don't allocate while other threads are allocating
         {
             std::unique_lock<std::mutex> lock(cvMutexAllocator);
@@ -327,7 +343,11 @@ void WorldManager::queueMeshChunk(Chunk *chunk) {
         }
 
         chunk->initialising = true;
-        Mesher::meshChunk(*chunk, generationType);
+        // Ensure only one thread meshes this chunk at a time
+        {
+            std::unique_lock<std::mutex> chunkLock(*chunk->mutex);
+            Mesher::meshChunk(*chunk, generationType);
+        }
         chunk->initialising = false;
 
         // If newlyCreatedChunks is currently being iterated through, we need to lock the mutex

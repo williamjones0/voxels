@@ -41,7 +41,7 @@ bool VoxelsApplication::load() {
         return false;
     }
 
-    camera = Camera(glm::vec3(8.0f, 400.0f, 8.0f));
+    camera = Camera(glm::vec3(8.0f, 80.0f, 8.0f));
 
     shader = Shader("vert.glsl", "frag.glsl");
     drawCommandProgram = Shader("drawcmd_comp.glsl");
@@ -111,7 +111,49 @@ bool VoxelsApplication::load() {
 
     shader.setVec3Array("palette", worldManager.level.colors.data(), worldManager.level.colors.size());
 
+    setupInput();
+
     return true;
+}
+
+void VoxelsApplication::setupInput() {
+    Input::bindings.insert({{GLFW_MOUSE_BUTTON_LEFT, GLFW_PRESS, true}, Action::Break});
+    Input::bindings.insert({{GLFW_MOUSE_BUTTON_RIGHT, GLFW_PRESS, true}, Action::Place});
+
+    Input::bindings.insert({{GLFW_KEY_ESCAPE, GLFW_PRESS}, Action::Exit});
+    Input::bindings.insert({{GLFW_KEY_T, GLFW_PRESS}, Action::ToggleWireframe});
+    Input::bindings.insert({{GLFW_KEY_P, GLFW_PRESS}, Action::SaveLevel});
+
+    // Register action callbacks
+    Input::registerCallback(Action::Break, [this] {
+        if (auto result = raycast()) {
+            updateVoxel(*result, false);
+        }
+    });
+
+    Input::registerCallback(Action::Place, [this] {
+        auto result = raycast();
+        if (result) {
+            updateVoxel(*result, true);
+        }
+    });
+
+    Input::registerCallback(Action::Exit, [this] {
+        glfwSetWindowShouldClose(windowHandle, true);
+    });
+
+    Input::registerCallback(Action::ToggleWireframe, [this] {
+        wireframe = !wireframe;
+        if (wireframe) {
+            glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+        } else {
+            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        }
+    });
+
+    Input::registerCallback(Action::SaveLevel, [this] {
+        worldManager.save();
+    });
 }
 
 void VoxelsApplication::update() {
@@ -170,6 +212,12 @@ void VoxelsApplication::render() {
 
     // Render
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+//    if (background) {
+//        glClearColor(0.2f, 0.2f, 0.3f, 1.0f);
+//    } else {
+//        glClearColor(0.8f, 0.8f, 0.7f, 1.0f);
+//    }
+//    background = !background;
 
     shader.use();
     shader.setMat4("view", view);
@@ -181,36 +229,6 @@ void VoxelsApplication::render() {
 }
 
 void VoxelsApplication::processInput() {
-    if (Input::isKeyDown(GLFW_KEY_ESCAPE)) {
-        glfwSetWindowShouldClose(windowHandle, true);
-    }
-
-    if (Input::isKeyPress(GLFW_KEY_T)) {
-        if (wireframe) {
-            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
-        } else {
-            glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-        }
-        wireframe = !wireframe;
-    }
-
-    if (Input::isButtonPress(GLFW_MOUSE_BUTTON_LEFT)) {
-        auto result = raycast();
-        if (result) {
-            updateVoxel(*result, false);
-        }
-    }
-    if (Input::isButtonPress(GLFW_MOUSE_BUTTON_RIGHT)) {
-        auto result = raycast();
-        if (result) {
-            updateVoxel(*result, true);
-        }
-    }
-
-    if (Input::isKeyPress(GLFW_KEY_P)) {
-        worldManager.save();
-    }
-
     Input::update();
 }
 
@@ -283,7 +301,7 @@ std::optional<RaycastResult> VoxelsApplication::raycast() {
             int v = chunk->load(localX, py, localZ);
 
             if (v != 0) {
-                std::cout << "Voxel hit at " << px << ", " << py << ", " << pz << ", face: " << faceHit << std::endl;
+//                std::cout << "Voxel hit at " << px << ", " << py << ", " << pz << ", face: " << faceHit << std::endl;
                 return RaycastResult {
                         .cx = cx,
                         .cz = cz,
@@ -354,13 +372,13 @@ void VoxelsApplication::updateVoxel(RaycastResult result, bool place) {
         return;
     }
 
-    Chunk *chunk = chunkOpt.value();
+    Chunk *hitChunk = chunkOpt.value();
 
     // Change voxel value
-    chunk->store(x, y, z, place ? 1 : 0);
+    hitChunk->store(x, y, z, place ? 1 : 0);
 
     std::vector<Chunk *> chunksToMesh;
-    chunksToMesh.push_back(chunk);
+    chunksToMesh.push_back(hitChunk);
 
     // If the voxel is on a chunk boundary, update the neighboring chunk(s)
     if (x == 0) {

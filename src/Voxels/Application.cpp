@@ -37,10 +37,13 @@ bool Application::init() {
     const auto screenWidth = videoMode->width;
     const auto screenHeight = videoMode->height;
 
-    windowWidth = static_cast<int>(screenWidth * 0.8);
-    windowHeight = static_cast<int>(screenHeight * 0.8);
+    bool fullscreen = false;
+    double scalar = fullscreen ? 1 : 0.8;
 
-    windowHandle = glfwCreateWindow(windowWidth, windowHeight, "Voxels", nullptr, nullptr);
+    windowWidth = static_cast<int>(screenWidth * scalar);
+    windowHeight = static_cast<int>(screenHeight * scalar);
+
+    windowHandle = glfwCreateWindow(windowWidth, windowHeight, "Voxels", fullscreen ? glfwGetPrimaryMonitor() : nullptr, nullptr);
     if (windowHandle == nullptr) {
         std::cout << "Failed to create GLFW windowHandle" << std::endl;
         glfwTerminate();
@@ -59,6 +62,11 @@ bool Application::init() {
     });
 
     glfwSetInputMode(windowHandle, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+
+    if (glfwRawMouseMotionSupported()) {
+        std::cout << "Raw mouse motion is supported" << std::endl;
+        glfwSetInputMode(windowHandle, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
+    }
 
     glfwSwapInterval(1);
 
@@ -113,12 +121,12 @@ void Application::loop() {
     ZoneScoped;
 
     {
-        ZoneScopedN("Update");
-        update();
-    }
-    {
         ZoneScopedN("Process Input");
         processInput();
+    }
+    {
+        ZoneScopedN("Update");
+        update();
     }
     {
         ZoneScopedN("Render");

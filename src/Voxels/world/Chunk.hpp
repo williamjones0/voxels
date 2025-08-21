@@ -5,6 +5,7 @@
 #include <glm/glm.hpp>
 
 #include <cstdint>
+#include <mutex>
 #include <vector>
 #include <string>
 
@@ -28,9 +29,9 @@ class Chunk {
 public:
     Chunk(int cx, int cz);
 
-    Chunk(const Chunk &chunk) = default;                // Copy constructor
+    Chunk(const Chunk &chunk) = delete;                 // Copy constructor
     Chunk(Chunk &&other) noexcept = default;            // Move constructor
-    Chunk &operator=(const Chunk &other) = default;     // Copy assignment operator
+    Chunk &operator=(const Chunk &other) = delete;      // Copy assignment operator
     Chunk &operator=(Chunk &&other) noexcept = default; // Move assignment operator
 
     bool operator==(const Chunk &other) const = default; // Comparison operator
@@ -53,6 +54,7 @@ public:
     bool destroyed = false;
     bool initialising = true;
     int debug = 0;
+    std::unique_ptr<std::mutex> mutex;
 
     std::vector<int> voxels{};
     void store(int x, int y, int z, char v);

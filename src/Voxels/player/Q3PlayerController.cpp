@@ -5,25 +5,53 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/rotate_vector.hpp>
 
+void Q3PlayerController::load() {
+    Input::bindings.insert({{GLFW_KEY_W, GLFW_PRESS}, Action::StartMoveForward});
+    Input::bindings.insert({{GLFW_KEY_S, GLFW_PRESS}, Action::StartMoveBackward});
+    Input::bindings.insert({{GLFW_KEY_A, GLFW_PRESS}, Action::StartMoveLeft});
+    Input::bindings.insert({{GLFW_KEY_D, GLFW_PRESS}, Action::StartMoveRight});
+
+    Input::bindings.insert({{GLFW_KEY_W, GLFW_RELEASE}, Action::StopMoveForward});
+    Input::bindings.insert({{GLFW_KEY_S, GLFW_RELEASE}, Action::StopMoveBackward});
+    Input::bindings.insert({{GLFW_KEY_A, GLFW_RELEASE}, Action::StopMoveLeft});
+    Input::bindings.insert({{GLFW_KEY_D, GLFW_RELEASE}, Action::StopMoveRight});
+
+    Input::bindings.insert({{GLFW_KEY_SPACE, GLFW_PRESS}, Action::StartJump});
+    Input::bindings.insert({{GLFW_KEY_SPACE, GLFW_RELEASE}, Action::StopJump});
+
+    Input::registerCallback(Action::StartMoveForward, [this] { --moveInput.z; });
+    Input::registerCallback(Action::StartMoveBackward, [this] { ++moveInput.z; });
+    Input::registerCallback(Action::StartMoveLeft, [this] { --moveInput.x; });
+    Input::registerCallback(Action::StartMoveRight, [this] { ++moveInput.x; });
+
+    Input::registerCallback(Action::StopMoveForward, [this] { ++moveInput.z; });
+    Input::registerCallback(Action::StopMoveBackward, [this] { --moveInput.z; });
+    Input::registerCallback(Action::StopMoveLeft, [this] { ++moveInput.x; });
+    Input::registerCallback(Action::StopMoveRight, [this] { --moveInput.x; });
+
+    Input::registerCallback(Action::StartJump, [this] { queueJump(); });
+    Input::registerCallback(Action::StopJump, [this] { jumpQueued = false; });
+}
+
 void Q3PlayerController::update(float dt) {
     deltaTime = dt;
 
     // TODO: fix this input system
     int xMovement = 0;
-    if (Input::isKeyDown(GLFW_KEY_A)) {
-        xMovement--;
-    }
-    if (Input::isKeyDown(GLFW_KEY_D)) {
-        xMovement++;
-    }
+//    if (Input::isKeyDown(GLFW_KEY_A)) {
+//        xMovement--;
+//    }
+//    if (Input::isKeyDown(GLFW_KEY_D)) {
+//        xMovement++;
+//    }
 
     int zMovement = 0;
-    if (Input::isKeyDown(GLFW_KEY_W)) {
-        zMovement--;
-    }
-    if (Input::isKeyDown(GLFW_KEY_S)) {
-        zMovement++;
-    }
+//    if (Input::isKeyDown(GLFW_KEY_W)) {
+//        zMovement--;
+//    }
+//    if (Input::isKeyDown(GLFW_KEY_S)) {
+//        zMovement++;
+//    }
 
     moveInput = glm::vec3(xMovement, 0, zMovement);
     queueJump();
@@ -68,16 +96,12 @@ void Q3PlayerController::update(float dt) {
 
 void Q3PlayerController::queueJump() {
     if (autoBunnyHop) {
-        jumpQueued = Input::isKeyDown(GLFW_KEY_SPACE);
+        jumpQueued = true;
         return;
     }
 
-    if (Input::isKeyDown(GLFW_KEY_SPACE) && !jumpQueued) {
+    if (!jumpQueued) {
         jumpQueued = true;
-    }
-
-    if (!Input::isKeyDown(GLFW_KEY_SPACE)) {
-        jumpQueued = false;
     }
 }
 

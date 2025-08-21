@@ -8,6 +8,7 @@ public:
     Q1PlayerController(Camera &camera, CharacterController &character)
             : camera(camera), character(character) {}
 
+    void load();
     void update(float deltaTime);
 
     float speed = 0;

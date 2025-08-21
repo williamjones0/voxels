@@ -5,12 +5,57 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/rotate_vector.hpp>
 
+void FlyPlayerController::load() {
+//    Input::bindings.insert({{GLFW_KEY_W, GLFW_PRESS}, Action::StartMoveForward});
+//    Input::bindings.insert({{GLFW_KEY_S, GLFW_PRESS}, Action::StartMoveBackward});
+//    Input::bindings.insert({{GLFW_KEY_A, GLFW_PRESS}, Action::StartMoveLeft});
+//    Input::bindings.insert({{GLFW_KEY_D, GLFW_PRESS}, Action::StartMoveRight});
+//
+//    Input::bindings.insert({{GLFW_KEY_W, GLFW_RELEASE}, Action::StopMoveForward});
+//    Input::bindings.insert({{GLFW_KEY_S, GLFW_RELEASE}, Action::StopMoveBackward});
+//    Input::bindings.insert({{GLFW_KEY_A, GLFW_RELEASE}, Action::StopMoveLeft});
+//    Input::bindings.insert({{GLFW_KEY_D, GLFW_RELEASE}, Action::StopMoveRight});
+//
+//    Input::bindings.insert({{GLFW_KEY_SPACE, GLFW_PRESS}, Action::StartJump});
+//    Input::bindings.insert({{GLFW_KEY_SPACE, GLFW_RELEASE}, Action::StopJump});
+//
+//    Input::bindings.insert({{GLFW_KEY_LEFT_SHIFT, GLFW_PRESS}, Action::StartCrouch});
+//    Input::bindings.insert({{GLFW_KEY_LEFT_SHIFT, GLFW_RELEASE}, Action::StopCrouch});
+//
+//    Input::bindings.insert({{GLFW_KEY_LEFT_CONTROL, GLFW_PRESS}, Action::EnableFastMovement});
+//    Input::bindings.insert({{GLFW_MOUSE_BUTTON_4, GLFW_PRESS}, Action::EnableFastMovement});
+//    Input::bindings.insert({{GLFW_KEY_LEFT_CONTROL, GLFW_RELEASE}, Action::DisableFastMovement});
+//    Input::bindings.insert({{GLFW_MOUSE_BUTTON_4, GLFW_RELEASE}, Action::DisableFastMovement});
+//
+//    Input::registerCallback(Action::StartMoveForward, [this] { direction += camera.front; });
+//    Input::registerCallback(Action::StartMoveBackward, [this] { direction -= camera.front; });
+//    Input::registerCallback(Action::StartMoveLeft, [this] { direction -= camera.right; });
+//    Input::registerCallback(Action::StartMoveRight, [this] { direction += camera.right; });
+//
+//    Input::registerCallback(Action::StopMoveForward, [this] { direction -= camera.front; });
+//    Input::registerCallback(Action::StopMoveBackward, [this] { direction += camera.front; });
+//    Input::registerCallback(Action::StopMoveLeft, [this] { direction += camera.right; });
+//    Input::registerCallback(Action::StopMoveRight, [this] { direction -= camera.right; });
+//
+//    Input::registerCallback(Action::StartJump, [this] { direction += camera.worldUp; });
+//    Input::registerCallback(Action::StopJump, [this] { direction -= camera.worldUp; });
+//
+//    Input::registerCallback(Action::StartCrouch, [this] { direction -= camera.worldUp; });
+//    Input::registerCallback(Action::StopCrouch, [this] { direction += camera.worldUp; });
+//
+//    Input::registerCallback(Action::EnableFastMovement, [this] { movementSpeed = 1000.0f; });
+//    Input::registerCallback(Action::DisableFastMovement, [this] { movementSpeed = 10.0f; });
+}
+
 void FlyPlayerController::update(float deltaTime) {
     float vel = movementSpeed * deltaTime;
 
     glm::vec3 positionDelta = glm::vec3(0, 0, 0);
 
-    if (Input::isKeyDown(GLFW_KEY_LEFT_CONTROL) || Input::isButtonDown(GLFW_MOUSE_BUTTON_4)) {
+//    camera.transform.position += direction * vel;
+//    direction = {};
+
+    if (Input::isKeyDown(GLFW_KEY_LEFT_CONTROL)) {
         movementSpeed = 1000.0f;
     } else {
         movementSpeed = 10.0f;

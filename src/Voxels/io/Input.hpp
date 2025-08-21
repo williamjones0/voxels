@@ -1,17 +1,60 @@
 #pragma once
 
+#include <functional>
 #include <unordered_set>
 
-enum class Controls {
-    FORWARD,
-    BACKWARD,
-    LEFT,
-    RIGHT,
-    UP,
-    DOWN,
-    JUMP,
-    CROUCH
+enum class Action {
+    StartMoveForward,
+    StartMoveBackward,
+    StartMoveLeft,
+    StartMoveRight,
+    StartMoveUp,
+    StartMoveDown,
+
+    StopMoveForward,
+    StopMoveBackward,
+    StopMoveLeft,
+    StopMoveRight,
+    StopMoveUp,
+    StopMoveDown,
+
+    StartJump,
+    StopJump,
+
+    StartCrouch,
+    StopCrouch,
+
+    EnableFastMovement,
+    DisableFastMovement,
+
+    Break,
+    Place,
+
+    // Application actions
+    Exit,
+    ToggleWireframe,
+    SaveLevel,
 };
+
+struct BoundKey {
+    int keycode;
+    int action; // {GLFW_PRESS, GLFW_RELEASE} TODO: typedef?
+    bool isMouse = false;
+
+    bool operator==(const BoundKey& other) const {
+        return (keycode == other.keycode &&
+                action == other.action &&
+                isMouse == other.isMouse);
+    }
+};
+
+struct BoundKeyHash {
+    std::size_t operator()(const BoundKey& key) const {
+        return std::hash<int>()(key.keycode) ^ std::hash<int>()(key.action) ^ std::hash<bool>()(key.isMouse);
+    }
+};
+
+using ActionCallback = std::function<void()>;
 
 class Input {
 public:
@@ -21,14 +64,8 @@ public:
     static void scroll_callback(double xoffset, double yoffset);
 
     static std::unordered_set<int> keys;
-    static std::unordered_set<int> lastFrameKeys;
-    static std::unordered_set<int> buttons;
-    static std::unordered_set<int> lastFrameButtons;
-
     static bool isKeyDown(int key);
-    static bool isButtonDown(int button);
-    static bool isKeyPress(int key);
-    static bool isButtonPress(int button);
+
     static void update();
 
     static double mouseX;
@@ -38,7 +75,18 @@ public:
     static double scrollX;
     static double scrollY;
 
+public: // Jeff
+    static std::unordered_map<BoundKey, Action, BoundKeyHash> bindings;
+    static std::unordered_map<Action, ActionCallback> actionCallbacks;
+
+    static std::vector<Action> actionQueue;
+
+    static void registerCallback(Action action, const ActionCallback& callback);
+
 private:
     static double lastMouseX;
     static double lastMouseY;
+
+private:
+    static void addAction(BoundKey key);
 };

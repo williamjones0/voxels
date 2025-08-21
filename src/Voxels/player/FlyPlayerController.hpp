@@ -5,8 +5,11 @@
 class FlyPlayerController {
 public:
     explicit FlyPlayerController(Camera &camera)
-        : camera(camera) {}
+        : camera(camera) {
+        load();
+    }
 
+    void load();
     void update(float deltaTime);
 
     float speed = 0;
@@ -16,6 +19,7 @@ private:
     Camera &camera;
 
     glm::vec3 velocity {};
+    glm::vec3 direction {};
 
     double xRot = 0.0f;
     double yRot = 0.0f;

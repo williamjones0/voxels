@@ -5,6 +5,34 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/rotate_vector.hpp>
 
+void Q1PlayerController::load() {
+//    Input::bindings.insert({{GLFW_KEY_W, GLFW_PRESS}, Action::StartMoveForward});
+//    Input::bindings.insert({{GLFW_KEY_S, GLFW_PRESS}, Action::StartMoveBackward});
+//    Input::bindings.insert({{GLFW_KEY_A, GLFW_PRESS}, Action::StartMoveLeft});
+//    Input::bindings.insert({{GLFW_KEY_D, GLFW_PRESS}, Action::StartMoveRight});
+//
+//    Input::bindings.insert({{GLFW_KEY_W, GLFW_RELEASE}, Action::StopMoveForward});
+//    Input::bindings.insert({{GLFW_KEY_S, GLFW_RELEASE}, Action::StopMoveBackward});
+//    Input::bindings.insert({{GLFW_KEY_A, GLFW_RELEASE}, Action::StopMoveLeft});
+//    Input::bindings.insert({{GLFW_KEY_D, GLFW_RELEASE}, Action::StopMoveRight});
+//
+//    Input::bindings.insert({{GLFW_KEY_SPACE, GLFW_PRESS}, Action::StartJump});
+//    Input::bindings.insert({{GLFW_KEY_SPACE, GLFW_RELEASE}, Action::StopJump});
+//
+//    Input::registerCallback(Action::StartMoveForward, [this] { --moveInput.z; });
+//    Input::registerCallback(Action::StartMoveBackward, [this] { ++moveInput.z; });
+//    Input::registerCallback(Action::StartMoveLeft, [this] { --moveInput.x; });
+//    Input::registerCallback(Action::StartMoveRight, [this] { ++moveInput.x; });
+//
+//    Input::registerCallback(Action::StopMoveForward, [this] { ++moveInput.z; });
+//    Input::registerCallback(Action::StopMoveBackward, [this] { --moveInput.z; });
+//    Input::registerCallback(Action::StopMoveLeft, [this] { ++moveInput.x; });
+//    Input::registerCallback(Action::StopMoveRight, [this] { --moveInput.x; });
+//
+//    Input::registerCallback(Action::StartJump, [this] { queueJump(); });
+//    Input::registerCallback(Action::StopJump, [this] { jumpQueued = false; });
+}
+
 void Q1PlayerController::update(float dt) {
     deltaTime = dt;
 
@@ -76,6 +104,17 @@ void Q1PlayerController::queueJump() {
         jumpQueued = false;
     }
 }
+
+//void Q1PlayerController::queueJump() {
+//    if (autoBunnyHop) {
+//        jumpQueued = true;
+//        return;
+//    }
+//
+//    if (!jumpQueued) {
+//        jumpQueued = true;
+//    }
+//}
 
 void Q1PlayerController::airMove() {
     glm::vec3 wishdir = glm::vec3(moveInput.x, 0, moveInput.z);

@@ -41,6 +41,8 @@ protected:
     void cleanup() override;
 
 private:
+    void setupInput();
+
     std::optional<RaycastResult> raycast();
     void tryStoreVoxel(int cx, int cz, int x, int y, int z, bool place, std::vector<Chunk *> &chunksToMesh);
     void updateVoxel(RaycastResult result, bool place);
@@ -49,6 +51,7 @@ private:
 
     Camera camera = Camera(glm::vec3(8.0f, 400.0f, 8.0f));
     CharacterController characterController = CharacterController(worldManager);
+//    Q1PlayerController playerController = Q1PlayerController(camera, characterController);
 //    Q3PlayerController playerController = Q3PlayerController(camera, characterController);
     FlyPlayerController playerController = FlyPlayerController(camera);
 
@@ -71,4 +74,6 @@ private:
     GLuint chunkDataBuffer;
     GLuint commandCountBuffer;
     GLuint verticesBuffer;
+
+    bool background;
 };
