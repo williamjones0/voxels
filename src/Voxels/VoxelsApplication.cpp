@@ -132,8 +132,7 @@ void VoxelsApplication::setupInput() {
     });
 
     Input::registerCallback(Action::Place, [this] {
-        auto result = raycast();
-        if (result) {
+        if (auto result = raycast()) {
             updateVoxel(*result, true);
         }
     });

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <unordered_set>
+
 #include "../core/Camera.hpp"
 
 class FlyPlayerController {
@@ -16,6 +18,17 @@ public:
     glm::vec3 playerVelocity = glm::vec3(0, 0, 0);
 
 private:
+    enum Movement {
+        Forward,
+        Backward,
+        Left,
+        Right,
+        Up,
+        Down
+    };
+
+    std::unordered_set<Movement> movements;
+
     Camera &camera;
 
     glm::vec3 velocity {};

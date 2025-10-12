@@ -57,6 +57,7 @@ void Input::update() {
             actionCallbacks[action]();
         }
     }
+    actionQueue.clear();
 
     scrollX = 0;
     scrollY = 0;

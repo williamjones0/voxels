@@ -29,7 +29,7 @@ void Q3PlayerController::load() {
     Input::registerCallback(Action::StopMoveLeft, [this] { ++moveInput.x; });
     Input::registerCallback(Action::StopMoveRight, [this] { --moveInput.x; });
 
-    Input::registerCallback(Action::StartJump, [this] { queueJump(); });
+    Input::registerCallback(Action::StartJump, [this] { jumpQueued = true; });
     Input::registerCallback(Action::StopJump, [this] { jumpQueued = false; });
 }
 
@@ -53,7 +53,7 @@ void Q3PlayerController::update(float dt) {
 //        zMovement++;
 //    }
 
-    moveInput = glm::vec3(xMovement, 0, zMovement);
+    // moveInput = glm::vec3(xMovement, 0, zMovement);
     queueJump();
 
     if (character.isGrounded) {
@@ -98,10 +98,6 @@ void Q3PlayerController::queueJump() {
     if (autoBunnyHop) {
         jumpQueued = true;
         return;
-    }
-
-    if (!jumpQueued) {
-        jumpQueued = true;
     }
 }
 

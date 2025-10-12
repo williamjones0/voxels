@@ -4,6 +4,7 @@
 #include <unordered_set>
 
 enum class Action {
+    // States
     StartMoveForward,
     StartMoveBackward,
     StartMoveLeft,
@@ -27,10 +28,10 @@ enum class Action {
     EnableFastMovement,
     DisableFastMovement,
 
+    // Actions
     Break,
     Place,
 
-    // Application actions
     Exit,
     ToggleWireframe,
     SaveLevel,
@@ -75,7 +76,6 @@ public:
     static double scrollX;
     static double scrollY;
 
-public: // Jeff
     static std::unordered_map<BoundKey, Action, BoundKeyHash> bindings;
     static std::unordered_map<Action, ActionCallback> actionCallbacks;
 
@@ -87,6 +87,5 @@ private:
     static double lastMouseX;
     static double lastMouseY;
 
-private:
     static void addAction(BoundKey key);
 };

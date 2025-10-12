@@ -6,7 +6,9 @@
 class Q3PlayerController {
 public:
     Q3PlayerController(Camera &camera, CharacterController &character)
-        : camera(camera), character(character) {}
+        : camera(camera), character(character) {
+        load();
+    }
 
     void load();
     void update(float deltaTime);
@@ -32,7 +34,7 @@ private:
     float friction = 6;
     float gravity = 20;
     float jumpForce = 8;
-    bool autoBunnyHop = false;
+    bool autoBunnyHop = true;
     float m_airControl = 0.3f;
     MovementSettings groundSettings = MovementSettings(7, 14, 10);
     MovementSettings airSettings = MovementSettings(7, 2, 2);
