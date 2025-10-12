@@ -4,6 +4,7 @@
 
 #include <glm/glm.hpp>
 
+#include <atomic>
 #include <cstdint>
 #include <mutex>
 #include <vector>
@@ -29,12 +30,10 @@ class Chunk {
 public:
     Chunk(int cx, int cz);
 
-    Chunk(const Chunk &chunk) = delete;                 // Copy constructor
-    Chunk(Chunk &&other) noexcept = default;            // Move constructor
-    Chunk &operator=(const Chunk &other) = delete;      // Copy assignment operator
-    Chunk &operator=(Chunk &&other) noexcept = default; // Move assignment operator
-
-    bool operator==(const Chunk &other) const = default; // Comparison operator
+    Chunk(const Chunk &chunk) = delete;                // Copy constructor
+    Chunk(Chunk &&other) noexcept = delete;            // Move constructor
+    Chunk &operator=(const Chunk &other) = delete;     // Copy assignment operator
+    Chunk &operator=(Chunk &&other) noexcept = delete; // Move assignment operator
 
     int cx;
     int cz;
@@ -50,11 +49,11 @@ public:
     unsigned int numVertices;
     unsigned int firstIndex;
 
-    bool ready = false;
-    bool destroyed = false;
-    bool initialising = true;
+    std::atomic_bool onGPU = false;
+    std::atomic_bool destroyed = false;
+    std::atomic_bool beingMeshed = true;
     int debug = 0;
-    std::unique_ptr<std::mutex> mutex;
+    std::mutex mutex;
 
     std::vector<int> voxels{};
     void store(int x, int y, int z, char v);

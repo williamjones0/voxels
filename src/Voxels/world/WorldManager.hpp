@@ -30,7 +30,7 @@ struct ChunkData {
 constexpr int INITIAL_VERTEX_BUFFER_SIZE = 1 << 20;
 constexpr int MAX_CHUNK_TASKS = 32;
 
-constexpr int MAX_RENDER_DISTANCE_CHUNKS = 2;
+constexpr int MAX_RENDER_DISTANCE_CHUNKS = 8;
 constexpr int MAX_RENDER_DISTANCE_METRES = MAX_RENDER_DISTANCE_CHUNKS << CHUNK_SIZE_SHIFT;
 constexpr int MAX_CHUNKS = (2 * MAX_RENDER_DISTANCE_CHUNKS + 1) * (2 * MAX_RENDER_DISTANCE_CHUNKS + 1);
 
@@ -69,7 +69,7 @@ public:
 
     Level level;
 
-    std::vector<Chunk> chunks;
+    std::vector<Chunk *> chunks;
     std::vector<Chunk *> frontierChunks;
     std::vector<Chunk *> newlyCreatedChunks;
     std::unordered_map<size_t, Chunk *> chunkByCoords;
@@ -77,12 +77,7 @@ public:
 
     std::atomic<int> chunkTasksCount = 0;
 
-    std::condition_variable cvNewlyCreatedChunks;
     std::mutex cvMutexNewlyCreatedChunks;
-    bool newlyCreatedChunksReady = true;
-
-    std::condition_variable cvAllocator;
-    std::mutex cvMutexAllocator;
 
     FreeListAllocator allocator;
     ThreadPool threadPool;

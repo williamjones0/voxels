@@ -7,7 +7,7 @@
 
 class Mesher {
 public:
-    static void meshChunk(Chunk &chunk, GenerationType generationType);
+    static void meshChunk(Chunk *chunk, GenerationType generationType);
 
 private:
     static inline int vertexAO(uint8_t side1, uint8_t side2, uint8_t corner);

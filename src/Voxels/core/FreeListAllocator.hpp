@@ -16,7 +16,7 @@ struct Region {
 
 class FreeListAllocator {
 public:
-    bool ready = true;
+    std::mutex mutex;
 
     FreeListAllocator() = default;
 
@@ -28,8 +28,6 @@ public:
     }
 
     Region allocate(size_t vertexCount) {
-        ready = false;
-
         size_t alignedSize = align(vertexCount, alignment); // Round up size to alignment
         for (auto it = freeRegions.begin(); it != freeRegions.end(); ++it) {
             // Check if this region can fit the aligned allocation
@@ -46,20 +44,16 @@ public:
                 }
 
                 // Return the allocated region
-                ready = true;
                 return Region{regionStart, alignedSize};
             }
         }
 
         outOfCapacity();
 
-        ready = true;
         return allocate(vertexCount);
     }
 
     void deallocate(size_t offset, size_t length) {
-        ready = false;
-
         length = align(length, alignment); // Round up size to alignment
         Region region{offset, length};
 
@@ -69,8 +63,6 @@ public:
 
         // Merge adjacent regions
         mergeFreeRegions();
-
-        ready = true;
     }
 
     void printFreeRegions() const {

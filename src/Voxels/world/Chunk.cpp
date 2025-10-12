@@ -21,7 +21,7 @@ Chunk::Chunk(int cx, int cz)
   , index(0)
   , numVertices(0)
   , firstIndex(-1)
-  , mutex(std::make_unique<std::mutex>())
+  , mutex(std::mutex())
 {}
 
 void Chunk::store(int x, int y, int z, char v) {
