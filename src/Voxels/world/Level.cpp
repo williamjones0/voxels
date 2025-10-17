@@ -1,7 +1,6 @@
 #include "Level.hpp"
 
 #include <fstream>
-#include <sstream>
 #include <iostream>
 #include <filesystem>
 
@@ -14,7 +13,7 @@ Level::Level() {
     colors[2] = glm::vec3(0.600, 0.100, 0.100);
 }
 
-void Level::read(const std::filesystem::path &filepath) {
+void Level::read(const std::filesystem::path& filepath) {
     std::cout << "Reading level file: " << filepath << std::endl;
     std::ifstream infile(filepath);
 
@@ -26,8 +25,8 @@ void Level::read(const std::filesystem::path &filepath) {
 
     // Palette
     for (const auto& [key, value] : levelJson["palette"].items()) {
-        int id = std::stoi(key);
-        glm::vec3 color = glm::vec3(value[0].get<float>(), value[1].get<float>(), value[2].get<float>());
+        const int id = std::stoi(key);
+        const auto color = glm::vec3(value[0].get<float>(), value[1].get<float>(), value[2].get<float>());
         colors[id] = color;
     }
 
@@ -39,9 +38,9 @@ void Level::read(const std::filesystem::path &filepath) {
     // Data
     data.clear();
     data.reserve(maxX * maxZ * maxY);
-    for (const auto &item : levelJson["data"]) {
-        int value = item[0].get<int>();
-        int count = item[1].get<int>();
+    for (const auto& item : levelJson["data"]) {
+        const int value = item[0].get<int>();
+        const int count = item[1].get<int>();
         data.insert(data.end(), count, value);
     }
 
@@ -52,7 +51,7 @@ void Level::read(const std::filesystem::path &filepath) {
     infile.close();
 }
 
-void Level::save(const std::filesystem::path &filepath) {
+void Level::save(const std::filesystem::path& filepath) {
     std::cout << "Saving level file: " << filepath << std::endl;
 
     json levelJson;

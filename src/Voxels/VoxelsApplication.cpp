@@ -9,9 +9,10 @@
 #include <iostream>
 #include <algorithm>
 
+#include "io/Input.hpp"
 #include "world/Mesher.hpp"
 
-constexpr float PI = 3.14159265359f;
+constexpr float Pi = 3.14159265359f;
 
 bool VoxelsApplication::init() {
     if (!Application::init()) {
@@ -20,16 +21,16 @@ bool VoxelsApplication::init() {
 
     glfwSetWindowUserPointer(windowHandle, this);
 
-    glfwSetKeyCallback(windowHandle, [](GLFWwindow *window, int key, int scancode, int action, int mods) {
+    glfwSetKeyCallback(windowHandle, [](GLFWwindow* window, const int key, const int scancode, const int action, const int mods) {
         Input::key_callback(key, scancode, action, mods);
     });
-    glfwSetMouseButtonCallback(windowHandle, [](GLFWwindow *window, int button, int action, int mods) {
+    glfwSetMouseButtonCallback(windowHandle, [](GLFWwindow* window, const int button, const int action, const int mods) {
         Input::mouse_button_callback(button, action, mods);
     });
-    glfwSetCursorPosCallback(windowHandle, [](GLFWwindow *window, double xpos, double ypos) {
+    glfwSetCursorPosCallback(windowHandle, [](GLFWwindow* window, const double xpos, const double ypos) {
         Input::cursor_position_callback(xpos, ypos);
     });
-    glfwSetScrollCallback(windowHandle, [](GLFWwindow *window, double xoffset, double yoffset) {
+    glfwSetScrollCallback(windowHandle, [](GLFWwindow* window, const double xoffset, const double yoffset) {
         Input::scroll_callback(xoffset, yoffset);
     });
 
@@ -54,7 +55,7 @@ bool VoxelsApplication::load() {
 
     glCreateBuffers(1, &chunkDrawCmdBuffer);
     glNamedBufferStorage(chunkDrawCmdBuffer,
-                         sizeof(ChunkDrawCommand) * MAX_CHUNKS,
+                         sizeof(ChunkDrawCommand) * MaxChunks,
                          nullptr,
                          GL_DYNAMIC_STORAGE_BIT);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, chunkDrawCmdBuffer);
@@ -62,7 +63,7 @@ bool VoxelsApplication::load() {
     glCreateBuffers(1, &chunkDataBuffer);
     glNamedBufferData(chunkDataBuffer,
                          sizeof(ChunkData) * worldManager.chunkData.size(),
-                         (const void *) worldManager.chunkData.data(),
+                         static_cast<const void*>(worldManager.chunkData.data()),
                          GL_DYNAMIC_DRAW);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, chunkDataBuffer);
 
@@ -76,7 +77,7 @@ bool VoxelsApplication::load() {
 
     glCreateBuffers(1, &verticesBuffer);
     glNamedBufferStorage(verticesBuffer,
-                      sizeof(uint32_t) * INITIAL_VERTEX_BUFFER_SIZE,
+                      sizeof(uint32_t) * InitialVertexBufferSize,
                       nullptr,
                       GL_DYNAMIC_STORAGE_BIT);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, verticesBuffer);
@@ -84,30 +85,30 @@ bool VoxelsApplication::load() {
     worldManager.updateVerticesBuffer(verticesBuffer, chunkDataBuffer);
 
     shader.use();
-    shader.setInt("chunkSizeShift", CHUNK_SIZE_SHIFT);
+    shader.setInt("chunkSizeShift", ChunkSizeShift);
     shader.setInt("windowWidth", windowWidth);
     shader.setInt("windowHeight", windowHeight);
 
-    shader.setUInt("xBits", VertexFormat::X_BITS);
-    shader.setUInt("yBits", VertexFormat::Y_BITS);
-    shader.setUInt("zBits", VertexFormat::Z_BITS);
-    shader.setUInt("colourBits", VertexFormat::COLOUR_BITS);
-    shader.setUInt("normalBits", VertexFormat::NORMAL_BITS);
-    shader.setUInt("aoBits", VertexFormat::AO_BITS);
+    shader.setUInt("xBits", VertexFormat::XBits);
+    shader.setUInt("yBits", VertexFormat::YBits);
+    shader.setUInt("zBits", VertexFormat::ZBits);
+    shader.setUInt("colourBits", VertexFormat::ColourBits);
+    shader.setUInt("normalBits", VertexFormat::NormalBits);
+    shader.setUInt("aoBits", VertexFormat::AOBits);
 
-    shader.setUInt("xShift", VertexFormat::X_SHIFT);
-    shader.setUInt("yShift", VertexFormat::Y_SHIFT);
-    shader.setUInt("zShift", VertexFormat::Z_SHIFT);
-    shader.setUInt("colourShift", VertexFormat::COLOUR_SHIFT);
-    shader.setUInt("normalShift", VertexFormat::NORMAL_SHIFT);
-    shader.setUInt("aoShift", VertexFormat::AO_SHIFT);
+    shader.setUInt("xShift", VertexFormat::XShift);
+    shader.setUInt("yShift", VertexFormat::YShift);
+    shader.setUInt("zShift", VertexFormat::ZShift);
+    shader.setUInt("colourShift", VertexFormat::ColourShift);
+    shader.setUInt("normalShift", VertexFormat::NormalShift);
+    shader.setUInt("aoShift", VertexFormat::AOShift);
 
-    shader.setUInt("xMask", VertexFormat::X_MASK);
-    shader.setUInt("yMask", VertexFormat::Y_MASK);
-    shader.setUInt("zMask", VertexFormat::Z_MASK);
-    shader.setUInt("colourMask", VertexFormat::COLOUR_MASK);
-    shader.setUInt("normalMask", VertexFormat::NORMAL_MASK);
-    shader.setUInt("aoMask", VertexFormat::AO_MASK);
+    shader.setUInt("xMask", VertexFormat::XMask);
+    shader.setUInt("yMask", VertexFormat::YMask);
+    shader.setUInt("zMask", VertexFormat::ZMask);
+    shader.setUInt("colourMask", VertexFormat::ColourMask);
+    shader.setUInt("normalMask", VertexFormat::NormalMask);
+    shader.setUInt("aoMask", VertexFormat::AOMask);
 
     shader.setVec3Array("palette", worldManager.level.colors.data(), worldManager.level.colors.size());
 
@@ -126,13 +127,13 @@ void VoxelsApplication::setupInput() {
 
     // Register action callbacks
     Input::registerCallback(Action::Break, [this] {
-        if (auto result = raycast()) {
+        if (const auto result = raycast()) {
             updateVoxel(*result, false);
         }
     });
 
     Input::registerCallback(Action::Place, [this] {
-        if (auto result = raycast()) {
+        if (const auto result = raycast()) {
             updateVoxel(*result, true);
         }
     });
@@ -171,11 +172,11 @@ void VoxelsApplication::update() {
     playerController.update(deltaTime);
 
     // std::cout << "Frame time: " << deltaTime << "\t FPS: " << (1.0f / deltaTime) << std::endl;
-    std::string title = "Voxels | FPS: " + std::to_string((int) (1.0f / deltaTime)) +
+    const std::string title = "Voxels | FPS: " + std::to_string(static_cast<int>(1.0f / deltaTime)) +
                         " | X: " + std::to_string(camera.transform.position.x) +
                         ", Y: " + std::to_string(camera.transform.position.y) +
                         ", Z: " + std::to_string(camera.transform.position.z) +
-                        " | speed: " + std::to_string(playerController.speed) +
+                        " | speed: " + std::to_string(playerController.currentSpeed) +
                         " | vel: " + glm::to_string(playerController.playerVelocity) +
                         " | front: " + glm::to_string(camera.front);
 
@@ -185,9 +186,9 @@ void VoxelsApplication::update() {
 void VoxelsApplication::render() {
     ZoneScoped;
 
-    glm::mat4 projection = glm::perspective((float) (camera.FOV * PI / 180),
-                                            (float) windowWidth / (float) windowHeight, 0.1f, 5000.0f);
-    glm::mat4 view = camera.calculateViewMatrix();
+    const glm::mat4 projection = glm::perspective(camera.FOV * Pi / 180,
+                                            static_cast<float>(windowWidth) / static_cast<float>(windowHeight), 0.1f, 5000.0f);
+    const glm::mat4 view = camera.calculateViewMatrix();
 
     glm::mat4 projectionT = glm::transpose(projection * view);
     glm::vec4 frustum[6];
@@ -204,13 +205,15 @@ void VoxelsApplication::render() {
     // Generate draw commands
     drawCommandProgram.use();
     drawCommandProgram.setVec4Array("frustum", frustum, 6);
-    drawCommandProgram.setInt("CHUNK_SIZE", CHUNK_SIZE);
+    drawCommandProgram.setInt("CHUNK_SIZE", ChunkSize);
 
-    glDispatchCompute(MAX_CHUNKS / 1, 1, 1);
+    glDispatchCompute(MaxChunks / 1, 1, 1);
     glMemoryBarrier(GL_COMMAND_BARRIER_BIT | GL_SHADER_STORAGE_BARRIER_BIT);
 
     // Render
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+//    // Input latency testing
 //    if (background) {
 //        glClearColor(0.2f, 0.2f, 0.3f, 1.0f);
 //    } else {
@@ -224,7 +227,7 @@ void VoxelsApplication::render() {
 
     glBindVertexArray(dummyVAO);
     glBindBuffer(GL_DRAW_INDIRECT_BUFFER, chunkDrawCmdBuffer);
-    glMultiDrawArraysIndirectCount(GL_TRIANGLES, nullptr, 0, MAX_CHUNKS, sizeof(ChunkDrawCommand));
+    glMultiDrawArraysIndirectCount(GL_TRIANGLES, nullptr, 0, MaxChunks, sizeof(ChunkDrawCommand));
 }
 
 void VoxelsApplication::processInput() {
@@ -242,64 +245,62 @@ void VoxelsApplication::cleanup() {
     Application::cleanup();
 }
 
-int step(float edge, float x) {
-    return x < edge ? 0 : 1;
-}
-
 std::optional<RaycastResult> VoxelsApplication::raycast() {
-    float big = 1e30f;
+    constexpr float big = 1e30f;
 
-    float ox = camera.transform.position.x;
-    float oy = camera.transform.position.y - 1;
-    float oz = camera.transform.position.z;
+    const float ox = camera.transform.position.x;
+    const float oy = camera.transform.position.y - 1;
+    const float oz = camera.transform.position.z;
 
-    float dx = camera.front.x;
-    float dy = camera.front.y;
-    float dz = camera.front.z;
+    const float dx = camera.front.x;
+    const float dy = camera.front.y;
+    const float dz = camera.front.z;
 
-    int px = (int) std::floor(ox);
-    int py = (int) std::floor(oy);
-    int pz = (int) std::floor(oz);
+    int px = static_cast<int>(std::floor(ox));
+    int py = static_cast<int>(std::floor(oy));
+    int pz = static_cast<int>(std::floor(oz));
 
-    float dxi = 1.0f / dx;
-    float dyi = 1.0f / dy;
-    float dzi = 1.0f / dz;
+    const float dxi = 1.0f / dx;
+    const float dyi = 1.0f / dy;
+    const float dzi = 1.0f / dz;
 
-    int sx = dx > 0 ? 1 : -1;
-    int sy = dy > 0 ? 1 : -1;
-    int sz = dz > 0 ? 1 : -1;
+    const int sx = dx > 0 ? 1 : -1;
+    const int sy = dy > 0 ? 1 : -1;
+    const int sz = dz > 0 ? 1 : -1;
 
-    float dtx = std::min(dxi * sx, big);
-    float dty = std::min(dyi * sy, big);
-    float dtz = std::min(dzi * sz, big);
+    const float dtx = std::min(dxi * sx, big);
+    const float dty = std::min(dyi * sy, big);
+    const float dtz = std::min(dzi * sz, big);
 
     float tx = abs((px + std::max(sx, 0) - ox) * dxi);
     float ty = abs((py + std::max(sy, 0) - oy) * dyi);
     float tz = abs((pz + std::max(sz, 0) - oz) * dzi);
 
-    int maxSteps = 16;
+    constexpr int maxSteps = 16;
 
     int cmpx = 0, cmpy = 0, cmpz = 0;
 
     int faceHit = -1;
 
+    auto step = [](const float edge, const float x) -> int {
+        return x < edge ? 0 : 1;
+    };
+
     for (int i = 0; i < maxSteps && py >= 0; i++) {
-        if (i > 0 && py < CHUNK_HEIGHT) {
-            int cx = std::floor((float)px / CHUNK_SIZE);
-            int cz = std::floor((float)pz / CHUNK_SIZE);
+        if (i > 0 && py < ChunkHeight) {
+            const int cx = std::floor(static_cast<float>(px) / ChunkSize);
+            const int cz = std::floor(static_cast<float>(pz) / ChunkSize);
 
-            int localX = (px % CHUNK_SIZE + CHUNK_SIZE) % CHUNK_SIZE;
-            int localZ = (pz % CHUNK_SIZE + CHUNK_SIZE) % CHUNK_SIZE;
+            const int localX = (px % ChunkSize + ChunkSize) % ChunkSize;
+            const int localZ = (pz % ChunkSize + ChunkSize) % ChunkSize;
 
-            auto chunkOpt = worldManager.getChunk(cx, cz);
-            if (!chunkOpt) {
+            const Chunk* chunk = worldManager.getChunk(cx, cz);
+            if (!chunk) {
                 std::cout << "Chunk not found at (" << cx << ", " << cz << ")" << std::endl;
                 return std::nullopt;
             }
-            Chunk *chunk = chunkOpt.value();
-            int v = chunk->load(localX, py, localZ);
 
-            if (v != 0) {
+            if (const int v = chunk->load(localX, py, localZ); v != 0) {
 //                std::cout << "Voxel hit at " << px << ", " << py << ", " << pz << ", face: " << faceHit << std::endl;
                 return RaycastResult {
                         .cx = cx,
@@ -318,11 +319,11 @@ std::optional<RaycastResult> VoxelsApplication::raycast() {
         cmpz = step(tz, ty) * step(tz, tx);
 
         if (cmpx) {
-            faceHit = (sx < 0) ? 0 : 1;  // 0: +x, 1: -x
+            faceHit = sx < 0 ? 0 : 1;  // 0: +x, 1: -x
         } else if (cmpy) {
-            faceHit = (sy < 0) ? 2 : 3;  // 2: +y, 3: -y
+            faceHit = sy < 0 ? 2 : 3;  // 2: +y, 3: -y
         } else if (cmpz) {
-            faceHit = (sz < 0) ? 4 : 5;  // 4: +z, 5: -z
+            faceHit = sz < 0 ? 4 : 5;  // 4: +z, 5: -z
         }
 
         tx += dtx * cmpx;
@@ -337,80 +338,77 @@ std::optional<RaycastResult> VoxelsApplication::raycast() {
     return std::nullopt;
 }
 
-void VoxelsApplication::tryStoreVoxel(int cx, int cz, int x, int y, int z, bool place, std::vector<Chunk *> &chunksToMesh) {
-    auto chunkOpt = worldManager.getChunk(cx, cz);
-    if (!chunkOpt) {
+void VoxelsApplication::tryStoreVoxel(const int cx, const int cz, const int x, const int y, const int z, const bool place, std::vector<Chunk*>& chunksToMesh) {
+    Chunk* chunk = worldManager.getChunk(cx, cz);
+    if (!chunk) {
         return;
     }
 
-    Chunk *chunk = chunkOpt.value();
     chunk->store(x, y, z, place ? 1 : 0);
     chunksToMesh.push_back(chunk);
 }
 
-void VoxelsApplication::updateVoxel(RaycastResult result, bool place) {
+void VoxelsApplication::updateVoxel(RaycastResult result, const bool place) {
     auto [cx, cz, x, y, z, face] = result;
 
     if (place) {
         switch (face) {
-            case 0: (x == CHUNK_SIZE - 1) ? (++cx, x = 0) : ++x; break;
-            case 1: (x == 0)              ? (--cx, x = CHUNK_SIZE - 1) : --x; break;
-            case 2: if (y < CHUNK_HEIGHT - 2) ++y; break;
+            case 0: x == ChunkSize - 1 ? (++cx, x = 0) : ++x; break;
+            case 1: x == 0              ? (--cx, x = ChunkSize - 1) : --x; break;
+            case 2: if (y < ChunkHeight - 2) ++y; break;
             case 3: if (y > 0) --y; break;
-            case 4: (z == CHUNK_SIZE - 1) ? (++cz, z = 0) : ++z; break;
-            case 5: (z == 0)              ? (--cz, z = CHUNK_SIZE - 1) : --z; break;
+            case 4: z == ChunkSize - 1 ? (++cz, z = 0) : ++z; break;
+            case 5: z == 0              ? (--cz, z = ChunkSize - 1) : --z; break;
             default:
                 std::cerr << "Invalid face: " << face << std::endl;
                 return;
         }
     }
 
-    auto chunkOpt = worldManager.getChunk(cx, cz);
-    if (!chunkOpt) {
+    Chunk* hitChunk = worldManager.getChunk(cx, cz);
+    if (!hitChunk) {
         std::cerr << "Chunk not found at (" << cx << ", " << cz << ")" << std::endl;
         return;
     }
 
-    Chunk *hitChunk = chunkOpt.value();
-
     // Change voxel value
     hitChunk->store(x, y, z, place ? 1 : 0);
 
-    std::vector<Chunk *> chunksToMesh;
+    std::vector<Chunk*> chunksToMesh;
     chunksToMesh.push_back(hitChunk);
 
     // If the voxel is on a chunk boundary, update the neighboring chunk(s)
     if (x == 0) {
-        tryStoreVoxel(cx - 1, cz, CHUNK_SIZE, y, z, place, chunksToMesh);
+        tryStoreVoxel(cx - 1, cz, ChunkSize, y, z, place, chunksToMesh);
 
         if (z == 0) {
-            tryStoreVoxel(cx - 1, cz - 1, CHUNK_SIZE, y, CHUNK_SIZE, place, chunksToMesh);
-        } else if (z == CHUNK_SIZE - 1) {
-            tryStoreVoxel(cx - 1, cz + 1, CHUNK_SIZE, y, -1, place, chunksToMesh);
+            tryStoreVoxel(cx - 1, cz - 1, ChunkSize, y, ChunkSize, place, chunksToMesh);
+        } else if (z == ChunkSize - 1) {
+            tryStoreVoxel(cx - 1, cz + 1, ChunkSize, y, -1, place, chunksToMesh);
         }
-    } else if (x == CHUNK_SIZE - 1) {
+    } else if (x == ChunkSize - 1) {
         tryStoreVoxel(cx + 1, cz, -1, y, z, place, chunksToMesh);
 
         if (z == 0) {
-            tryStoreVoxel(cx + 1, cz - 1, -1, y, CHUNK_SIZE, place, chunksToMesh);
-        } else if (z == CHUNK_SIZE - 1) {
+            tryStoreVoxel(cx + 1, cz - 1, -1, y, ChunkSize, place, chunksToMesh);
+        } else if (z == ChunkSize - 1) {
             tryStoreVoxel(cx + 1, cz + 1, -1, y, -1, place, chunksToMesh);
         }
     }
 
     if (z == 0) {
-        tryStoreVoxel(cx, cz - 1, x, y, CHUNK_SIZE, place, chunksToMesh);
-    } else if (z == CHUNK_SIZE - 1) {
+        tryStoreVoxel(cx, cz - 1, x, y, ChunkSize, place, chunksToMesh);
+    } else if (z == ChunkSize - 1) {
         tryStoreVoxel(cx, cz + 1, x, y, -1, place, chunksToMesh);
     }
 
-    for (Chunk *chunk : chunksToMesh) {
+    for (Chunk* chunk : chunksToMesh) {
         worldManager.queueMeshChunk(chunk);
     }
 }
 
-size_t VoxelsApplication::enlargeVerticesBuffer(size_t currentCapacity) {
-    size_t newCapacity = currentCapacity * 2;
+size_t VoxelsApplication::enlargeVerticesBuffer(const size_t currentCapacity) {
+    const size_t newCapacity = currentCapacity * 2;
 
     GLuint newBuffer;
     glCreateBuffers(1, &newBuffer);

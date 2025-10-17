@@ -37,8 +37,8 @@ bool Application::init() {
     const auto screenWidth = videoMode->width;
     const auto screenHeight = videoMode->height;
 
-    bool fullscreen = false;
-    double scalar = fullscreen ? 1 : 0.8;
+    constexpr bool fullscreen = false;
+    constexpr double scalar = fullscreen ? 1 : 0.8;
 
     windowWidth = static_cast<int>(screenWidth * scalar);
     windowHeight = static_cast<int>(screenHeight * scalar);
@@ -53,11 +53,11 @@ bool Application::init() {
     glfwSetWindowPos(windowHandle, (screenWidth - windowWidth) / 2, (screenHeight - windowHeight) / 2);
 
     glfwMakeContextCurrent(windowHandle);
-    glfwSetFramebufferSizeCallback(windowHandle, [](GLFWwindow *window, int width, int height) {
+    glfwSetFramebufferSizeCallback(windowHandle, [](GLFWwindow* window, const int width, const int height) {
         glViewport(0, 0, width, height);
     });
 
-    glfwSetErrorCallback([](int error, const char *description) {
+    glfwSetErrorCallback([](const int error, const char* description) {
         fprintf(stderr, "GLFW error %d: %s\n", error, description);
     });
 
@@ -70,7 +70,7 @@ bool Application::init() {
 
     glfwSwapInterval(1);
 
-    if (!gladLoadGLLoader((GLADloadproc) glfwGetProcAddress)) {
+    if (!gladLoadGLLoader(reinterpret_cast<GLADloadproc>(glfwGetProcAddress))) {
         std::cout << "Failed to initialize GLAD" << std::endl;
         return false;
     }
@@ -82,13 +82,13 @@ bool Application::load() {
     // Enable debug output
     glEnable(GL_DEBUG_OUTPUT);
     glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
-    glDebugMessageCallback([](GLenum source,
-                                      GLenum type,
-                                      GLuint id,
-                                      GLenum severity,
-                                      GLsizei length,
-                                      const GLchar *message,
-                                      const void *userParam
+    glDebugMessageCallback([](const GLenum source,
+                                      const GLenum type,
+                                      const GLuint id,
+                                      const GLenum severity,
+                                      const GLsizei length,
+                                      const GLchar* message,
+                                      const void* userParam
     ) {
         std::string SEVERITY;
         switch (severity) {
@@ -104,6 +104,8 @@ bool Application::load() {
             case GL_DEBUG_SEVERITY_NOTIFICATION:
                 SEVERITY = "NOTIFICATION";
                 break;
+            // default:
+            //     std::unreachable();
         }
         fprintf(stderr, "GL CALLBACK: %s type = 0x%x, severity = %s, message = %s\n",
                 type == GL_DEBUG_TYPE_ERROR ? "** GL ERROR **" : "",
@@ -145,7 +147,7 @@ void Application::loop() {
 }
 
 void Application::update() {
-    auto currentFrame = static_cast<float>(glfwGetTime());
+    const auto currentFrame = static_cast<float>(glfwGetTime());
     deltaTime = currentFrame - lastFrame;
     lastFrame = currentFrame;
 }

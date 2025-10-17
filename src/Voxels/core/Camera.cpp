@@ -15,8 +15,8 @@ void Camera::update() {
 }
 
 glm::mat4 Camera::calculateViewMatrix() const {
-    glm::mat4 rotationMatrix = glm::mat4_cast(transform.rotation);
-    glm::mat4 translationMatrix = glm::translate(glm::mat4(1.0f), -transform.position);
+    const glm::mat4 rotationMatrix = glm::mat4_cast(transform.rotation);
+    const glm::mat4 translationMatrix = glm::translate(glm::mat4(1.0f), -transform.position);
 
     return rotationMatrix * translationMatrix;
 }

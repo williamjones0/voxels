@@ -1,15 +1,16 @@
 #pragma once
 
+#include <algorithm>
 #include <iostream>
 #include <list>
-#include <optional>
-#include <algorithm>
+#include <mutex>
+#include <functional>
 
 struct Region {
     size_t offset; // Start offset of the region
     size_t length; // Length of the region
 
-    bool operator<(const Region &other) const {
+    bool operator<(const Region& other) const {
         return offset < other.offset;
     }
 };
@@ -20,20 +21,20 @@ public:
 
     FreeListAllocator() = default;
 
-    FreeListAllocator(size_t bufferSize, size_t alignment, std::function<size_t(size_t)> outOfCapacityCallback)
+    FreeListAllocator(const size_t bufferSize, const size_t alignment, std::function<size_t(size_t)> outOfCapacityCallback)
         : bufferSize(bufferSize), alignment(alignment), outOfCapacityCallback(std::move(outOfCapacityCallback))
     {
         // Initially, the whole buffer is a single free region
         freeRegions.push_back({0, bufferSize});
     }
 
-    Region allocate(size_t vertexCount) {
-        size_t alignedSize = align(vertexCount, alignment); // Round up size to alignment
+    Region allocate(const size_t vertexCount) {
+        const size_t alignedSize = align(vertexCount, alignment); // Round up size to alignment
         for (auto it = freeRegions.begin(); it != freeRegions.end(); ++it) {
             // Check if this region can fit the aligned allocation
             if (it->length >= alignedSize) {
                 // Allocate the entire aligned block
-                size_t regionStart = it->offset;
+                const size_t regionStart = it->offset;
 
                 // Adjust the free region
                 if (it->length > alignedSize) {
@@ -53,12 +54,12 @@ public:
         return allocate(vertexCount);
     }
 
-    void deallocate(size_t offset, size_t length) {
+    void deallocate(const size_t offset, size_t length) {
         length = align(length, alignment); // Round up size to alignment
-        Region region{offset, length};
+        const Region region{offset, length};
 
         // Insert the region in the correct position to maintain sorted order
-        auto it = std::lower_bound(freeRegions.begin(), freeRegions.end(), region);
+        const auto it = std::lower_bound(freeRegions.begin(), freeRegions.end(), region);
         freeRegions.insert(it, region);
 
         // Merge adjacent regions
@@ -67,8 +68,8 @@ public:
 
     void printFreeRegions() const {
         std::cout << "Free Regions:\n";
-        for (const auto &region : freeRegions) {
-            std::cout << "Offset: " << region.offset << ", Length: " << region.length << '\n';
+        for (const auto& [offset, length] : freeRegions) {
+            std::cout << "Offset: " << offset << ", Length: " << length << '\n';
         }
     }
 
@@ -78,14 +79,13 @@ private:
     std::list<Region> freeRegions;
     std::function<size_t(size_t)> outOfCapacityCallback;
 
-    static size_t align(size_t offset, size_t alignment) {
-        return (offset + alignment - 1) & ~(alignment - 1);
+    static size_t align(const size_t offset, const size_t alignment) {
+        return offset + alignment - 1 & ~(alignment - 1);
     }
 
     void mergeFreeRegions() {
         for (auto it = freeRegions.begin(); it != freeRegions.end();) {
-            auto next = std::next(it);
-            if (next != freeRegions.end() && it->offset + it->length == next->offset) {
+            if (auto next = std::next(it); next != freeRegions.end() && it->offset + it->length == next->offset) {
                 // Merge current and next regions
                 it->length += next->length;
                 freeRegions.erase(next);
@@ -96,7 +96,7 @@ private:
     }
 
     void outOfCapacity() {
-        size_t newCapacity = outOfCapacityCallback(bufferSize);
+        const size_t newCapacity = outOfCapacityCallback(bufferSize);
         freeRegions.push_back({bufferSize, bufferSize});
         bufferSize = newCapacity;
     }

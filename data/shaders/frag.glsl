@@ -3,7 +3,7 @@ out vec4 FragColor;
 
 in vec3 ourColor;
 flat in int normal;
-in float fragAo;
+in float fragAO;
 
 uniform int windowWidth;
 uniform int windowHeight;
@@ -23,7 +23,7 @@ float get_shade(int type) {
 
 void main() {
     vec3 color = ourColor * get_shade(normal);
-    float ao = clamp(fragAo, 0.0, 1.0);
+    float ao = clamp(fragAO, 0.0, 1.0);
     color *= smoothstep(0.0, 1.0, ao);
 
     if (distance(gl_FragCoord.xy, vec2(windowWidth / 2, windowHeight / 2)) < 5) {

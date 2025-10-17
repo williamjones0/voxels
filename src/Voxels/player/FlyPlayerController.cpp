@@ -21,10 +21,10 @@ void FlyPlayerController::load() {
     Input::bindings.insert({{GLFW_KEY_LEFT_SHIFT, GLFW_RELEASE}, Action::StopMoveDown});
 
     Input::bindings.insert({{GLFW_KEY_LEFT_CONTROL, GLFW_PRESS}, Action::EnableFastMovement});
-    Input::bindings.insert({{GLFW_MOUSE_BUTTON_4, GLFW_PRESS}, Action::EnableFastMovement});
+    Input::bindings.insert({{GLFW_MOUSE_BUTTON_4, GLFW_PRESS, true}, Action::EnableFastMovement});
 
     Input::bindings.insert({{GLFW_KEY_LEFT_CONTROL, GLFW_RELEASE}, Action::DisableFastMovement});
-    Input::bindings.insert({{GLFW_MOUSE_BUTTON_4, GLFW_RELEASE}, Action::DisableFastMovement});
+    Input::bindings.insert({{GLFW_MOUSE_BUTTON_4, GLFW_RELEASE, true}, Action::DisableFastMovement});
 
     Input::registerCallback(Action::StartMoveForward, [this] { movements.insert(Forward); });
     Input::registerCallback(Action::StartMoveBackward, [this] { movements.insert(Backward); });
@@ -47,7 +47,7 @@ void FlyPlayerController::load() {
 void FlyPlayerController::update(float deltaTime) {
     float vel = movementSpeed * deltaTime;
 
-    glm::vec3 positionDelta = glm::vec3(0, 0, 0);
+    auto positionDelta = glm::vec3(0, 0, 0);
 
     for (auto movement : movements) {
         switch (movement) {
@@ -74,31 +74,6 @@ void FlyPlayerController::update(float deltaTime) {
 
     camera.transform.position += positionDelta * vel;
 
-    // if (Input::isKeyDown(GLFW_KEY_LEFT_CONTROL)) {
-    //     movementSpeed = 1000.0f;
-    // } else {
-    //     movementSpeed = 10.0f;
-    // }
-    //
-    // if (Input::isKeyDown(GLFW_KEY_W)) {
-    //     camera.transform.position += camera.front * vel;
-    // }
-    // if (Input::isKeyDown(GLFW_KEY_S)) {
-    //     camera.transform.position -= camera.front * vel;
-    // }
-    // if (Input::isKeyDown(GLFW_KEY_A)) {
-    //     camera.transform.position -= camera.right * vel;
-    // }
-    // if (Input::isKeyDown(GLFW_KEY_D)) {
-    //     camera.transform.position += camera.right * vel;
-    // }
-    // if (Input::isKeyDown(GLFW_KEY_SPACE)) {
-    //     camera.transform.position += camera.worldUp * vel;
-    // }
-    // if (Input::isKeyDown(GLFW_KEY_LEFT_SHIFT)) {
-    //     camera.transform.position -= camera.worldUp * vel;
-    // }
-
     // Mouse movement
     yRot += glm::radians(Input::mouseDeltaX * xSensitivity);
     xRot += glm::radians(Input::mouseDeltaY * ySensitivity);
@@ -109,13 +84,13 @@ void FlyPlayerController::update(float deltaTime) {
         xRot = glm::radians(89.9f);
     }
 
-    glm::quat xRotQuat = glm::angleAxis((float)xRot, glm::vec3(1, 0, 0));
-    glm::quat yRotQuat = glm::angleAxis((float)yRot, glm::vec3(0, 1, 0));
+    glm::quat xRotQuat = glm::angleAxis(static_cast<float>(xRot), glm::vec3(1, 0, 0));
+    glm::quat yRotQuat = glm::angleAxis(static_cast<float>(yRot), glm::vec3(0, 1, 0));
     camera.transform.rotation = xRotQuat * yRotQuat;
 
     // TODO: Update camera front
-    glm::vec3 camFront = glm::vec3(0, 0, -1);
-    camFront = glm::rotateX(camFront, -(float)xRot);
-    camFront = glm::rotateY(camFront, -(float)yRot);
+    auto camFront = glm::vec3(0, 0, -1);
+    camFront = glm::rotateX(camFront, -static_cast<float>(xRot));
+    camFront = glm::rotateY(camFront, -static_cast<float>(yRot));
     camera.front = camFront;
 }

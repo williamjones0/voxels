@@ -21,7 +21,7 @@ struct ChunkDrawCommand {
 
 out vec3 ourColor;
 flat out int normal;
-out float fragAo;
+out float fragAO;
 
 uniform mat4 view;
 uniform mat4 projection;
@@ -86,5 +86,5 @@ void main() {
     gl_Position = projection * view * model * vec4(x, y, z, 1.0);
     // ourColor = get_color(uint(aColor));
     // ourColor = vec3(gl_DrawID / 4.0f, gl_DrawID / 4.0f, gl_DrawID / 4.0f);
-    fragAo = clamp(float(ao) / 3.0, 0.5, 1.0);
+    fragAO = clamp(float(ao) / 3.0, 0.5, 1.0);
 }

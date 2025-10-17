@@ -33,7 +33,7 @@ void Q1PlayerController::load() {
 //    Input::registerCallback(Action::StopJump, [this] { jumpQueued = false; });
 }
 
-void Q1PlayerController::update(float dt) {
+void Q1PlayerController::update(const float dt) {
     deltaTime = dt;
 
     // TODO: change this input system to use a controls enum instead of the key itself
@@ -71,23 +71,23 @@ void Q1PlayerController::update(float dt) {
     }
 
     // The character only rotates on the Y-axis
-    character.transform.rotation = glm::angleAxis((float)-yRot, glm::vec3(0, 1, 0));
+    character.transform.rotation = glm::angleAxis(static_cast<float>(-yRot), glm::vec3(0, 1, 0));
 
-    glm::quat xRotQuat = glm::angleAxis((float)xRot, glm::vec3(1, 0, 0));
-    glm::quat yRotQuat = glm::angleAxis((float)yRot, glm::vec3(0, 1, 0));
+    const glm::quat xRotQuat = glm::angleAxis(static_cast<float>(xRot), glm::vec3(1, 0, 0));
+    const glm::quat yRotQuat = glm::angleAxis(static_cast<float>(yRot), glm::vec3(0, 1, 0));
     camera.transform.rotation = xRotQuat * yRotQuat;
 
     // TODO: Update camera front
-    glm::vec3 camFront = glm::vec3(0, 0, -1);
-    camFront = glm::rotateX(camFront, -(float)xRot);
-    camFront = glm::rotateY(camFront, -(float)yRot);
+    auto camFront = glm::vec3(0, 0, -1);
+    camFront = glm::rotateX(camFront, -static_cast<float>(xRot));
+    camFront = glm::rotateY(camFront, -static_cast<float>(yRot));
     camera.front = camFront;
 
     character.move(playerVelocity, deltaTime);
 
     camera.transform.position = character.transform.position + glm::vec3(0, 1.7f, 0);
 
-    speed = glm::length(glm::vec3(playerVelocity.x, 0, playerVelocity.z));
+    currSpeed = glm::length(glm::vec3(playerVelocity.x, 0, playerVelocity.z));
 }
 
 void Q1PlayerController::queueJump() {
@@ -117,7 +117,7 @@ void Q1PlayerController::queueJump() {
 //}
 
 void Q1PlayerController::airMove() {
-    glm::vec3 wishdir = glm::vec3(moveInput.x, 0, moveInput.z);
+    auto wishdir = glm::vec3(moveInput.x, 0, moveInput.z);
     wishdir = character.transform.transformDirection(wishdir);
 
     float wishspeed = glm::length(wishdir);
@@ -175,9 +175,9 @@ void Q1PlayerController::groundMove() {
 void Q1PlayerController::flyMove() {}
 
 void Q1PlayerController::applyFriction() {
-    glm::vec3 vel = playerVelocity;
+    const glm::vec3 vel = playerVelocity;
 
-    float speed = glm::length(vel);
+    const float speed = glm::length(vel);
     if (speed < 1 * unitScale) {
         playerVelocity.x = 0;
         playerVelocity.z = 0;
@@ -189,7 +189,7 @@ void Q1PlayerController::applyFriction() {
 
     float drop = 0;
     if (character.isGrounded) {
-        float control = speed < stopSpeed ? stopSpeed : speed;
+        const float control = speed < stopSpeed ? stopSpeed : speed;
         drop = control * friction * deltaTime;
     }
 
@@ -206,9 +206,9 @@ void Q1PlayerController::applyFriction() {
     playerVelocity.z *= newSpeed;
 }
 
-void Q1PlayerController::accelerate(glm::vec3 targetDir, float targetSpeed, float accel) {
-    float currentSpeed = glm::dot(playerVelocity, targetDir);
-    float addSpeed = targetSpeed - currentSpeed;
+void Q1PlayerController::accelerate(const glm::vec3 targetDir, const float targetSpeed, const float accel) {
+    const float currentSpeed = glm::dot(playerVelocity, targetDir);
+    const float addSpeed = targetSpeed - currentSpeed;
 
     if (addSpeed <= 0) {
         return;
@@ -223,13 +223,13 @@ void Q1PlayerController::accelerate(glm::vec3 targetDir, float targetSpeed, floa
     playerVelocity.z += accelSpeed * targetDir.z;
 }
 
-void Q1PlayerController::airAccelerate(glm::vec3 targetDir, float targetSpeed, float accel) {
+void Q1PlayerController::airAccelerate(const glm::vec3 targetDir, float targetSpeed, const float accel) {
     if (targetSpeed > 30) {
         targetSpeed = 30;
     }
 
-    float currentSpeed = glm::dot(playerVelocity, targetDir);
-    float addSpeed = targetSpeed - currentSpeed;
+    const float currentSpeed = glm::dot(playerVelocity, targetDir);
+    const float addSpeed = targetSpeed - currentSpeed;
 
     if (addSpeed <= 0) {
         return;

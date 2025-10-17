@@ -3,14 +3,10 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
-#include <glm/glm.hpp>
-
-#include <unordered_set>
-
-#include "core/ThreadPool.hpp"
-
 class Application {
 public:
+    virtual ~Application() = default;
+
     void run();
 
 protected:
@@ -22,7 +18,7 @@ protected:
     virtual void processInput();
     virtual void cleanup();
 
-    GLFWwindow *windowHandle = nullptr;
+    GLFWwindow* windowHandle = nullptr;
 
     int windowWidth = 2560 * 0.8;
     int windowHeight = 1600 * 0.8;

@@ -6,13 +6,12 @@
 #include "core/FreeListAllocator.hpp"
 #include "opengl/Shader.h"
 #include "world/Chunk.hpp"
-#include "io/Input.hpp"
 #include "world/WorldManager.hpp"
 #include "player/Q1PlayerController.hpp"
 #include "player/Q3PlayerController.hpp"
 #include "player/FlyPlayerController.hpp"
 
-#include <list>
+#include <optional>
 
 struct ChunkDrawCommand {
     unsigned int count;
@@ -44,36 +43,36 @@ private:
     void setupInput();
 
     std::optional<RaycastResult> raycast();
-    void tryStoreVoxel(int cx, int cz, int x, int y, int z, bool place, std::vector<Chunk *> &chunksToMesh);
+    void tryStoreVoxel(int cx, int cz, int x, int y, int z, bool place, std::vector<Chunk*>& chunksToMesh);
     void updateVoxel(RaycastResult result, bool place);
 
-    size_t enlargeVerticesBuffer(size_t newCapacity);
+    size_t enlargeVerticesBuffer(size_t currentCapacity);
 
     Camera camera = Camera(glm::vec3(8.0f, 400.0f, 8.0f));
     CharacterController characterController = CharacterController(worldManager);
 //    Q1PlayerController playerController = Q1PlayerController(camera, characterController);
-    Q3PlayerController playerController = Q3PlayerController(camera, characterController);
-    // FlyPlayerController playerController = FlyPlayerController(camera);
+    // Q3PlayerController playerController = Q3PlayerController(camera, characterController);
+    FlyPlayerController playerController = FlyPlayerController(camera);
 
     bool wireframe = false;
 
-    Shader shader;
-    Shader drawCommandProgram;
+    Shader shader{};
+    Shader drawCommandProgram{};
 
     WorldManager worldManager = WorldManager(
-            camera,
-            [this](size_t size) {
-                return enlargeVerticesBuffer(size);
-            },
-            GenerationType::Perlin2D,
-            std::filesystem::path(PROJECT_SOURCE_DIR) / "data/levels/level0.json"
+        camera,
+        [this](const size_t size) {
+            return enlargeVerticesBuffer(size);
+        },
+        GenerationType::Perlin2D,
+        std::filesystem::path(PROJECT_SOURCE_DIR) / "data/levels/level0.json"
     );
 
-    GLuint dummyVAO;
-    GLuint chunkDrawCmdBuffer;
-    GLuint chunkDataBuffer;
-    GLuint commandCountBuffer;
-    GLuint verticesBuffer;
+    GLuint dummyVAO = 0;
+    GLuint chunkDrawCmdBuffer = 0;
+    GLuint chunkDataBuffer = 0;
+    GLuint commandCountBuffer = 0;
+    GLuint verticesBuffer = 0;
 
-    bool background;
+    bool background = false;
 };

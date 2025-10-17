@@ -33,27 +33,9 @@ void Q3PlayerController::load() {
     Input::registerCallback(Action::StopJump, [this] { jumpQueued = false; });
 }
 
-void Q3PlayerController::update(float dt) {
+void Q3PlayerController::update(const float dt) {
     deltaTime = dt;
 
-    // TODO: fix this input system
-    int xMovement = 0;
-//    if (Input::isKeyDown(GLFW_KEY_A)) {
-//        xMovement--;
-//    }
-//    if (Input::isKeyDown(GLFW_KEY_D)) {
-//        xMovement++;
-//    }
-
-    int zMovement = 0;
-//    if (Input::isKeyDown(GLFW_KEY_W)) {
-//        zMovement--;
-//    }
-//    if (Input::isKeyDown(GLFW_KEY_S)) {
-//        zMovement++;
-//    }
-
-    // moveInput = glm::vec3(xMovement, 0, zMovement);
     queueJump();
 
     if (character.isGrounded) {
@@ -73,16 +55,16 @@ void Q3PlayerController::update(float dt) {
     }
 
     // The character only rotates on the Y-axis
-    character.transform.rotation = glm::angleAxis((float)-yRot, glm::vec3(0, 1, 0));
+    character.transform.rotation = glm::angleAxis(static_cast<float>(-yRot), glm::vec3(0, 1, 0));
 
-    glm::quat xRotQuat = glm::angleAxis((float)xRot, glm::vec3(1, 0, 0));
-    glm::quat yRotQuat = glm::angleAxis((float)yRot, glm::vec3(0, 1, 0));
+    const glm::quat xRotQuat = glm::angleAxis(static_cast<float>(xRot), glm::vec3(1, 0, 0));
+    const glm::quat yRotQuat = glm::angleAxis(static_cast<float>(yRot), glm::vec3(0, 1, 0));
     camera.transform.rotation = xRotQuat * yRotQuat;
 
     // TODO: Update camera front
-    glm::vec3 camFront = glm::vec3(0, 0, -1);
-    camFront = glm::rotateX(camFront, -(float)xRot);
-    camFront = glm::rotateY(camFront, -(float)yRot);
+    auto camFront = glm::vec3(0, 0, -1);
+    camFront = glm::rotateX(camFront, -static_cast<float>(xRot));
+    camFront = glm::rotateY(camFront, -static_cast<float>(yRot));
     camera.front = camFront;
 
     character.move(playerVelocity, deltaTime);
@@ -91,7 +73,7 @@ void Q3PlayerController::update(float dt) {
     // but it only appears to be 0.7f
     camera.transform.position = character.transform.position + glm::vec3(0, 1.0f, 0);
 
-    speed = glm::length(glm::vec3(playerVelocity.x, 0, playerVelocity.z));
+    currSpeed = glm::length(glm::vec3(playerVelocity.x, 0, playerVelocity.z));
 }
 
 void Q3PlayerController::queueJump() {
@@ -104,7 +86,7 @@ void Q3PlayerController::queueJump() {
 void Q3PlayerController::airMove() {
     float accel;
 
-    glm::vec3 wishdir = glm::vec3(moveInput.x, 0, moveInput.z);
+    auto wishdir = glm::vec3(moveInput.x, 0, moveInput.z);
     wishdir = character.transform.transformDirection(wishdir);
 
     float wishspeed = glm::length(wishdir);
@@ -116,7 +98,7 @@ void Q3PlayerController::airMove() {
     moveDirectionNorm = wishdir;
 
     // CPM air control
-    float wishspeed2 = wishspeed;
+    const float wishspeed2 = wishspeed;
     if (glm::dot(playerVelocity, wishdir) < 0) {
         accel = airSettings.deceleration;
     } else {
@@ -141,22 +123,22 @@ void Q3PlayerController::airMove() {
     playerVelocity.y -= gravity * deltaTime;
 }
 
-void Q3PlayerController::airControl(glm::vec3 targetDir, float targetSpeed) {
+void Q3PlayerController::airControl(const glm::vec3 targetDir, const float targetSpeed) {
     // Only control air movement when moving forward or backward
     if (abs(moveInput.z) < 0.001 || abs(targetSpeed) < 0.001) {
         return;
     }
 
-    float zSpeed = playerVelocity.y;
+    const float zSpeed = playerVelocity.y;
     playerVelocity.y = 0;
 
-    float speed = glm::length(playerVelocity);
+    const float speed = glm::length(playerVelocity);
     if (speed < 0.001) {
         return;
     }
     playerVelocity = glm::normalize(playerVelocity);
 
-    float dot = glm::dot(playerVelocity, targetDir);
+    const float dot = glm::dot(playerVelocity, targetDir);
     float k = 32;
     k *= m_airControl * dot * dot * deltaTime;
 
@@ -183,7 +165,7 @@ void Q3PlayerController::groundMove() {
         applyFriction(0);
     }
 
-    glm::vec3 wishdir = glm::vec3(moveInput.x, 0, moveInput.z);
+    auto wishdir = glm::vec3(moveInput.x, 0, moveInput.z);
     wishdir = character.transform.transformDirection(wishdir);
     if (glm::length(wishdir) > 0) {
         wishdir = glm::normalize(wishdir);
@@ -204,15 +186,15 @@ void Q3PlayerController::groundMove() {
     }
 }
 
-void Q3PlayerController::applyFriction(float t) {
+void Q3PlayerController::applyFriction(const float t) {
     glm::vec3 vec = playerVelocity;
     vec.y = 0;
-    float speed = glm::length(vec);
+    const float speed = glm::length(vec);
     float drop = 0;
 
     // Only apply friction when grounded
     if (character.isGrounded) {
-        float control = (speed < groundSettings.deceleration) ? groundSettings.deceleration : speed;
+        const float control = speed < groundSettings.deceleration ? groundSettings.deceleration : speed;
         drop = control * friction * deltaTime * t;
     }
 
@@ -230,9 +212,9 @@ void Q3PlayerController::applyFriction(float t) {
     playerVelocity.z *= newSpeed;
 }
 
-void Q3PlayerController::accelerate(glm::vec3 targetDir, float targetSpeed, float accel) {
-    float currentSpeed = glm::dot(playerVelocity, targetDir);
-    float addSpeed = targetSpeed - currentSpeed;
+void Q3PlayerController::accelerate(const glm::vec3 targetDir, const float targetSpeed, const float accel) {
+    const float currentSpeed = glm::dot(playerVelocity, targetDir);
+    const float addSpeed = targetSpeed - currentSpeed;
 
     if (addSpeed <= 0) {
         return;

@@ -15,8 +15,8 @@ public:
     int maxZ = 0;
     int maxY = 0;
 
-    std::array<glm::vec3, 16> colors {};
+    std::array<glm::vec3, 16> colors{};
 
-    void read(const std::filesystem::path &filepath);
-    void save(const std::filesystem::path &filepath);
+    void read(const std::filesystem::path& filepath);
+    void save(const std::filesystem::path& filepath);
 };

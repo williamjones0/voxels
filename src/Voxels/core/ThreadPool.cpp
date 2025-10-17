@@ -11,7 +11,7 @@ void ThreadPool::threadLoop() {
     while (true) {
         std::function<void()> task;
         {
-            std::unique_lock<std::mutex> lock(mutex);
+            std::unique_lock lock(mutex);
             cv.wait(lock, [this] { return !tasks.empty() || shouldTerminate; });
             if (shouldTerminate) {
                 break;
@@ -24,7 +24,7 @@ void ThreadPool::threadLoop() {
         task();
 
         {
-            std::unique_lock<std::mutex> locK(mutex);
+            std::unique_lock lock(mutex);
             --activeTasks;
             if (tasks.empty() && activeTasks == 0) {
                 doneCv.notify_one();
@@ -34,28 +34,28 @@ void ThreadPool::threadLoop() {
 }
 
 void ThreadPool::queueTask(const std::function<void()>& task) {
-    std::unique_lock<std::mutex> lock(mutex);
+    std::unique_lock lock(mutex);
     tasks.push(task);
     cv.notify_one();
 }
 
 bool ThreadPool::busy() {
-    std::unique_lock<std::mutex> lock(mutex);
+    std::unique_lock lock(mutex);
     return !(tasks.empty() && activeTasks == 0);
 }
 
 void ThreadPool::waitUntilDone() {
-    std::unique_lock<std::mutex> lock(mutex);
+    std::unique_lock lock(mutex);
     doneCv.wait(lock, [this] { return tasks.empty() && activeTasks == 0; });
 }
 
 void ThreadPool::stop() {
     {
-        std::unique_lock<std::mutex> lock(mutex);
+        std::unique_lock lock(mutex);
         shouldTerminate = true;
     }
     cv.notify_all();
-    for (std::thread &thread : threads) {
+    for (std::thread& thread : threads) {
         thread.join();
     }
     threads.clear();

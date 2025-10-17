@@ -43,9 +43,9 @@ struct BoundKey {
     bool isMouse = false;
 
     bool operator==(const BoundKey& other) const {
-        return (keycode == other.keycode &&
-                action == other.action &&
-                isMouse == other.isMouse);
+        return keycode == other.keycode &&
+               action == other.action &&
+               isMouse == other.isMouse;
     }
 };
 

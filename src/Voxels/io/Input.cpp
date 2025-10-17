@@ -13,13 +13,13 @@ double Input::scrollY = 0;
 double Input::lastMouseX = 0;
 double Input::lastMouseY = 0;
 
-std::unordered_map<BoundKey, Action, BoundKeyHash> Input::bindings = {};
-std::unordered_map<Action, ActionCallback> Input::actionCallbacks = {};
-std::vector<Action> Input::actionQueue = {};
+std::unordered_map<BoundKey, Action, BoundKeyHash> Input::bindings{};
+std::unordered_map<Action, ActionCallback> Input::actionCallbacks{};
+std::vector<Action> Input::actionQueue{};
 
-std::unordered_set<int> Input::keys = {};
+std::unordered_set<int> Input::keys{};
 
-void Input::addAction(BoundKey key) {
+void Input::addAction(const BoundKey key) {
     for (const auto& [boundKey, boundAction] : bindings) {
         if (boundKey == key) {
             actionQueue.push_back(boundAction);
@@ -27,7 +27,7 @@ void Input::addAction(BoundKey key) {
     }
 }
 
-void Input::key_callback(int key, int scancode, int action, int mods) {
+void Input::key_callback(const int key, const int scancode, const int action, const int mods) {
     if (action == GLFW_PRESS) {
         keys.insert(key);
     } else if (action == GLFW_RELEASE) {
@@ -37,16 +37,16 @@ void Input::key_callback(int key, int scancode, int action, int mods) {
     addAction({ key, action, false });
 }
 
-void Input::mouse_button_callback(int button, int action, int mods) {
+void Input::mouse_button_callback(const int button, const int action, const int mods) {
     addAction({ button, action, true });
 }
 
-void Input::cursor_position_callback(double xposIn, double yposIn) {
+void Input::cursor_position_callback(const double xposIn, const double yposIn) {
     mouseX = xposIn;
     mouseY = yposIn;
 }
 
-void Input::scroll_callback(double xoffset, double yoffset) {
+void Input::scroll_callback(const double xoffset, const double yoffset) {
     scrollX += xoffset;
     scrollY += yoffset;
 }
@@ -69,10 +69,10 @@ void Input::update() {
     lastMouseY = mouseY;
 }
 
-void Input::registerCallback(Action action, const ActionCallback& callback) {
+void Input::registerCallback(const Action action, const ActionCallback& callback) {
     actionCallbacks[action] = callback;
 }
 
-bool Input::isKeyDown(int key) {
+bool Input::isKeyDown(const int key) {
     return keys.contains(key);
 }

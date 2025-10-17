@@ -6,7 +6,7 @@
 
 class FlyPlayerController {
 public:
-    explicit FlyPlayerController(Camera &camera)
+    explicit FlyPlayerController(Camera& camera)
         : camera(camera) {
         load();
     }
@@ -14,7 +14,7 @@ public:
     void load();
     void update(float deltaTime);
 
-    float speed = 0;
+    float currentSpeed = 0;
     glm::vec3 playerVelocity = glm::vec3(0, 0, 0);
 
 private:
@@ -29,10 +29,10 @@ private:
 
     std::unordered_set<Movement> movements;
 
-    Camera &camera;
+    Camera& camera;
 
-    glm::vec3 velocity {};
-    glm::vec3 direction {};
+    glm::vec3 velocity{};
+    glm::vec3 direction{};
 
     double xRot = 0.0f;
     double yRot = 0.0f;

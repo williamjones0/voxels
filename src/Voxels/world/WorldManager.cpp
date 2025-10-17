@@ -1,31 +1,28 @@
 #include "WorldManager.hpp"
 
 #include <fstream>
-#include <sstream>
 
 #include "Mesher.hpp"
 #include "../util/Util.hpp"
 #include "tracy/Tracy.hpp"
 
-WorldManager::WorldManager(Camera &camera, std::function<size_t(size_t)> outOfCapacityCallback, GenerationType generationType, const std::filesystem::path &levelFile)
-    : camera(camera),
-      outOfCapacityCallback(std::move(outOfCapacityCallback)),
-      generationType(generationType),
+WorldManager::WorldManager(
+    Camera& camera,
+    std::function<size_t(size_t)> outOfCapacityCallback,
+    const GenerationType generationType,
+    const std::filesystem::path& levelFile)
+    : generationType(generationType),
       levelFile(levelFile),
       allocator(FreeListAllocator(
-              INITIAL_VERTEX_BUFFER_SIZE,
-              4096,
-              outOfCapacityCallback
-      ))
+          InitialVertexBufferSize,
+          4096,
+          outOfCapacityCallback
+      )),
+      camera(camera),
+      outOfCapacityCallback(std::move(outOfCapacityCallback))
 {
-    chunks = std::vector<Chunk *>();
-    frontierChunks = std::vector<Chunk *>();
-    newlyCreatedChunks = std::vector<Chunk *>();
-    chunkByCoords = std::unordered_map<size_t, Chunk *>();
-    chunkData = std::vector<ChunkData>();
-
-    chunks.reserve(MAX_CHUNKS);
-    chunkData.resize(MAX_CHUNKS);
+    chunks.reserve(MaxChunks);
+    chunkData.resize(MaxChunks);
 
     threadPool.start();
 
@@ -44,14 +41,14 @@ bool WorldManager::updateFrontierChunks() {
 bool WorldManager::createNewFrontierChunks() {
     ZoneScoped;
 
-    std::sort(frontierChunks.begin(), frontierChunks.end(), [this](Chunk *a, Chunk *b) {
+    std::ranges::sort(frontierChunks, [this](const Chunk* a, const Chunk* b) {
         return squaredDistanceToChunk(a->cx, a->cz) < squaredDistanceToChunk(b->cx, b->cz);
     });
 
     for (size_t i = 0, s = frontierChunks.size(); i < s; i++) {
-        Chunk *chunk = frontierChunks[i];
+        const Chunk* chunk = frontierChunks[i];
 
-        if (chunkTasksCount >= MAX_CHUNK_TASKS) {
+        if (chunkTasksCount >= MaxChunkTasks) {
             break;
         }
 
@@ -72,7 +69,7 @@ void WorldManager::destroyFrontierChunks() {
     {
         ZoneScopedN("Iterate over frontier chunks");
         for (size_t i = 0, s = frontierChunks.size(); i < s; i++) {
-            Chunk *chunk = frontierChunks[i];
+            Chunk* chunk = frontierChunks[i];
             // If the chunk's still being initialised, don't destroy it yet since this will invalidate references
             // It will be destroyed later on anyway
             if (chunkInRenderDistance(chunk->cx, chunk->cz) || chunk->beingMeshed) {
@@ -80,7 +77,7 @@ void WorldManager::destroyFrontierChunks() {
             }
 
             // Promote neighbours to frontier if necessary and destroy chunk
-            int numPromoted = onFrontierChunkRemoved(chunk);
+            const int numPromoted = onFrontierChunkRemoved(chunk);
             frontierChunks.erase(frontierChunks.begin() + i);
             chunkByCoords.erase(key(chunk->cx, chunk->cz));
 
@@ -88,7 +85,7 @@ void WorldManager::destroyFrontierChunks() {
             if (chunk->onGPU) {
                 ZoneScopedN("Deallocate chunk vertices");
                 {
-                    std::unique_lock<std::mutex> lock(allocator.mutex);
+                    std::unique_lock lock(allocator.mutex);
                     allocator.deallocate(chunk->firstIndex, chunk->numVertices);
                 }
             }
@@ -101,33 +98,33 @@ void WorldManager::destroyFrontierChunks() {
     }
 }
 
-bool WorldManager::ensureChunkIfVisible(int cx, int cz) {
-    int maxChunkX = (int) std::ceil((double) level.maxX / CHUNK_SIZE) - 1;
-    int maxChunkZ = (int) std::ceil((double) level.maxZ / CHUNK_SIZE) - 1;
+bool WorldManager::ensureChunkIfVisible(const int cx, const int cz) {
+    const int maxChunkX = static_cast<int>(std::ceil(static_cast<double>(level.maxX) / ChunkSize)) - 1;
+    const int maxChunkZ = static_cast<int>(std::ceil(static_cast<double>(level.maxZ) / ChunkSize)) - 1;
 
     if (!chunkInRenderDistance(cx, cz) ||
-        (generationType == GenerationType::LevelLoad) && (cx < 0 || cx > maxChunkX || cz < 0 || cz > maxChunkZ)) {
+        generationType == GenerationType::LevelLoad && (cx < 0 || cx > maxChunkX || cz < 0 || cz > maxChunkZ)) {
         return false;
     }
 
     return ensureChunk(cx, cz) != nullptr;
 }
 
-Chunk *WorldManager::ensureChunk(int cx, int cz) {
-    if (chunkByCoords.find(key(cx, cz)) != chunkByCoords.end()) {
+Chunk* WorldManager::ensureChunk(const int cx, const int cz) {
+    if (chunkByCoords.contains(key(cx, cz))) {
         return nullptr;
     }
 
     return createChunk(cx, cz);
 }
 
-Chunk *WorldManager::createChunk(int cx, int cz) {
+Chunk* WorldManager::createChunk(const int cx, const int cz) {
     ZoneScoped;
 
     // Find the first free slot in the chunks vector
     size_t index = 0;
     while (index < chunks.size() && !chunks[index]->destroyed) {
-        index++;
+        ++index;
     }
 
     auto* chunk = new Chunk(cx, cz);
@@ -144,7 +141,7 @@ Chunk *WorldManager::createChunk(int cx, int cz) {
     chunkData[index] = {
             .cx = cx,
             .cz = cz,
-            .minY = CHUNK_HEIGHT,
+            .minY = ChunkHeight,
             .maxY = 0,
             .numVertices = 0,
             .firstIndex = 0,
@@ -152,9 +149,9 @@ Chunk *WorldManager::createChunk(int cx, int cz) {
             ._pad1 = 0,
     };
 
-    chunkTasksCount++;
+    ++chunkTasksCount;
 
-    threadPool.queueTask([chunk, this]() {
+    threadPool.queueTask([chunk, this] {
         ZoneScoped;
 
         chunk->init();
@@ -163,7 +160,7 @@ Chunk *WorldManager::createChunk(int cx, int cz) {
         chunk->beingMeshed = true;
         // Ensure only one thread meshes this chunk at a time
         {
-            std::unique_lock<std::mutex> chunkLock(chunk->mutex);
+            std::unique_lock chunkLock(chunk->mutex);
             Mesher::meshChunk(chunk, generationType);
         }
         chunk->beingMeshed = false;
@@ -173,7 +170,7 @@ Chunk *WorldManager::createChunk(int cx, int cz) {
         // If newlyCreatedChunks is currently being iterated through, we need to lock the mutex
         // Additionally, only one thread should be in this critical section at the same time
         {
-            std::unique_lock<std::mutex> lock(cvMutexNewlyCreatedChunks);
+            std::unique_lock lock(newlyCreatedChunksMutex);
             chunk->debug = 2;
             newlyCreatedChunks.push_back(chunk);
         }
@@ -182,10 +179,10 @@ Chunk *WorldManager::createChunk(int cx, int cz) {
     return chunk;
 }
 
-void WorldManager::addFrontier(Chunk *chunk) {
+void WorldManager::addFrontier(Chunk* chunk) {
     frontierChunks.push_back(chunk);
-    int cx = chunk->cx;
-    int cz = chunk->cz;
+    const int cx = chunk->cx;
+    const int cz = chunk->cz;
 
     updateFrontierNeighbour(chunk, cx - 1, cz);
     updateFrontierNeighbour(chunk, cx + 1, cz);
@@ -193,37 +190,37 @@ void WorldManager::addFrontier(Chunk *chunk) {
     updateFrontierNeighbour(chunk, cx, cz + 1);
 }
 
-void WorldManager::updateFrontierNeighbour(Chunk *frontier, int cx, int cz) {
-    if (chunkByCoords.find(key(cx, cz)) == chunkByCoords.end()) {
+void WorldManager::updateFrontierNeighbour(Chunk* frontier, const int cx, const int cz) {
+    if (!chunkByCoords.contains(key(cx, cz))) {
         return;
     }
 
-    Chunk *neighbour = chunkByCoords[key(cx, cz)];
-    neighbour->neighbours++;
-    frontier->neighbours++;
+    Chunk* neighbour = chunkByCoords[key(cx, cz)];
+    ++neighbour->neighbours;
+    ++frontier->neighbours;
     if (neighbour->neighbours == 4) {
-        frontierChunks.erase(std::remove(frontierChunks.begin(), frontierChunks.end(), neighbour), frontierChunks.end());
+        std::erase(frontierChunks, neighbour);
     }
 }
 
-int WorldManager::onFrontierChunkRemoved(Chunk *frontierChunk) {
-    int cx = frontierChunk->cx;
-    int cz = frontierChunk->cz;
-    double d = squaredDistanceToChunk(cx, cz);
+int WorldManager::onFrontierChunkRemoved(const Chunk* frontierChunk) {
+    const int cx = frontierChunk->cx;
+    const int cz = frontierChunk->cz;
+    const double d = squaredDistanceToChunk(cx, cz);
     return onFrontierChunkRemoved(cx - 1, cz, d) +
            onFrontierChunkRemoved(cx + 1, cz, d) +
            onFrontierChunkRemoved(cx, cz - 1, d) +
            onFrontierChunkRemoved(cx, cz + 1, d);
 }
 
-int WorldManager::onFrontierChunkRemoved(int cx, int cz, double distance) {
-    if (chunkByCoords.find(key(cx, cz)) == chunkByCoords.end()) {
+int WorldManager::onFrontierChunkRemoved(const int cx, const int cz, const double distance) {
+    if (!chunkByCoords.contains(key(cx, cz))) {
         return 0;
     }
 
-    Chunk *chunk = chunkByCoords[key(cx, cz)];
+    Chunk* chunk = chunkByCoords[key(cx, cz)];
     chunk->neighbours--;
-    if (!(std::find(frontierChunks.begin(), frontierChunks.end(), chunk) != frontierChunks.end()) &&
+    if (std::ranges::find(frontierChunks, chunk) == frontierChunks.end() &&
         (chunkInRenderDistance(cx, cz) ||
          squaredDistanceToChunk(cx, cz) < distance)) {
         frontierChunks.push_back(chunk);
@@ -232,27 +229,27 @@ int WorldManager::onFrontierChunkRemoved(int cx, int cz, double distance) {
     return 0;
 }
 
-bool WorldManager::chunkInRenderDistance(int cx, int cz) const {
-    return squaredDistanceToChunk(cx, cz) < MAX_RENDER_DISTANCE_METRES * MAX_RENDER_DISTANCE_METRES;
+bool WorldManager::chunkInRenderDistance(const int cx, const int cz) const {
+    return squaredDistanceToChunk(cx, cz) < MaxRenderDistanceMetres * MaxRenderDistanceMetres;
 }
 
-double WorldManager::squaredDistanceToChunk(int cx, int cz) const {
-    double dx = camera.transform.position.x - (cx + 0.5) * CHUNK_SIZE;
-    double dz = camera.transform.position.z - (cz + 0.5) * CHUNK_SIZE;
+double WorldManager::squaredDistanceToChunk(const int cx, const int cz) const {
+    const double dx = camera.transform.position.x - (cx + 0.5) * ChunkSize;
+    const double dz = camera.transform.position.z - (cz + 0.5) * ChunkSize;
     return dx * dx + dz * dz;
 }
 
-size_t WorldManager::key(int i, int j) {
-    return (size_t) i << 32 | (unsigned int) j;
+size_t WorldManager::key(const int i, const int j) {
+    return static_cast<size_t>(i) << 32 | static_cast<unsigned int>(j);
 }
 
-void WorldManager::updateVerticesBuffer(GLuint &verticesBuffer, GLuint &chunkDataBuffer) {
+void WorldManager::updateVerticesBuffer(const GLuint& verticesBuffer, const GLuint& chunkDataBuffer) {
     ZoneScoped;
 
     {
-        std::unique_lock<std::mutex> lock(cvMutexNewlyCreatedChunks);
+        std::unique_lock lock(newlyCreatedChunksMutex);
 
-        for (Chunk *chunk: newlyCreatedChunks) {
+        for (Chunk* chunk: newlyCreatedChunks) {
             // If the chunk was already destroyed in destroyFrontierChunks, we don't want to allocate, so just skip it
             if (chunk->destroyed) {
                 continue;
@@ -265,7 +262,7 @@ void WorldManager::updateVerticesBuffer(GLuint &verticesBuffer, GLuint &chunkDat
 
             Region region{};
             {
-                std::unique_lock<std::mutex> lock(allocator.mutex);
+                std::unique_lock allocatorLock(allocator.mutex);
                 region = allocator.allocate(chunk->numVertices);
             }
 
@@ -274,12 +271,12 @@ void WorldManager::updateVerticesBuffer(GLuint &verticesBuffer, GLuint &chunkDat
             glNamedBufferSubData(verticesBuffer,
                                  region.offset * sizeof(uint32_t),
                                  chunk->numVertices * sizeof(uint32_t),
-                                 (const void *) chunk->vertices.data());
+                                 static_cast<const void*>(chunk->vertices.data()));
 
             chunk->vertices.clear();
 
             // Update chunk data
-            ChunkData cd = {
+            const ChunkData cd = {
                     .cx = chunk->cx,
                     .cz = chunk->cz,
                     .minY = chunk->minY,
@@ -301,31 +298,30 @@ void WorldManager::updateVerticesBuffer(GLuint &verticesBuffer, GLuint &chunkDat
 
         // Update chunk data buffer
         glNamedBufferData(chunkDataBuffer, sizeof(ChunkData) * chunkData.size(),
-                          (const void *) chunkData.data(), GL_DYNAMIC_DRAW);
+                          static_cast<const void*>(chunkData.data()), GL_DYNAMIC_DRAW);
 
         // Clear newly created chunks
         newlyCreatedChunks.clear();
     }
 }
 
-std::optional<Chunk *> WorldManager::getChunk(int cx, int cz) {
-    auto it = chunkByCoords.find(key(cx, cz));
-    if (it != chunkByCoords.end()) {
+Chunk* WorldManager::getChunk(const int cx, const int cz) {
+    if (const auto it = chunkByCoords.find(key(cx, cz)); it != chunkByCoords.end()) {
         return it->second;
     }
-    return std::nullopt;
+    return nullptr;
 }
 
-void WorldManager::queueMeshChunk(Chunk *chunk) {
-    threadPool.queueTask([chunk, this]() {
+void WorldManager::queueMeshChunk(Chunk* chunk) {
+    threadPool.queueTask([chunk, this] {
         {
-            std::unique_lock<std::mutex> chunkLock(chunk->mutex);
+            std::unique_lock chunkLock(chunk->mutex);
             std::cout << "Re-meshing chunk (" << chunk->cx << ", " << chunk->cz << ")" << std::endl;
 
             // First, free up the appropriate region in the vertex buffer
             // Don't allocate while other threads are allocating
             {
-                std::unique_lock<std::mutex> allocatorLock(allocator.mutex);
+                std::unique_lock allocatorLock(allocator.mutex);
                 allocator.deallocate(chunk->firstIndex, chunk->numVertices);
             }
 
@@ -338,7 +334,7 @@ void WorldManager::queueMeshChunk(Chunk *chunk) {
 
             // If newlyCreatedChunks is currently being iterated through, we need to lock the mutex
             {
-                std::unique_lock<std::mutex> lock(cvMutexNewlyCreatedChunks);
+                std::unique_lock lock(newlyCreatedChunksMutex);
                 newlyCreatedChunks.push_back(chunk);
             }
         }
@@ -361,19 +357,20 @@ void WorldManager::save() {
     std::cout << "Level saved to " << levelFile << std::endl;
 }
 
-int WorldManager::load(int x, int y, int z) {
-    int cx = x >> CHUNK_SIZE_SHIFT;
-    int cz = z >> CHUNK_SIZE_SHIFT;
+int WorldManager::load(const int x, const int y, const int z) {
+    const int cx = x >> ChunkSizeShift;
+    const int cz = z >> ChunkSizeShift;
 
-    Chunk *chunk = chunkByCoords[key(cx, cz)];
-    if (chunk == nullptr || !chunk->onGPU) {
+    const auto it = chunkByCoords.find(key(cx, cz));
+    if (it == chunkByCoords.end() || !it->second || !it->second->onGPU) {
         return 0;
     }
+    const Chunk* chunk = it->second;
 
-    int lx = x - (cx << CHUNK_SIZE_SHIFT);
-    int lz = z - (cz << CHUNK_SIZE_SHIFT);
+    const int lx = x - (cx << ChunkSizeShift);
+    const int lz = z - (cz << ChunkSizeShift);
 
-    return chunk->voxels[getVoxelIndex(lx + 1, y + 1, lz + 1, CHUNK_SIZE + 2)];
+    return chunk->voxels[getVoxelIndex(lx + 1, y + 1, lz + 1, ChunkSize + 2)];
 }
 
 void WorldManager::cleanup() {

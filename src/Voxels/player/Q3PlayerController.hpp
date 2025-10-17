@@ -5,16 +5,16 @@
 
 class Q3PlayerController {
 public:
-    Q3PlayerController(Camera &camera, CharacterController &character)
+    Q3PlayerController(Camera& camera, CharacterController& character)
         : camera(camera), character(character) {
         load();
     }
 
     void load();
-    void update(float deltaTime);
+    void update(float dt);
 
-    float speed = 0;
-    glm::vec3 playerVelocity = glm::vec3(0, 0, 0);
+    float currSpeed = 0;
+    glm::vec3 playerVelocity{};
 
 private:
     class MovementSettings {
@@ -23,11 +23,11 @@ private:
         float acceleration;
         float deceleration;
 
-        MovementSettings(float maxSpeed, float acceleration, float deceleration)
+        MovementSettings(const float maxSpeed, const float acceleration, const float deceleration)
             : maxSpeed(maxSpeed), acceleration(acceleration), deceleration(deceleration) {}
     };
 
-    Camera &camera;
+    Camera& camera;
 
     float deltaTime = 0;
 
@@ -40,14 +40,14 @@ private:
     MovementSettings airSettings = MovementSettings(7, 2, 2);
     MovementSettings strafeSettings = MovementSettings(1, 50, 50);
 
-    CharacterController &character;
-    glm::vec3 moveDirectionNorm = glm::vec3(0, 0, 0);
+    CharacterController& character;
+    glm::vec3 moveDirectionNorm{};
 
     bool jumpQueued = false;
 
     float playerFriction = 0;
 
-    glm::vec3 moveInput = glm::vec3(0, 0, 0);
+    glm::vec3 moveInput{};
 
     double xRot = 0.0f;
     double yRot = 0.0f;
