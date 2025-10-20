@@ -81,13 +81,11 @@ void WorldManager::destroyFrontierChunks() {
             frontierChunks.erase(frontierChunks.begin() + i);
             chunkByCoords.erase(key(chunk->cx, chunk->cz));
 
-            // This should only happen if the chunk has already passed through newlyCreatedChunks
-            if (chunk->onGPU) {
+            // This should only happen if the chunk has already had its region allocated
+            if (chunk->bufferRegionAllocated) {
                 ZoneScopedN("Deallocate chunk vertices");
-                {
-                    std::unique_lock lock(allocator.mutex);
-                    allocator.deallocate(chunk->firstIndex, chunk->numVertices);
-                }
+                allocator.deallocate(chunk->firstIndex, chunk->numVertices);
+                chunk->bufferRegionAllocated = false;
             }
 
             chunk->destroyed = true;
@@ -154,25 +152,28 @@ Chunk* WorldManager::createChunk(const int cx, const int cz) {
     threadPool.queueTask([chunk, this] {
         ZoneScoped;
 
-        chunk->init();
-        chunk->generate(generationType, level);
+        Mesher::MeshResult meshResult;
 
-        chunk->beingMeshed = true;
-        // Ensure only one thread meshes this chunk at a time
+        // No other thread should access the chunk while it's generating
+        // Without this lock, block breaking/placing could break the meshing
         {
-            std::unique_lock chunkLock(chunk->mutex);
-            Mesher::meshChunk(chunk, generationType);
+            std::unique_lock lock(chunk->mutex);
+            chunk->init();
+            chunk->generate(generationType, level);
+
+            chunk->beingMeshed = true;
+            meshResult = Mesher::meshChunk(chunk, generationType);
+            chunk->beingMeshed = false;
+
+            chunk->debug = 1;
         }
-        chunk->beingMeshed = false;
 
-        chunk->debug = 1;
-
-        // If newlyCreatedChunks is currently being iterated through, we need to lock the mutex
+        // If pendingMeshResults is currently being iterated through, we need to lock the mutex
         // Additionally, only one thread should be in this critical section at the same time
         {
-            std::unique_lock lock(newlyCreatedChunksMutex);
+            std::unique_lock lock(pendingMeshResultsMutex);
             chunk->debug = 2;
-            newlyCreatedChunks.push_back(chunk);
+            pendingMeshResults.push_back(std::move(meshResult));
         }
     });
 
@@ -247,9 +248,13 @@ void WorldManager::updateVerticesBuffer(const GLuint& verticesBuffer, const GLui
     ZoneScoped;
 
     {
-        std::unique_lock lock(newlyCreatedChunksMutex);
+        std::unique_lock lock(pendingMeshResultsMutex);
 
-        for (Chunk* chunk: newlyCreatedChunks) {
+        for (const Mesher::MeshResult& meshResult : pendingMeshResults) {
+            Chunk* chunk = meshResult.chunk;
+            const std::vector<uint32_t>& vertices = meshResult.vertices;
+
+            std::unique_lock chunkLock(chunk->mutex);
             // If the chunk was already destroyed in destroyFrontierChunks, we don't want to allocate, so just skip it
             if (chunk->destroyed) {
                 continue;
@@ -260,10 +265,20 @@ void WorldManager::updateVerticesBuffer(const GLuint& verticesBuffer, const GLui
                 continue;
             }
 
+            // First, free up the chunk's old region in the vertex buffer (if it exists)
+            if (chunk->bufferRegionAllocated) {
+                allocator.deallocate(chunk->firstIndex, chunk->numVertices);
+                chunk->bufferRegionAllocated = false;
+            }
+
+            // Update number of vertices
+            chunk->numVertices = static_cast<uint32_t>(vertices.size());
+
+            // Now, allocate a new region in the vertex buffer
             Region region{};
             {
-                std::unique_lock allocatorLock(allocator.mutex);
                 region = allocator.allocate(chunk->numVertices);
+                chunk->bufferRegionAllocated = true;
             }
 
             chunk->firstIndex = region.offset;
@@ -271,9 +286,7 @@ void WorldManager::updateVerticesBuffer(const GLuint& verticesBuffer, const GLui
             glNamedBufferSubData(verticesBuffer,
                                  region.offset * sizeof(uint32_t),
                                  chunk->numVertices * sizeof(uint32_t),
-                                 static_cast<const void*>(chunk->vertices.data()));
-
-            chunk->vertices.clear();
+                                 static_cast<const void*>(vertices.data()));
 
             // Update chunk data
             const ChunkData cd = {
@@ -292,7 +305,6 @@ void WorldManager::updateVerticesBuffer(const GLuint& verticesBuffer, const GLui
                 std::cerr << "Chunk has no vertices!" << std::endl;
             }
 
-            chunk->onGPU = true;
             chunk->debug = 3;
         }
 
@@ -300,8 +312,8 @@ void WorldManager::updateVerticesBuffer(const GLuint& verticesBuffer, const GLui
         glNamedBufferData(chunkDataBuffer, sizeof(ChunkData) * chunkData.size(),
                           static_cast<const void*>(chunkData.data()), GL_DYNAMIC_DRAW);
 
-        // Clear newly created chunks
-        newlyCreatedChunks.clear();
+        // Reset vector ready for next update
+        pendingMeshResults.clear();
     }
 }
 
@@ -314,29 +326,18 @@ Chunk* WorldManager::getChunk(const int cx, const int cz) {
 
 void WorldManager::queueMeshChunk(Chunk* chunk) {
     threadPool.queueTask([chunk, this] {
+        Mesher::MeshResult meshResult;
         {
-            std::unique_lock chunkLock(chunk->mutex);
-            std::cout << "Re-meshing chunk (" << chunk->cx << ", " << chunk->cz << ")" << std::endl;
-
-            // First, free up the appropriate region in the vertex buffer
-            // Don't allocate while other threads are allocating
-            {
-                std::unique_lock allocatorLock(allocator.mutex);
-                allocator.deallocate(chunk->firstIndex, chunk->numVertices);
-            }
-
+            std::unique_lock lock(chunk->mutex);
             chunk->beingMeshed = true;
-            // Ensure only one thread meshes this chunk at a time
-            {
-                Mesher::meshChunk(chunk, generationType);
-            }
+            meshResult = Mesher::meshChunk(chunk, generationType);
             chunk->beingMeshed = false;
+        }
 
-            // If newlyCreatedChunks is currently being iterated through, we need to lock the mutex
-            {
-                std::unique_lock lock(newlyCreatedChunksMutex);
-                newlyCreatedChunks.push_back(chunk);
-            }
+        // If newMeshResults is currently being iterated through, we need to wait
+        {
+            std::unique_lock lock(pendingMeshResultsMutex);
+            pendingMeshResults.push_back(meshResult);
         }
     });
 }
@@ -362,7 +363,7 @@ int WorldManager::load(const int x, const int y, const int z) {
     const int cz = z >> ChunkSizeShift;
 
     const auto it = chunkByCoords.find(key(cx, cz));
-    if (it == chunkByCoords.end() || !it->second || !it->second->onGPU) {
+    if (it == chunkByCoords.end() || !it->second || !it->second->bufferRegionAllocated) {
         return 0;
     }
     const Chunk* chunk = it->second;

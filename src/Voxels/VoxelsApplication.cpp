@@ -47,8 +47,6 @@ bool VoxelsApplication::load() {
     shader = Shader("vert.glsl", "frag.glsl");
     drawCommandProgram = Shader("drawcmd_comp.glsl");
 
-//    dummyVerticesBuffer = std::vector<uint32_t>(INITIAL_VERTEX_BUFFER_SIZE, 0);
-
     worldManager.createChunk(0, 0);
 
     glCreateVertexArrays(1, &dummyVAO);
@@ -295,20 +293,20 @@ std::optional<RaycastResult> VoxelsApplication::raycast() {
             const int localZ = (pz % ChunkSize + ChunkSize) % ChunkSize;
 
             const Chunk* chunk = worldManager.getChunk(cx, cz);
-            if (!chunk) {
+            if (!chunk || chunk->debug == 0) {
                 std::cout << "Chunk not found at (" << cx << ", " << cz << ")" << std::endl;
                 return std::nullopt;
             }
 
             if (const int v = chunk->load(localX, py, localZ); v != 0) {
-//                std::cout << "Voxel hit at " << px << ", " << py << ", " << pz << ", face: " << faceHit << std::endl;
+                // std::cout << "Voxel hit at " << px << ", " << py << ", " << pz << ", face: " << faceHit << std::endl;
                 return RaycastResult {
-                        .cx = cx,
-                        .cz = cz,
-                        .x = localX,
-                        .y = py,
-                        .z = localZ,
-                        .face = faceHit
+                    .cx = cx,
+                    .cz = cz,
+                    .x = localX,
+                    .y = py,
+                    .z = localZ,
+                    .face = faceHit
                 };
             }
         }
@@ -344,7 +342,10 @@ void VoxelsApplication::tryStoreVoxel(const int cx, const int cz, const int x, c
         return;
     }
 
-    chunk->store(x, y, z, place ? 1 : 0);
+    {
+        std::unique_lock lock(chunk->mutex);
+        chunk->store(x, y, z, place ? 1 : 0);
+    }
     chunksToMesh.push_back(chunk);
 }
 
@@ -372,7 +373,10 @@ void VoxelsApplication::updateVoxel(RaycastResult result, const bool place) {
     }
 
     // Change voxel value
-    hitChunk->store(x, y, z, place ? 1 : 0);
+    {
+        std::unique_lock lock(hitChunk->mutex);
+        hitChunk->store(x, y, z, place ? 1 : 0);
+    }
 
     std::vector<Chunk*> chunksToMesh;
     chunksToMesh.push_back(hitChunk);

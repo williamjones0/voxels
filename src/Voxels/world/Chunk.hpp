@@ -5,7 +5,6 @@
 #include <glm/glm.hpp>
 
 #include <atomic>
-#include <cstdint>
 #include <mutex>
 #include <vector>
 
@@ -41,14 +40,12 @@ public:
 
     int neighbours = 0;
 
-    std::vector<uint32_t> vertices{};
-
     size_t index = std::numeric_limits<size_t>::max();
 
     unsigned int numVertices = 0;
     unsigned int firstIndex = -1;
 
-    std::atomic_bool onGPU = false;
+    std::atomic_bool bufferRegionAllocated = false;
     std::atomic_bool destroyed = false;
     std::atomic_bool beingMeshed = false;
     int debug = 0;

@@ -17,8 +17,6 @@ struct Region {
 
 class FreeListAllocator {
 public:
-    std::mutex mutex;
-
     FreeListAllocator() = default;
 
     FreeListAllocator(const size_t bufferSize, const size_t alignment, std::function<size_t(size_t)> outOfCapacityCallback)
@@ -97,7 +95,7 @@ private:
 
     void outOfCapacity() {
         const size_t newCapacity = outOfCapacityCallback(bufferSize);
-        freeRegions.push_back({bufferSize, bufferSize});
+        freeRegions.push_back({bufferSize, newCapacity - bufferSize});
         bufferSize = newCapacity;
     }
 };

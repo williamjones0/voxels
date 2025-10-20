@@ -140,7 +140,7 @@ int Mesher::dirToIndex(const int i, const int j, const int k) {
     return (i + 1) * 9 + (j + 1) * 3 + k + 1;
 }
 
-void Mesher::meshChunk(Chunk* chunk, const GenerationType generationType) {
+auto Mesher::meshChunk(Chunk* chunk, const GenerationType generationType) -> MeshResult {
     const std::vector<int>& voxels = chunk->voxels;
 
     std::vector<int> positions;
@@ -455,7 +455,8 @@ void Mesher::meshChunk(Chunk* chunk, const GenerationType generationType) {
         }
     }
 
-    chunk->vertices.reserve(positions.size() / 3);
+    std::vector<uint32_t> vertices;
+    vertices.resize(positions.size() / 3);
     for (int i = 0; i < positions.size() / 3; ++i) {
         uint32_t vertex =
                 static_cast<uint32_t>(positions[3 * i]) |
@@ -465,10 +466,13 @@ void Mesher::meshChunk(Chunk* chunk, const GenerationType generationType) {
                 static_cast<uint32_t>(normals[i]) << VertexFormat::NormalShift |
                 static_cast<uint32_t>(ao[i]) << VertexFormat::AOShift;
 
-        chunk->vertices.push_back(vertex);
+        vertices[i] = vertex;
     }
 
-    chunk->numVertices = chunk->vertices.size();
+    return {
+        .chunk = chunk,
+        .vertices = std::move(vertices)
+    };
 }
 
 bool Mesher::shouldMeshFace(const int x, const int y, const int z, const int i, const int j, const int k, const std::vector<int>& voxels) {

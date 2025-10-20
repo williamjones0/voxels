@@ -7,7 +7,12 @@
 
 class Mesher {
 public:
-    static void meshChunk(Chunk* chunk, GenerationType generationType);
+    struct MeshResult {
+        Chunk* chunk;
+        std::vector<uint32_t> vertices;
+    };
+
+    [[nodiscard]] static MeshResult meshChunk(Chunk* chunk, GenerationType generationType);
 
 private:
     static inline int vertexAO(uint8_t side1, uint8_t side2, uint8_t corner);

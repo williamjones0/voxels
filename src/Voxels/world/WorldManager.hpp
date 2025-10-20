@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Chunk.hpp"
+#include "Mesher.hpp"
 #include "../core/FreeListAllocator.hpp"
 #include "../core/ThreadPool.hpp"
 #include "../core/Camera.hpp"
@@ -29,7 +30,7 @@ struct ChunkData {
 constexpr int InitialVertexBufferSize = 1 << 20;
 constexpr int MaxChunkTasks = 32;
 
-constexpr int MaxRenderDistanceChunks = 2;
+constexpr int MaxRenderDistanceChunks = 32;
 constexpr int MaxRenderDistanceMetres = MaxRenderDistanceChunks << ChunkSizeShift;
 constexpr int MaxChunks = (2 * MaxRenderDistanceChunks + 1) * (2 * MaxRenderDistanceChunks + 1);
 
@@ -74,20 +75,19 @@ public:
 
     std::vector<Chunk*> chunks;
     std::vector<Chunk*> frontierChunks;
-    std::vector<Chunk*> newlyCreatedChunks;
+    std::vector<Mesher::MeshResult> pendingMeshResults;
     std::unordered_map<size_t, Chunk*> chunkByCoords;
     std::vector<ChunkData> chunkData;
 
     std::atomic<int> chunkTasksCount = 0;
 
-    std::mutex newlyCreatedChunksMutex;
+    std::mutex pendingMeshResultsMutex;
 
     FreeListAllocator allocator;
     ThreadPool threadPool;
 
 private:
     Camera& camera;
-    std::vector<uint32_t> dummyVerticesBuffer;
 
     std::function<size_t(size_t)> outOfCapacityCallback;
 };
