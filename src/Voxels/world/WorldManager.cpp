@@ -157,7 +157,7 @@ Chunk* WorldManager::createChunk(const int cx, const int cz) {
         // No other thread should access the chunk while it's generating
         // Without this lock, block breaking/placing could break the meshing
         {
-            std::unique_lock lock(chunk->mutex);
+            std::scoped_lock lock(chunk->mutex);
             chunk->init();
             chunk->generate(generationType, level);
 
@@ -171,7 +171,7 @@ Chunk* WorldManager::createChunk(const int cx, const int cz) {
         // If pendingMeshResults is currently being iterated through, we need to lock the mutex
         // Additionally, only one thread should be in this critical section at the same time
         {
-            std::unique_lock lock(pendingMeshResultsMutex);
+            std::scoped_lock lock(pendingMeshResultsMutex);
             chunk->debug = 2;
             pendingMeshResults.push_back(std::move(meshResult));
         }
@@ -248,13 +248,13 @@ void WorldManager::updateVerticesBuffer(const GLuint& verticesBuffer, const GLui
     ZoneScoped;
 
     {
-        std::unique_lock lock(pendingMeshResultsMutex);
+        std::scoped_lock lock(pendingMeshResultsMutex);
 
         for (const Mesher::MeshResult& meshResult : pendingMeshResults) {
             Chunk* chunk = meshResult.chunk;
             const std::vector<uint32_t>& vertices = meshResult.vertices;
 
-            std::unique_lock chunkLock(chunk->mutex);
+            std::scoped_lock chunkLock(chunk->mutex);
             // If the chunk was already destroyed in destroyFrontierChunks, we don't want to allocate, so just skip it
             if (chunk->destroyed) {
                 continue;
@@ -328,7 +328,7 @@ void WorldManager::queueMeshChunk(Chunk* chunk) {
     threadPool.queueTask([chunk, this] {
         Mesher::MeshResult meshResult;
         {
-            std::unique_lock lock(chunk->mutex);
+            std::scoped_lock lock(chunk->mutex);
             chunk->beingMeshed = true;
             meshResult = Mesher::meshChunk(chunk, generationType);
             chunk->beingMeshed = false;
@@ -336,7 +336,7 @@ void WorldManager::queueMeshChunk(Chunk* chunk) {
 
         // If newMeshResults is currently being iterated through, we need to wait
         {
-            std::unique_lock lock(pendingMeshResultsMutex);
+            std::scoped_lock lock(pendingMeshResultsMutex);
             pendingMeshResults.push_back(meshResult);
         }
     });

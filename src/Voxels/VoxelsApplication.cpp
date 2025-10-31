@@ -343,7 +343,7 @@ void VoxelsApplication::tryStoreVoxel(const int cx, const int cz, const int x, c
     }
 
     {
-        std::unique_lock lock(chunk->mutex);
+        std::scoped_lock lock(chunk->mutex);
         chunk->store(x, y, z, place ? 1 : 0);
     }
     chunksToMesh.push_back(chunk);
@@ -374,7 +374,7 @@ void VoxelsApplication::updateVoxel(RaycastResult result, const bool place) {
 
     // Change voxel value
     {
-        std::unique_lock lock(hitChunk->mutex);
+        std::scoped_lock lock(hitChunk->mutex);
         hitChunk->store(x, y, z, place ? 1 : 0);
     }
 
