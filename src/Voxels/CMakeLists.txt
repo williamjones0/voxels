@@ -38,6 +38,9 @@ add_library(VoxelsLib
     player/FlyPlayerController.cpp
     world/Level.hpp
     world/Level.cpp
+    world/RunMesher.hpp
+    world/RunMesher.cpp
+    world/VertexFormat.hpp
 )
 
 target_include_directories(VoxelsLib PUBLIC include)

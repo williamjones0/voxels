@@ -1,5 +1,6 @@
 #include "Mesher.hpp"
 
+#include "VertexFormat.hpp"
 #include "../util/PerlinNoise.hpp"
 #include "../util/Util.hpp"
 

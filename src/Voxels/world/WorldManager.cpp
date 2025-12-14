@@ -3,6 +3,7 @@
 #include <fstream>
 
 #include "Mesher.hpp"
+#include "RunMesher.hpp"
 #include "../util/Util.hpp"
 #include "tracy/Tracy.hpp"
 
@@ -163,6 +164,8 @@ Chunk* WorldManager::createChunk(const int cx, const int cz) {
 
             chunk->beingMeshed = true;
             meshResult = Mesher::meshChunk(chunk, generationType);
+            // RunMesher runMesher(chunk, generationType);
+            // meshResult = runMesher.meshChunk();
             chunk->beingMeshed = false;
 
             chunk->debug = 1;
@@ -331,6 +334,8 @@ void WorldManager::queueMeshChunk(Chunk* chunk) {
             std::scoped_lock lock(chunk->mutex);
             chunk->beingMeshed = true;
             meshResult = Mesher::meshChunk(chunk, generationType);
+            // RunMesher runMesher(chunk, generationType);
+            // meshResult = runMesher.meshChunk();
             chunk->beingMeshed = false;
         }
 

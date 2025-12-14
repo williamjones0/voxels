@@ -10,7 +10,7 @@
 #include <algorithm>
 
 #include "io/Input.hpp"
-#include "world/Mesher.hpp"
+#include "world/VertexFormat.hpp"
 
 constexpr float Pi = 3.14159265359f;
 
