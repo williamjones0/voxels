@@ -10,38 +10,16 @@ if(MSVC)
     endforeach(OUTPUTCONFIG ${CMAKE_CONFIGURATION_TYPES})
 endif()
 
-add_custom_target(copy_data ALL COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/data ${CMAKE_CURRENT_BINARY_DIR}/data)   
+add_custom_target(copy_data ALL COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_SOURCE_DIR}/data ${CMAKE_CURRENT_BINARY_DIR}/data)
 
-add_library(VoxelsLib
-    core/Camera.cpp
-    util/Util.cpp
-    world/Chunk.cpp
-    world/Mesher.cpp
-    Application.cpp
-    Application.hpp
-    VoxelsApplication.hpp
-    VoxelsApplication.cpp
-    core/ThreadPool.cpp
-    core/FreeListAllocator.hpp
-    player/Q3PlayerController.cpp
-    player/Q3PlayerController.hpp
-    io/Input.cpp
-    io/Input.hpp
-    player/CharacterController.hpp
-    player/CharacterController.cpp
-    world/WorldManager.cpp
-    world/WorldManager.hpp
-    core/Transform.hpp
-    player/Q1PlayerController.hpp
-    player/Q1PlayerController.cpp
-    player/FlyPlayerController.hpp
-    player/FlyPlayerController.cpp
-    world/Level.hpp
-    world/Level.cpp
-    world/RunMesher.hpp
-    world/RunMesher.cpp
-    world/VertexFormat.hpp
+file(GLOB_RECURSE VOXELS_SOURCES
+        CONFIGURE_DEPENDS
+        ${CMAKE_CURRENT_SOURCE_DIR}/*.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/*.hpp
 )
+
+add_library(VoxelsLib)
+target_sources(VoxelsLib PRIVATE ${VOXELS_SOURCES})
 
 target_include_directories(VoxelsLib PUBLIC include)
 
