@@ -35,6 +35,8 @@ enum class Action {
     Exit,
     ToggleWireframe,
     SaveLevel,
+
+    ToggleUIMode,
 };
 
 struct BoundKey {
@@ -82,6 +84,9 @@ public:
     static std::vector<Action> actionQueue;
 
     static void registerCallback(Action action, const ActionCallback& callback);
+
+    static int uiToggleKey;
+    static bool uiMode;
 
 private:
     static double lastMouseX;

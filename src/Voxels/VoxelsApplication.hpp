@@ -10,6 +10,7 @@
 #include "player/Q1PlayerController.hpp"
 #include "player/Q3PlayerController.hpp"
 #include "player/FlyPlayerController.hpp"
+#include "ui/UIManager.hpp"
 
 #include <optional>
 
@@ -41,6 +42,7 @@ protected:
 
 private:
     void setupInput();
+    void setupUI();
 
     std::optional<RaycastResult> raycast();
     void tryStoreVoxel(int cx, int cz, int x, int y, int z, bool place, std::vector<Chunk*>& chunksToMesh);
@@ -68,6 +70,8 @@ private:
         std::filesystem::path(PROJECT_SOURCE_DIR) / "data/levels/level0.json"
     );
 
+    UIManager uiManager;
+
     GLuint dummyVAO = 0;
     GLuint chunkDrawCmdBuffer = 0;
     GLuint chunkDataBuffer = 0;
@@ -75,4 +79,5 @@ private:
     GLuint verticesBuffer = 0;
 
     bool background = false;
+    bool firstFrame = true;
 };

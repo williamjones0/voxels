@@ -1,6 +1,7 @@
 #include "Input.hpp"
 
 #include <GLFW/glfw3.h>
+#include <imgui.h>
 
 #include <functional>
 
@@ -19,6 +20,9 @@ std::vector<Action> Input::actionQueue{};
 
 std::unordered_set<int> Input::keys{};
 
+int Input::uiToggleKey = GLFW_KEY_H;
+bool Input::uiMode = false;
+
 void Input::addAction(const BoundKey key) {
     for (const auto& [boundKey, boundAction] : bindings) {
         if (boundKey == key) {
@@ -28,6 +32,10 @@ void Input::addAction(const BoundKey key) {
 }
 
 void Input::key_callback(const int key, const int scancode, const int action, const int mods) {
+    if (ImGui::GetIO().WantTextInput || (uiMode && key != uiToggleKey)) {
+        return;
+    }
+
     if (action == GLFW_PRESS) {
         keys.insert(key);
     } else if (action == GLFW_RELEASE) {
@@ -38,15 +46,31 @@ void Input::key_callback(const int key, const int scancode, const int action, co
 }
 
 void Input::mouse_button_callback(const int button, const int action, const int mods) {
+    if (uiMode) {
+        return;
+    }
     addAction({ button, action, true });
 }
 
 void Input::cursor_position_callback(const double xposIn, const double yposIn) {
+    if (uiMode) {
+        // Avoids camera jumping when leaving UI
+        lastMouseX = xposIn;
+        lastMouseY = yposIn;
+        mouseX = xposIn;
+        mouseY = yposIn;
+        mouseDeltaX = 0;
+        mouseDeltaY = 0;
+        return;
+    }
     mouseX = xposIn;
     mouseY = yposIn;
 }
 
 void Input::scroll_callback(const double xoffset, const double yoffset) {
+    if (uiMode) {
+        return;
+    }
     scrollX += xoffset;
     scrollY += yoffset;
 }

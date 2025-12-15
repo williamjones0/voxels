@@ -3,6 +3,7 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/string_cast.hpp>
 
+#include <imgui.h>
 #include <tracy/Tracy.hpp>
 #include <tracy/TracyOpenGL.hpp>
 
@@ -112,6 +113,10 @@ bool VoxelsApplication::load() {
 
     setupInput();
 
+    uiManager.load(windowHandle);
+
+    setupUI();
+
     return true;
 }
 
@@ -122,6 +127,8 @@ void VoxelsApplication::setupInput() {
     Input::bindings.insert({{GLFW_KEY_ESCAPE, GLFW_PRESS}, Action::Exit});
     Input::bindings.insert({{GLFW_KEY_T, GLFW_PRESS}, Action::ToggleWireframe});
     Input::bindings.insert({{GLFW_KEY_P, GLFW_PRESS}, Action::SaveLevel});
+
+    Input::bindings.insert({{Input::uiToggleKey, GLFW_PRESS}, Action::ToggleUIMode});
 
     // Register action callbacks
     Input::registerCallback(Action::Break, [this] {
@@ -152,6 +159,40 @@ void VoxelsApplication::setupInput() {
     Input::registerCallback(Action::SaveLevel, [this] {
         worldManager.save();
     });
+
+    Input::registerCallback(Action::ToggleUIMode, [this] {
+        Input::uiMode = !Input::uiMode;
+
+        // Remove title bar highlight
+        ImGui::SetWindowFocus(nullptr);
+
+        if (Input::uiMode) {
+            glfwSetInputMode(windowHandle, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+        } else {
+            glfwSetInputMode(windowHandle, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+        }
+    });
+}
+
+void VoxelsApplication::setupUI() {
+    uiManager.registerWindow("Stats", [this] {
+        ImGui::Begin("Stats", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+
+        ImGui::Text("Camera Position: (%.2f, %.2f, %.2f)",
+                    camera.transform.position.x,
+                    camera.transform.position.y,
+                    camera.transform.position.z);
+        ImGui::Text("Chunks Loaded: %llu", worldManager.chunks.size());
+        ImGui::Text("FPS: %.2f", 1.0f / deltaTime);
+
+        ImGui::Text("WantCaptureKeyboard: %s", ImGui::GetIO().WantCaptureKeyboard ? "true" : "false");
+
+        // Text input test
+        static char levelName[128] = "";
+        ImGui::InputText("Level Name", levelName, IM_ARRAYSIZE(levelName));
+
+        ImGui::End();
+    });
 }
 
 void VoxelsApplication::update() {
@@ -169,6 +210,8 @@ void VoxelsApplication::update() {
 
     playerController.update(deltaTime);
 
+    uiManager.beginFrame();
+
     // std::cout << "Frame time: " << deltaTime << "\t FPS: " << (1.0f / deltaTime) << std::endl;
     const std::string title = "Voxels | FPS: " + std::to_string(static_cast<int>(1.0f / deltaTime)) +
                         " | X: " + std::to_string(camera.transform.position.x) +
@@ -183,6 +226,14 @@ void VoxelsApplication::update() {
 
 void VoxelsApplication::render() {
     ZoneScoped;
+
+    uiManager.drawWindows();
+
+    if (firstFrame) {
+        // Remove title bar highlight on first frame
+        ImGui::SetWindowFocus(nullptr);
+        firstFrame = false;
+    }
 
     const glm::mat4 projection = glm::perspective(camera.FOV * Pi / 180,
                                             static_cast<float>(windowWidth) / static_cast<float>(windowHeight), 0.1f, 5000.0f);
@@ -226,6 +277,8 @@ void VoxelsApplication::render() {
     glBindVertexArray(dummyVAO);
     glBindBuffer(GL_DRAW_INDIRECT_BUFFER, chunkDrawCmdBuffer);
     glMultiDrawArraysIndirectCount(GL_TRIANGLES, nullptr, 0, MaxChunks, sizeof(ChunkDrawCommand));
+
+    uiManager.render();
 }
 
 void VoxelsApplication::processInput() {
@@ -239,6 +292,7 @@ void VoxelsApplication::cleanup() {
     glDeleteBuffers(1, &verticesBuffer);
 
     worldManager.cleanup();
+    uiManager.cleanup();
 
     Application::cleanup();
 }
