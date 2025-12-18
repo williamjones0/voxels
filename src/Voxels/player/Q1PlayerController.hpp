@@ -11,7 +11,7 @@ public:
     void load();
     void update(float dt);
 
-    float currSpeed = 0;
+    float currentSpeed = 0;
     glm::vec3 playerVelocity = glm::vec3(0, 0, 0);
 
 private:
@@ -29,37 +29,39 @@ private:
 
     float deltaTime = 0;
 
-    const float unitScale = 7.0f / 320.0f;
-
-    float friction = 6;
-    float gravity = 20;
-    float jumpForce = 8;
-    bool autoBunnyHop = false;
-    float m_airControl = 0.3f;
-    MovementSettings groundSettings = MovementSettings(7, 14, 10);
-    MovementSettings airSettings = MovementSettings(7, 2, 2);
-    MovementSettings strafeSettings = MovementSettings(1, 50, 50);
-    float stopSpeed = 100.0f * unitScale;
-
     CharacterController& character;
-    glm::vec3 moveDirectionNorm{};
+
+    bool autoBunnyHop = true;
 
     bool jumpQueued = false;
-
-    float playerFriction = 0;
+    bool wasJumpKeyDown = false;
 
     glm::vec3 moveInput{};
 
     double xRot = 0.0f;
     double yRot = 0.0f;
-    float xSensitivity = 0.02f;
-    float ySensitivity = 0.02f;
+    float xSensitivity = 0.016f;
+    float ySensitivity = 0.016f;
 
     void queueJump();
     void airMove();
-    void groundMove();
-    void flyMove();
     void applyFriction();
-    void accelerate(glm::vec3 targetDir, float targetSpeed, float accel);
-    void airAccelerate(glm::vec3 targetDir, float targetSpeed, float accel);
+    void accelerate(glm::vec3 wishdir, float wishspeed, float accel);
+    void airAccelerate(glm::vec3 wishdir, float wishspeed, float accel);
+
+public:
+    // debugging
+    glm::vec3 d_wishdir;
+    glm::vec3 d_wishvel;
+    float d_wishspeed;
+
+    // in accelerate function
+    float d_accel_currentSpeed;
+    float d_accel_addSpeed;
+    float d_accel_accelSpeed;
+
+    // air accelerate
+    float d_airaccel_currentSpeed;
+    float d_airaccel_addSpeed;
+    float d_airaccel_accelSpeed;
 };

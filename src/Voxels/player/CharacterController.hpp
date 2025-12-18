@@ -35,9 +35,9 @@ private:
 
     WorldManager& worldManager;
 
-    float PLAYER_WIDTH = 0.4f;
-    float PLAYER_EYE_HEIGHT = 1.7f;
-    float PLAYER_HEIGHT = 1.8f;
+    float PLAYER_WIDTH = 0.8f;
+    float PLAYER_EYE_HEIGHT = 1.2f;
+    float PLAYER_HEIGHT = 1.4f;
 
     void handleCollisions(glm::vec3& velocity, float dt);
     void collisionDetection(const glm::vec3& velocity, float dt, std::vector<Contact>& contacts) const;
