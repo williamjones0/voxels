@@ -6,7 +6,9 @@
 class Q1PlayerController {
 public:
     Q1PlayerController(Camera& camera, CharacterController& character)
-            : camera(camera), character(character) {}
+        : camera(camera), character(character) {
+        load();
+    }
 
     void load();
     void update(float dt);
@@ -22,7 +24,7 @@ private:
         float deceleration;
 
         MovementSettings(const float maxSpeed, const float acceleration, const float deceleration)
-                : maxSpeed(maxSpeed), acceleration(acceleration), deceleration(deceleration) {}
+            : maxSpeed(maxSpeed), acceleration(acceleration), deceleration(deceleration) {}
     };
 
     Camera& camera;

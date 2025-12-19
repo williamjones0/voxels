@@ -48,52 +48,35 @@ namespace ConvertedQuakeConstants {
 }
 
 void Q1PlayerController::load() {
-//    Input::bindings.insert({{GLFW_KEY_W, GLFW_PRESS}, Action::StartMoveForward});
-//    Input::bindings.insert({{GLFW_KEY_S, GLFW_PRESS}, Action::StartMoveBackward});
-//    Input::bindings.insert({{GLFW_KEY_A, GLFW_PRESS}, Action::StartMoveLeft});
-//    Input::bindings.insert({{GLFW_KEY_D, GLFW_PRESS}, Action::StartMoveRight});
-//
-//    Input::bindings.insert({{GLFW_KEY_W, GLFW_RELEASE}, Action::StopMoveForward});
-//    Input::bindings.insert({{GLFW_KEY_S, GLFW_RELEASE}, Action::StopMoveBackward});
-//    Input::bindings.insert({{GLFW_KEY_A, GLFW_RELEASE}, Action::StopMoveLeft});
-//    Input::bindings.insert({{GLFW_KEY_D, GLFW_RELEASE}, Action::StopMoveRight});
-//
-//    Input::bindings.insert({{GLFW_KEY_SPACE, GLFW_PRESS}, Action::StartJump});
-//    Input::bindings.insert({{GLFW_KEY_SPACE, GLFW_RELEASE}, Action::StopJump});
-//
-//    Input::registerCallback(Action::StartMoveForward, [this] { --moveInput.z; });
-//    Input::registerCallback(Action::StartMoveBackward, [this] { ++moveInput.z; });
-//    Input::registerCallback(Action::StartMoveLeft, [this] { --moveInput.x; });
-//    Input::registerCallback(Action::StartMoveRight, [this] { ++moveInput.x; });
-//
-//    Input::registerCallback(Action::StopMoveForward, [this] { ++moveInput.z; });
-//    Input::registerCallback(Action::StopMoveBackward, [this] { --moveInput.z; });
-//    Input::registerCallback(Action::StopMoveLeft, [this] { ++moveInput.x; });
-//    Input::registerCallback(Action::StopMoveRight, [this] { --moveInput.x; });
-//
-//    Input::registerCallback(Action::StartJump, [this] { queueJump(); });
-//    Input::registerCallback(Action::StopJump, [this] { jumpQueued = false; });
+    Input::bindings.insert({{GLFW_KEY_W, GLFW_PRESS}, {ActionType::MoveForward, ActionStateType::Start}});
+    Input::bindings.insert({{GLFW_KEY_S, GLFW_PRESS}, {ActionType::MoveBackward, ActionStateType::Start}});
+    Input::bindings.insert({{GLFW_KEY_A, GLFW_PRESS}, {ActionType::MoveLeft, ActionStateType::Start}});
+    Input::bindings.insert({{GLFW_KEY_D, GLFW_PRESS}, {ActionType::MoveRight, ActionStateType::Start}});
+
+    Input::bindings.insert({{GLFW_KEY_W, GLFW_RELEASE}, {ActionType::MoveForward, ActionStateType::Stop}});
+    Input::bindings.insert({{GLFW_KEY_S, GLFW_RELEASE}, {ActionType::MoveBackward, ActionStateType::Stop}});
+    Input::bindings.insert({{GLFW_KEY_A, GLFW_RELEASE}, {ActionType::MoveLeft, ActionStateType::Stop}});
+    Input::bindings.insert({{GLFW_KEY_D, GLFW_RELEASE}, {ActionType::MoveRight, ActionStateType::Stop}});
+
+    Input::bindings.insert({{GLFW_KEY_SPACE, GLFW_PRESS}, {ActionType::Jump, ActionStateType::Start}});
+    Input::bindings.insert({{GLFW_KEY_SPACE, GLFW_RELEASE}, {ActionType::Jump, ActionStateType::Stop}});
+
+    Input::registerCallback({ActionType::MoveForward, ActionStateType::Start}, [this] { --moveInput.z; });
+    Input::registerCallback({ActionType::MoveBackward, ActionStateType::Start}, [this] { ++moveInput.z; });
+    Input::registerCallback({ActionType::MoveLeft, ActionStateType::Start}, [this] { --moveInput.x; });
+    Input::registerCallback({ActionType::MoveRight, ActionStateType::Start}, [this] { ++moveInput.x; });
+
+    Input::registerCallback({ActionType::MoveForward, ActionStateType::Stop}, [this] { ++moveInput.z; });
+    Input::registerCallback({ActionType::MoveBackward, ActionStateType::Stop}, [this] { --moveInput.z; });
+    Input::registerCallback({ActionType::MoveLeft, ActionStateType::Stop}, [this] { ++moveInput.x; });
+    Input::registerCallback({ActionType::MoveRight, ActionStateType::Stop}, [this] { --moveInput.x; });
+
+    Input::registerCallback({ActionType::Jump, ActionStateType::Start}, [this] { queueJump(); });
+    Input::registerCallback({ActionType::Jump, ActionStateType::Stop}, [this] { jumpQueued = false; });
 }
 
 void Q1PlayerController::update(const float dt) {
     deltaTime = dt;
-
-    // TODO: change this input system to use a controls enum instead of the key itself
-    int xMovement = 0;
-    if (Input::isKeyDown(GLFW_KEY_A)) {
-        xMovement--;
-    }
-    if (Input::isKeyDown(GLFW_KEY_D)) {
-        xMovement++;
-    }
-
-    int zMovement = 0;
-    if (Input::isKeyDown(GLFW_KEY_W)) {
-        zMovement--;
-    }
-    if (Input::isKeyDown(GLFW_KEY_S)) {
-        zMovement++;
-    }
 
     // Mouse movement
     yRot += glm::radians(Input::mouseDeltaX * xSensitivity);
@@ -117,8 +100,6 @@ void Q1PlayerController::update(const float dt) {
     camFront = glm::rotateX(camFront, -static_cast<float>(xRot));
     camFront = glm::rotateY(camFront, -static_cast<float>(yRot));
     camera.front = camFront;
-
-    moveInput = glm::vec3(xMovement, 0, zMovement);
 
     queueJump();  // Update jump state based on current input
 
