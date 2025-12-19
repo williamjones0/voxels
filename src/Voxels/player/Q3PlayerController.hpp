@@ -34,7 +34,7 @@ private:
     float friction = 6;
     float gravity = 20;
     float jumpForce = 8;
-    bool autoBunnyHop = true;
+    bool autoBunnyHop = false;
     float m_airControl = 0.3f;
     MovementSettings groundSettings = MovementSettings(7, 14, 10);
     MovementSettings airSettings = MovementSettings(7, 2, 2);

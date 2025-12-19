@@ -15,8 +15,10 @@ double Input::lastMouseX = 0;
 double Input::lastMouseY = 0;
 
 std::unordered_map<BoundKey, Action, BoundKeyHash> Input::bindings{};
-std::unordered_map<Action, ActionCallback> Input::actionCallbacks{};
+std::unordered_map<Action, ActionCallback, ActionHash> Input::actionCallbacks{};
 std::vector<Action> Input::actionQueue{};
+std::unordered_set<ActionType> Input::currentActions{};
+std::vector<Action> Input::actionsToBeCleared{};
 
 std::unordered_set<int> Input::keys{};
 
@@ -76,8 +78,27 @@ void Input::scroll_callback(const double xoffset, const double yoffset) {
 }
 
 void Input::update() {
+    for (const auto& action : actionsToBeCleared) {
+        actionQueue.push_back(action);
+    }
+    actionsToBeCleared.clear();
+
     for (const auto& action : actionQueue) {
         if (actionCallbacks.contains(action)) {
+            // Update set of current actions
+            if (action.stateType == ActionStateType::Start) {
+                currentActions.insert(action.type);
+            } else if (action.stateType == ActionStateType::Stop) {
+                // If the action type is not in the set of current actions, then we should not call the callback.
+                // This only happens if the user was in UI mode holding a key, and then exits UI mode,
+                // then releases the key. The start action would not be sent, but the stop action would be sent.
+
+                if (!currentActions.contains(action.type)) {
+                    continue;
+                }
+                currentActions.erase(action.type);
+            }
+
             actionCallbacks[action]();
         }
     }
@@ -91,6 +112,12 @@ void Input::update() {
 
     lastMouseX = mouseX;
     lastMouseY = mouseY;
+}
+
+void Input::clearCurrentActions() {
+    for (const auto actionType : currentActions) {
+        actionsToBeCleared.push_back({actionType, ActionStateType::Stop});
+    }
 }
 
 void Input::registerCallback(const Action action, const ActionCallback& callback) {

@@ -9,7 +9,7 @@ class CharacterController {
 public:
     explicit CharacterController(WorldManager& worldManager) : worldManager(worldManager) {}
 
-    Transform transform = Transform(glm::vec3(0.0f, 400.0f, 0.0f));
+    Transform transform = Transform(glm::vec3(0.0f, 100.0f, 0.0f));
 
     bool isGrounded = false;
 

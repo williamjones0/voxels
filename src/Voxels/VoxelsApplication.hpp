@@ -50,7 +50,7 @@ private:
 
     size_t enlargeVerticesBuffer(size_t currentCapacity);
 
-    Camera camera = Camera(glm::vec3(8.0f, 400.0f, 8.0f));
+    Camera camera = Camera(glm::vec3(8.0f, 100.0f, 8.0f));
     CharacterController characterController = CharacterController(worldManager);
     Q1PlayerController playerController = Q1PlayerController(camera, characterController);
     // Q3PlayerController playerController = Q3PlayerController(camera, characterController);

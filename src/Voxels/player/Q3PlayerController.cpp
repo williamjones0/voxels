@@ -6,31 +6,31 @@
 #include <glm/gtx/rotate_vector.hpp>
 
 void Q3PlayerController::load() {
-    Input::bindings.insert({{GLFW_KEY_W, GLFW_PRESS}, Action::StartMoveForward});
-    Input::bindings.insert({{GLFW_KEY_S, GLFW_PRESS}, Action::StartMoveBackward});
-    Input::bindings.insert({{GLFW_KEY_A, GLFW_PRESS}, Action::StartMoveLeft});
-    Input::bindings.insert({{GLFW_KEY_D, GLFW_PRESS}, Action::StartMoveRight});
+    Input::bindings.insert({{GLFW_KEY_W, GLFW_PRESS}, {ActionType::MoveForward, ActionStateType::Start}});
+    Input::bindings.insert({{GLFW_KEY_S, GLFW_PRESS}, {ActionType::MoveBackward, ActionStateType::Start}});
+    Input::bindings.insert({{GLFW_KEY_A, GLFW_PRESS}, {ActionType::MoveLeft, ActionStateType::Start}});
+    Input::bindings.insert({{GLFW_KEY_D, GLFW_PRESS}, {ActionType::MoveRight, ActionStateType::Start}});
 
-    Input::bindings.insert({{GLFW_KEY_W, GLFW_RELEASE}, Action::StopMoveForward});
-    Input::bindings.insert({{GLFW_KEY_S, GLFW_RELEASE}, Action::StopMoveBackward});
-    Input::bindings.insert({{GLFW_KEY_A, GLFW_RELEASE}, Action::StopMoveLeft});
-    Input::bindings.insert({{GLFW_KEY_D, GLFW_RELEASE}, Action::StopMoveRight});
+    Input::bindings.insert({{GLFW_KEY_W, GLFW_RELEASE}, {ActionType::MoveForward, ActionStateType::Stop}});
+    Input::bindings.insert({{GLFW_KEY_S, GLFW_RELEASE}, {ActionType::MoveBackward, ActionStateType::Stop}});
+    Input::bindings.insert({{GLFW_KEY_A, GLFW_RELEASE}, {ActionType::MoveLeft, ActionStateType::Stop}});
+    Input::bindings.insert({{GLFW_KEY_D, GLFW_RELEASE}, {ActionType::MoveRight, ActionStateType::Stop}});
 
-    Input::bindings.insert({{GLFW_KEY_SPACE, GLFW_PRESS}, Action::StartJump});
-    Input::bindings.insert({{GLFW_KEY_SPACE, GLFW_RELEASE}, Action::StopJump});
+    Input::bindings.insert({{GLFW_KEY_SPACE, GLFW_PRESS}, {ActionType::Jump, ActionStateType::Start}});
+    Input::bindings.insert({{GLFW_KEY_SPACE, GLFW_RELEASE}, {ActionType::Jump, ActionStateType::Stop}});
 
-    Input::registerCallback(Action::StartMoveForward, [this] { --moveInput.z; });
-    Input::registerCallback(Action::StartMoveBackward, [this] { ++moveInput.z; });
-    Input::registerCallback(Action::StartMoveLeft, [this] { --moveInput.x; });
-    Input::registerCallback(Action::StartMoveRight, [this] { ++moveInput.x; });
+    Input::registerCallback({ActionType::MoveForward, ActionStateType::Start}, [this] { --moveInput.z; });
+    Input::registerCallback({ActionType::MoveBackward, ActionStateType::Start}, [this] { ++moveInput.z; });
+    Input::registerCallback({ActionType::MoveLeft, ActionStateType::Start}, [this] { --moveInput.x; });
+    Input::registerCallback({ActionType::MoveRight, ActionStateType::Start}, [this] { ++moveInput.x; });
 
-    Input::registerCallback(Action::StopMoveForward, [this] { ++moveInput.z; });
-    Input::registerCallback(Action::StopMoveBackward, [this] { --moveInput.z; });
-    Input::registerCallback(Action::StopMoveLeft, [this] { ++moveInput.x; });
-    Input::registerCallback(Action::StopMoveRight, [this] { --moveInput.x; });
+    Input::registerCallback({ActionType::MoveForward, ActionStateType::Stop}, [this] { ++moveInput.z; });
+    Input::registerCallback({ActionType::MoveBackward, ActionStateType::Stop}, [this] { --moveInput.z; });
+    Input::registerCallback({ActionType::MoveLeft, ActionStateType::Stop}, [this] { ++moveInput.x; });
+    Input::registerCallback({ActionType::MoveRight, ActionStateType::Stop}, [this] { --moveInput.x; });
 
-    Input::registerCallback(Action::StartJump, [this] { jumpQueued = true; });
-    Input::registerCallback(Action::StopJump, [this] { jumpQueued = false; });
+    Input::registerCallback({ActionType::Jump, ActionStateType::Start}, [this] { jumpQueued = true; });
+    Input::registerCallback({ActionType::Jump, ActionStateType::Stop}, [this] { jumpQueued = false; });
 }
 
 void Q3PlayerController::update(const float dt) {

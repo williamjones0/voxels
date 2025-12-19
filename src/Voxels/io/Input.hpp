@@ -3,30 +3,20 @@
 #include <functional>
 #include <unordered_set>
 
-enum class Action {
+enum class ActionType {
     // States
-    StartMoveForward,
-    StartMoveBackward,
-    StartMoveLeft,
-    StartMoveRight,
-    StartMoveUp,
-    StartMoveDown,
+    MoveForward,
+    MoveBackward,
+    MoveLeft,
+    MoveRight,
+    MoveUp,
+    MoveDown,
 
-    StopMoveForward,
-    StopMoveBackward,
-    StopMoveLeft,
-    StopMoveRight,
-    StopMoveUp,
-    StopMoveDown,
+    Jump,
 
-    StartJump,
-    StopJump,
+    Crouch,
 
-    StartCrouch,
-    StopCrouch,
-
-    EnableFastMovement,
-    DisableFastMovement,
+    FastMovement,
 
     // Actions
     Break,
@@ -37,6 +27,27 @@ enum class Action {
     SaveLevel,
 
     ToggleUIMode,
+};
+
+enum class ActionStateType {
+    Start,
+    Stop,
+    None  // For actions without state (e.g., Break, Place)
+};
+
+struct Action {
+    ActionType type;
+    ActionStateType stateType;
+
+    bool operator==(const Action& other) const {
+        return type == other.type && stateType == other.stateType;
+    }
+};
+
+struct ActionHash {
+    std::size_t operator()(const Action& action) const {
+        return std::hash<int>()(static_cast<int>(action.type)) ^ std::hash<int>()(static_cast<int>(action.stateType));
+    }
 };
 
 struct BoundKey {
@@ -79,9 +90,14 @@ public:
     static double scrollY;
 
     static std::unordered_map<BoundKey, Action, BoundKeyHash> bindings;
-    static std::unordered_map<Action, ActionCallback> actionCallbacks;
+    static std::unordered_map<Action, ActionCallback, ActionHash> actionCallbacks;
 
-    static std::vector<Action> actionQueue;
+    static std::vector<Action> actionQueue;  // Actions pending this frame
+
+    // For handling entering/exiting UI mode
+    static std::unordered_set<ActionType> currentActions;  // Actions that have been started but not yet stopped
+    static std::vector<Action> actionsToBeCleared;
+    static void clearCurrentActions();
 
     static void registerCallback(Action action, const ActionCallback& callback);
 

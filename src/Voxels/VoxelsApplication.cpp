@@ -121,33 +121,33 @@ bool VoxelsApplication::load() {
 }
 
 void VoxelsApplication::setupInput() {
-    Input::bindings.insert({{GLFW_MOUSE_BUTTON_LEFT, GLFW_PRESS, true}, Action::Break});
-    Input::bindings.insert({{GLFW_MOUSE_BUTTON_RIGHT, GLFW_PRESS, true}, Action::Place});
+    Input::bindings.insert({{GLFW_MOUSE_BUTTON_LEFT, GLFW_PRESS, true}, {ActionType::Break, ActionStateType::None}});
+    Input::bindings.insert({{GLFW_MOUSE_BUTTON_RIGHT, GLFW_PRESS, true}, {ActionType::Place, ActionStateType::None}});
 
-    Input::bindings.insert({{GLFW_KEY_ESCAPE, GLFW_PRESS}, Action::Exit});
-    Input::bindings.insert({{GLFW_KEY_T, GLFW_PRESS}, Action::ToggleWireframe});
-    Input::bindings.insert({{GLFW_KEY_P, GLFW_PRESS}, Action::SaveLevel});
+    Input::bindings.insert({{GLFW_KEY_ESCAPE, GLFW_PRESS}, {ActionType::Exit, ActionStateType::None}});
+    Input::bindings.insert({{GLFW_KEY_T, GLFW_PRESS}, {ActionType::ToggleWireframe, ActionStateType::None}});
+    Input::bindings.insert({{GLFW_KEY_P, GLFW_PRESS}, {ActionType::SaveLevel, ActionStateType::None}});
 
-    Input::bindings.insert({{Input::uiToggleKey, GLFW_PRESS}, Action::ToggleUIMode});
+    Input::bindings.insert({{Input::uiToggleKey, GLFW_PRESS}, {ActionType::ToggleUIMode, ActionStateType::None}});
 
     // Register action callbacks
-    Input::registerCallback(Action::Break, [this] {
+    Input::registerCallback({ActionType::Break, ActionStateType::None}, [this] {
         if (const auto result = raycast()) {
             updateVoxel(*result, false);
         }
     });
 
-    Input::registerCallback(Action::Place, [this] {
+    Input::registerCallback({ActionType::Place, ActionStateType::None}, [this] {
         if (const auto result = raycast()) {
             updateVoxel(*result, true);
         }
     });
 
-    Input::registerCallback(Action::Exit, [this] {
+    Input::registerCallback({ActionType::Exit, ActionStateType::None}, [this] {
         glfwSetWindowShouldClose(windowHandle, true);
     });
 
-    Input::registerCallback(Action::ToggleWireframe, [this] {
+    Input::registerCallback({ActionType::ToggleWireframe, ActionStateType::None}, [this] {
         wireframe = !wireframe;
         if (wireframe) {
             glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
@@ -156,12 +156,17 @@ void VoxelsApplication::setupInput() {
         }
     });
 
-    Input::registerCallback(Action::SaveLevel, [this] {
+    Input::registerCallback({ActionType::SaveLevel, ActionStateType::None}, [this] {
         worldManager.save();
     });
 
-    Input::registerCallback(Action::ToggleUIMode, [this] {
+    Input::registerCallback({ActionType::ToggleUIMode, ActionStateType::None}, [this] {
         Input::uiMode = !Input::uiMode;
+
+        // If the UI mode is being entered, then for all current actions, call the corresponding stop action
+        if (Input::uiMode == true) {
+            Input::clearCurrentActions();
+        }
 
         // Remove title bar highlight
         ImGui::SetWindowFocus(nullptr);
@@ -311,6 +316,15 @@ void VoxelsApplication::setupUI() {
         ImGui::Text("currentSpeed: %.2f", playerController.d_airaccel_currentSpeed);
         ImGui::Text("addSpeed: %.2f", playerController.d_airaccel_addSpeed);
         ImGui::Text("accelSpeed: %.2f", playerController.d_airaccel_accelSpeed);
+
+        // DEBUG CURRENT ACTIONS
+        ImGui::Separator();
+        ImGui::Text("Current Actions:");
+        for (ActionType action : Input::currentActions) {
+            ImGui::Text("- %d", static_cast<int>(action));
+        }
+
+        ImGui::End();
     });
 }
 
