@@ -1,5 +1,7 @@
 #include "UiManager.hpp"
 
+#include "../io/Input.hpp"
+
 #include <imgui.h>
 #include <imgui_impl_glfw.h>
 #include <imgui_impl_opengl3.h>
@@ -17,6 +19,13 @@ void UIManager::load(GLFWwindow* window) {
 void UIManager::beginFrame() {
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
+
+    ImGuiIO& io = ImGui::GetIO();
+    if (!Input::uiMode)
+        io.ConfigFlags |= ImGuiConfigFlags_NoMouse;
+    else
+        io.ConfigFlags &= ~ImGuiConfigFlags_NoMouse;
+
     ImGui::NewFrame();
 }
 
