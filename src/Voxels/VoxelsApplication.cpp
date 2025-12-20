@@ -109,7 +109,7 @@ bool VoxelsApplication::load() {
     shader.setUInt("normalMask", VertexFormat::NormalMask);
     shader.setUInt("aoMask", VertexFormat::AOMask);
 
-    shader.setVec3Array("palette", worldManager.level.colors.data(), worldManager.level.colors.size());
+    shader.setVec3Array("palette", worldManager.palette.data(), worldManager.palette.size());
 
     setupInput();
 
@@ -326,6 +326,25 @@ void VoxelsApplication::setupUI() {
 
         ImGui::End();
     });
+
+    uiManager.registerWindow("Demo", [] {
+        ImGui::ShowDemoWindow();
+    });
+
+    uiManager.registerWindow("Palette", [this] {
+        ImGui::Begin("Palette", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+
+        for (size_t i = 0; i < worldManager.palette.size(); ++i) {
+            ImGui::Text("%i", static_cast<int>(i));
+            ImGui::SameLine();
+
+            ImGui::ColorEdit3(("##paletteColor" + std::to_string(i)).c_str(),
+                              reinterpret_cast<float*>(&worldManager.palette[i]),
+                              ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel);
+        }
+
+        ImGui::End();
+    });
 }
 
 void VoxelsApplication::update() {
@@ -342,6 +361,9 @@ void VoxelsApplication::update() {
     worldManager.updateVerticesBuffer(verticesBuffer, chunkDataBuffer);
 
     playerController.update(deltaTime);
+
+    // TODO: only really need to do this when a palette colour is changed, but it doesn't really matter
+    shader.setVec3Array("palette", worldManager.palette.data(), worldManager.palette.size());
 
     uiManager.beginFrame();
 

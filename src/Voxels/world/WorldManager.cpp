@@ -25,6 +25,10 @@ WorldManager::WorldManager(
     chunks.reserve(MaxChunks);
     chunkData.resize(MaxChunks);
 
+    std::ranges::fill(palette, glm::vec3());
+    palette[0] = glm::vec3(0.278, 0.600, 0.141);
+    palette[1] = glm::vec3(0.600, 0.100, 0.100);
+
     threadPool.start();
 
     if (generationType == GenerationType::LevelLoad) {

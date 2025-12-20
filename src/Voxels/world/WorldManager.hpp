@@ -6,6 +6,7 @@
 #include "../core/ThreadPool.hpp"
 #include "../core/Camera.hpp"
 #include "Level.hpp"
+#include "VertexFormat.hpp"
 
 #include <glad/glad.h>
 
@@ -72,6 +73,8 @@ public:
     const std::filesystem::path levelFile;
 
     Level level;
+
+    std::array<glm::vec3, 1 << VertexFormat::ColourBits> palette;
 
     std::vector<Chunk*> chunks;
     std::vector<Chunk*> frontierChunks;

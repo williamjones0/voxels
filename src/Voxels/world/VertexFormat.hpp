@@ -1,7 +1,5 @@
 #pragma once
 
-#include <cstdint>
-
 #include "Chunk.hpp"
 
 namespace VertexFormat {

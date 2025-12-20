@@ -375,7 +375,9 @@ auto Mesher::meshChunk(Chunk* chunk, const GenerationType generationType) -> Mes
                     for (int i = 0; i < 6; i++) {
                         normals.push_back(TopNormal);
                     }
-                    colours.push_back(voxel);
+
+                    // Subtract 1 because empty voxel is 0, so we don't need a palette slot for it
+                    colours.push_back(voxel - 1);
                 }
 
                 // Bottom
@@ -390,7 +392,7 @@ auto Mesher::meshChunk(Chunk* chunk, const GenerationType generationType) -> Mes
                     for (int i = 0; i < 6; i++) {
                         normals.push_back(BottomNormal);
                     }
-                    colours.push_back(voxel);
+                    colours.push_back(voxel - 1);
                 }
 
                 // Left
@@ -405,7 +407,7 @@ auto Mesher::meshChunk(Chunk* chunk, const GenerationType generationType) -> Mes
                     for (int i = 0; i < 6; i++) {
                         normals.push_back(LeftNormal);
                     }
-                    colours.push_back(voxel);
+                    colours.push_back(voxel - 1);
                 }
 
                 // Right
@@ -420,7 +422,7 @@ auto Mesher::meshChunk(Chunk* chunk, const GenerationType generationType) -> Mes
                     for (int i = 0; i < 6; i++) {
                         normals.push_back(RightNormal);
                     }
-                    colours.push_back(voxel);
+                    colours.push_back(voxel - 1);
                 }
 
                 // Front
@@ -435,7 +437,7 @@ auto Mesher::meshChunk(Chunk* chunk, const GenerationType generationType) -> Mes
                     for (int i = 0; i < 6; i++) {
                         normals.push_back(FrontNormal);
                     }
-                    colours.push_back(voxel);
+                    colours.push_back(voxel - 1);
                 }
 
                 // Back
@@ -450,7 +452,7 @@ auto Mesher::meshChunk(Chunk* chunk, const GenerationType generationType) -> Mes
                     for (int i = 0; i < 6; i++) {
                         normals.push_back(BackNormal);
                     }
-                    colours.push_back(voxel);
+                    colours.push_back(voxel - 1);
                 }
             }
         }
