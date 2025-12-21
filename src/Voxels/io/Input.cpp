@@ -120,8 +120,8 @@ void Input::clearCurrentActions() {
     }
 }
 
-void Input::registerCallback(const Action action, const ActionCallback& callback) {
-    actionCallbacks[action] = callback;
+void Input::registerCallback(const Action action, ActionCallback callback) {
+    actionCallbacks[action] = std::move(callback);
 }
 
 bool Input::isKeyDown(const int key) {

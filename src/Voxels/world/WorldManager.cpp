@@ -28,6 +28,12 @@ WorldManager::WorldManager(
     std::ranges::fill(palette, glm::vec3());
     palette[0] = glm::vec3(0.278, 0.600, 0.141);
     palette[1] = glm::vec3(0.600, 0.100, 0.100);
+    palette[2] = glm::vec3(212.0/255.0, 138.0/255.0, 0);
+    palette[3] = glm::vec3(212.0/255.0, 212.0/255.0, 0);
+    palette[4] = glm::vec3(99.0/255.0, 212.0/255.0, 0);
+    palette[5] = glm::vec3(0.0, 212.0/255.0, 212.0/255.0);
+    palette[6] = glm::vec3(0.0, 99.0/255.0, 212.0/255.0);
+    palette[7] = glm::vec3(138.0/255.0, 0.0, 212.0/255.0);
 
     threadPool.start();
 

@@ -130,6 +130,10 @@ void VoxelsApplication::setupInput() {
 
     Input::bindings.insert({{Input::uiToggleKey, GLFW_PRESS}, {ActionType::ToggleUIMode, ActionStateType::None}});
 
+    for (int i = 0; i < worldManager.palette.size(); ++i) {
+        Input::bindings.insert({{GLFW_KEY_1 + i, GLFW_PRESS}, {ActionType::SelectPaletteIndex, ActionStateType::None, i}});
+    }
+
     // Register action callbacks
     Input::registerCallback({ActionType::Break, ActionStateType::None}, [this] {
         if (const auto result = raycast()) {
@@ -177,6 +181,12 @@ void VoxelsApplication::setupInput() {
             glfwSetInputMode(windowHandle, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
         }
     });
+
+    for (size_t i = 0; i < worldManager.palette.size(); ++i) {
+        Input::registerCallback({ActionType::SelectPaletteIndex, ActionStateType::None, static_cast<int>(i)}, [this, i] {
+            worldManager.paletteIndex = i;
+        });
+    }
 }
 
 void VoxelsApplication::setupUI() {

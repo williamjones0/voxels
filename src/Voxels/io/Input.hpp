@@ -27,6 +27,8 @@ enum class ActionType {
     SaveLevel,
 
     ToggleUIMode,
+
+    SelectPaletteIndex,
 };
 
 enum class ActionStateType {
@@ -38,15 +40,16 @@ enum class ActionStateType {
 struct Action {
     ActionType type;
     ActionStateType stateType;
+    int payload = 0;  // Optional; used by actions like SelectPaletteIndex
 
     bool operator==(const Action& other) const {
-        return type == other.type && stateType == other.stateType;
+        return type == other.type && stateType == other.stateType && payload == other.payload;
     }
 };
 
 struct ActionHash {
     std::size_t operator()(const Action& action) const {
-        return std::hash<int>()(static_cast<int>(action.type)) ^ std::hash<int>()(static_cast<int>(action.stateType));
+        return std::hash<int>()(static_cast<int>(action.type)) ^ std::hash<int>()(static_cast<int>(action.stateType)) ^ std::hash<int>()(action.payload);
     }
 };
 
@@ -99,7 +102,7 @@ public:
     static std::vector<Action> actionsToBeCleared;
     static void clearCurrentActions();
 
-    static void registerCallback(Action action, const ActionCallback& callback);
+    static void registerCallback(Action action, ActionCallback callback);
 
     static int uiToggleKey;
     static bool uiMode;
