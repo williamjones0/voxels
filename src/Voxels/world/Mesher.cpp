@@ -141,7 +141,7 @@ int Mesher::dirToIndex(const int i, const int j, const int k) {
     return (i + 1) * 9 + (j + 1) * 3 + k + 1;
 }
 
-auto Mesher::meshChunk(Chunk* chunk, const GenerationType generationType) -> MeshResult {
+auto Mesher::meshChunk(Chunk* chunk) -> MeshResult {
     const std::vector<int>& voxels = chunk->voxels;
 
     std::vector<int> positions;
@@ -153,7 +153,7 @@ auto Mesher::meshChunk(Chunk* chunk, const GenerationType generationType) -> Mes
         for (int z = 1; z < ChunkSize + 1; ++z) {
             for (int x = 1; x < ChunkSize + 1; ++x) {
                 int voxel = voxels[getVoxelIndex(x, y, z, ChunkSize + 2)];
-                if (voxel == 0 || (generationType == GenerationType::Perlin2D && voxel == 3)) {
+                if (voxel == EmptyVoxel) {
                     continue;
                 }
 

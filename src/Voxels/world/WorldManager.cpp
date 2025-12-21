@@ -167,7 +167,7 @@ Chunk* WorldManager::createChunk(const int cx, const int cz) {
             chunk->generate(generationType, level);
 
             chunk->beingMeshed = true;
-            meshResult = Mesher::meshChunk(chunk, generationType);
+            meshResult = Mesher::meshChunk(chunk);
             // RunMesher runMesher(chunk, generationType);
             // meshResult = runMesher.meshChunk();
             chunk->beingMeshed = false;
@@ -337,7 +337,7 @@ void WorldManager::queueMeshChunk(Chunk* chunk) {
         {
             std::scoped_lock lock(chunk->mutex);
             chunk->beingMeshed = true;
-            meshResult = Mesher::meshChunk(chunk, generationType);
+            meshResult = Mesher::meshChunk(chunk);
             // RunMesher runMesher(chunk, generationType);
             // meshResult = runMesher.meshChunk();
             chunk->beingMeshed = false;

@@ -75,6 +75,7 @@ public:
     Level level;
 
     std::array<glm::vec3, 1 << VertexFormat::ColourBits> palette;
+    size_t paletteIndex = 0;
 
     std::vector<Chunk*> chunks;
     std::vector<Chunk*> frontierChunks;

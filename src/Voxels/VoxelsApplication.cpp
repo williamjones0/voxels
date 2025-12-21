@@ -345,6 +345,18 @@ void VoxelsApplication::setupUI() {
 
         ImGui::End();
     });
+
+    uiManager.registerWindow("Primitives", [this] {
+        ImGui::Begin("Primitives", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+
+        ImGui::Text("Palette index:");
+        ImGui::SameLine();
+        const size_t min = 0u;
+        const size_t max = worldManager.palette.size() - 1;
+        ImGui::SliderScalar("##paletteIndex", ImGuiDataType_U32, &worldManager.paletteIndex, &min, &max);
+
+        ImGui::End();
+    });
 }
 
 void VoxelsApplication::update() {
@@ -553,7 +565,7 @@ void VoxelsApplication::tryStoreVoxel(const int cx, const int cz, const int x, c
 
     {
         std::scoped_lock lock(chunk->mutex);
-        chunk->store(x, y, z, place ? 1 : 0);
+        chunk->store(x, y, z, place ? worldManager.paletteIndex + 1 : 0);
     }
     chunksToMesh.push_back(chunk);
 }
@@ -584,7 +596,7 @@ void VoxelsApplication::updateVoxel(RaycastResult result, const bool place) {
     // Change voxel value
     {
         std::scoped_lock lock(hitChunk->mutex);
-        hitChunk->store(x, y, z, place ? 1 : 0);
+        hitChunk->store(x, y, z, place ? worldManager.paletteIndex + 1 : 0);
     }
 
     std::vector<Chunk*> chunksToMesh;
