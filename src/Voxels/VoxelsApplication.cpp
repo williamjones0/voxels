@@ -136,14 +136,14 @@ void VoxelsApplication::setupInput() {
 
     // Register action callbacks
     Input::registerCallback({ActionType::Break, ActionStateType::None}, [this] {
-        if (const auto result = raycast()) {
-            updateVoxel(*result, false);
+        if (const auto result = worldManager.raycast()) {
+            worldManager.updateVoxel(*result, false);
         }
     });
 
     Input::registerCallback({ActionType::Place, ActionStateType::None}, [this] {
-        if (const auto result = raycast()) {
-            updateVoxel(*result, true);
+        if (const auto result = worldManager.raycast()) {
+            worldManager.updateVoxel(*result, true);
         }
     });
 
@@ -365,6 +365,115 @@ void VoxelsApplication::setupUI() {
         const size_t max = worldManager.palette.size() - 1;
         ImGui::SliderScalar("##paletteIndex", ImGuiDataType_U32, &worldManager.paletteIndex, &min, &max);
 
+        static int primitiveType = 0;
+        static float sizeX = 1.0f;
+        static float sizeY = 1.0f;
+        static float sizeZ = 1.0f;
+        static float radius = 1.0f;
+        static float cylRadius = 1.0f;
+        static float height = 1.0f;
+        ImGui::Text("Primitive type:");
+        ImGui::SameLine();
+        ImGui::Combo("##primitiveType", &primitiveType, "None\0Cuboid\0Sphere\0Cylinder\0");
+        switch (primitiveType) {
+            case 0: {
+                // None
+                break;
+            }
+            case 1: {
+                // Cuboid
+                ImGui::Text("Size X:");
+                ImGui::SameLine();
+                ImGui::DragFloat("##sizeX", &sizeX, 0.1f, 0.1f, 100.0f, "%.2f");
+                ImGui::Text("Size Y:");
+                ImGui::SameLine();
+                ImGui::DragFloat("##sizeY", &sizeY, 0.1f, 0.1f, 100.0f, "%.2f");
+                ImGui::Text("Size Z:");
+                ImGui::SameLine();
+                ImGui::DragFloat("##sizeZ", &sizeZ, 0.1f, 0.1f, 100.0f, "%.2f");
+                break;
+            }
+            case 2: {
+                // Sphere
+                ImGui::Text("Radius:");
+                ImGui::SameLine();
+                ImGui::DragFloat("##radius", &radius, 0.1f, 0.1f, 100.0f, "%.2f");
+                break;
+            }
+            case 3: {
+                // Cylinder
+                ImGui::Text("Radius:");
+                ImGui::SameLine();
+                ImGui::DragFloat("##cylRadius", &cylRadius, 0.1f, 0.1f, 100.0f, "%.2f");
+                ImGui::Text("Height:");
+                ImGui::SameLine();
+                ImGui::DragFloat("##height", &height, 0.1f, 0.1f, 100.0f, "%.2f");
+                break;
+            }
+            default: {
+                ImGui::Text("Unknown primitive type.");
+                break;
+            }
+        }
+
+        if (primitiveType != 0) {
+            static int originType = 0;
+            ImGui::Text("Origin type:");
+            ImGui::SameLine();
+            ImGui::Combo("##originType", &originType, "Selected point, centered\0Selected point, bottom\0Custom\0");
+
+            static glm::ivec3 origin{};
+            switch (originType) {
+                case 0: {
+                    // Selected point, centered
+                    if (const auto result = worldManager.raycast()) {
+                        origin.x = result->cx * ChunkSize + result->x;
+                        origin.y = result->y;
+                        origin.z = result->cz * ChunkSize + result->z;
+                    }
+                    break;
+                }
+                case 1: {
+                    // Selected point, bottom
+                    if (const auto result = worldManager.raycast()) {
+                        origin.x = result->cx * ChunkSize + result->x;
+                        origin.y = result->y;
+                        origin.z = result->cz * ChunkSize + result->z;
+                    }
+                    break;
+                }
+                case 2: {
+                    ImGui::DragInt3("##customOrigin", reinterpret_cast<int*>(&origin));
+                    break;
+                }
+                default: {
+                    ImGui::Text("Unknown origin type.");
+                    break;
+                }
+            }
+
+            if (ImGui::Button("Place")) {
+                switch (primitiveType) {
+                    case 1: {
+                        Cuboid c{sizeX, sizeY, sizeZ};
+                        worldManager.placePrimitive(origin, c);
+                        break;
+                    }
+                    case 2: {
+                        Sphere s{radius};
+                        worldManager.placePrimitive(origin, s);
+                        break;
+                    }
+                    case 3: {
+                        Cylinder cyl{cylRadius, height};
+                        worldManager.placePrimitive(origin, cyl);
+                        break;
+                    }
+                    default: break;
+                }
+             }
+        }
+
         ImGui::End();
     });
 }
@@ -474,173 +583,6 @@ void VoxelsApplication::cleanup() {
     Application::cleanup();
 }
 
-std::optional<RaycastResult> VoxelsApplication::raycast() {
-    constexpr float big = 1e30f;
-
-    const float ox = camera.transform.position.x;
-    const float oy = camera.transform.position.y - 1;
-    const float oz = camera.transform.position.z;
-
-    const float dx = camera.front.x;
-    const float dy = camera.front.y;
-    const float dz = camera.front.z;
-
-    int px = static_cast<int>(std::floor(ox));
-    int py = static_cast<int>(std::floor(oy));
-    int pz = static_cast<int>(std::floor(oz));
-
-    const float dxi = 1.0f / dx;
-    const float dyi = 1.0f / dy;
-    const float dzi = 1.0f / dz;
-
-    const int sx = dx > 0 ? 1 : -1;
-    const int sy = dy > 0 ? 1 : -1;
-    const int sz = dz > 0 ? 1 : -1;
-
-    const float dtx = std::min(dxi * sx, big);
-    const float dty = std::min(dyi * sy, big);
-    const float dtz = std::min(dzi * sz, big);
-
-    float tx = abs((px + std::max(sx, 0) - ox) * dxi);
-    float ty = abs((py + std::max(sy, 0) - oy) * dyi);
-    float tz = abs((pz + std::max(sz, 0) - oz) * dzi);
-
-    constexpr int maxSteps = 16;
-
-    int cmpx = 0, cmpy = 0, cmpz = 0;
-
-    int faceHit = -1;
-
-    auto step = [](const float edge, const float x) -> int {
-        return x < edge ? 0 : 1;
-    };
-
-    for (int i = 0; i < maxSteps && py >= 0; i++) {
-        if (i > 0 && py < ChunkHeight) {
-            const int cx = std::floor(static_cast<float>(px) / ChunkSize);
-            const int cz = std::floor(static_cast<float>(pz) / ChunkSize);
-
-            const int localX = (px % ChunkSize + ChunkSize) % ChunkSize;
-            const int localZ = (pz % ChunkSize + ChunkSize) % ChunkSize;
-
-            const Chunk* chunk = worldManager.getChunk(cx, cz);
-            if (!chunk || chunk->debug == 0) {
-                std::cout << "Chunk not found at (" << cx << ", " << cz << ")" << std::endl;
-                return std::nullopt;
-            }
-
-            if (const int v = chunk->load(localX, py, localZ); v != 0) {
-                // std::cout << "Voxel hit at " << px << ", " << py << ", " << pz << ", face: " << faceHit << std::endl;
-                return RaycastResult {
-                    .cx = cx,
-                    .cz = cz,
-                    .x = localX,
-                    .y = py,
-                    .z = localZ,
-                    .face = faceHit
-                };
-            }
-        }
-
-        // Advance to next voxel
-        cmpx = step(tx, tz) * step(tx, ty);
-        cmpy = step(ty, tx) * step(ty, tz);
-        cmpz = step(tz, ty) * step(tz, tx);
-
-        if (cmpx) {
-            faceHit = sx < 0 ? 0 : 1;  // 0: +x, 1: -x
-        } else if (cmpy) {
-            faceHit = sy < 0 ? 2 : 3;  // 2: +y, 3: -y
-        } else if (cmpz) {
-            faceHit = sz < 0 ? 4 : 5;  // 4: +z, 5: -z
-        }
-
-        tx += dtx * cmpx;
-        ty += dty * cmpy;
-        tz += dtz * cmpz;
-
-        px += sx * cmpx;
-        py += sy * cmpy;
-        pz += sz * cmpz;
-    }
-
-    return std::nullopt;
-}
-
-void VoxelsApplication::tryStoreVoxel(const int cx, const int cz, const int x, const int y, const int z, const bool place, std::vector<Chunk*>& chunksToMesh) {
-    Chunk* chunk = worldManager.getChunk(cx, cz);
-    if (!chunk) {
-        return;
-    }
-
-    {
-        std::scoped_lock lock(chunk->mutex);
-        chunk->store(x, y, z, place ? worldManager.paletteIndex + 1 : 0);
-    }
-    chunksToMesh.push_back(chunk);
-}
-
-void VoxelsApplication::updateVoxel(RaycastResult result, const bool place) {
-    auto [cx, cz, x, y, z, face] = result;
-
-    if (place) {
-        switch (face) {
-            case 0: x == ChunkSize - 1 ? (++cx, x = 0) : ++x; break;
-            case 1: x == 0              ? (--cx, x = ChunkSize - 1) : --x; break;
-            case 2: if (y < ChunkHeight - 2) ++y; break;
-            case 3: if (y > 0) --y; break;
-            case 4: z == ChunkSize - 1 ? (++cz, z = 0) : ++z; break;
-            case 5: z == 0              ? (--cz, z = ChunkSize - 1) : --z; break;
-            default:
-                std::cerr << "Invalid face: " << face << std::endl;
-                return;
-        }
-    }
-
-    Chunk* hitChunk = worldManager.getChunk(cx, cz);
-    if (!hitChunk) {
-        std::cerr << "Chunk not found at (" << cx << ", " << cz << ")" << std::endl;
-        return;
-    }
-
-    // Change voxel value
-    {
-        std::scoped_lock lock(hitChunk->mutex);
-        hitChunk->store(x, y, z, place ? worldManager.paletteIndex + 1 : 0);
-    }
-
-    std::vector<Chunk*> chunksToMesh;
-    chunksToMesh.push_back(hitChunk);
-
-    // If the voxel is on a chunk boundary, update the neighboring chunk(s)
-    if (x == 0) {
-        tryStoreVoxel(cx - 1, cz, ChunkSize, y, z, place, chunksToMesh);
-
-        if (z == 0) {
-            tryStoreVoxel(cx - 1, cz - 1, ChunkSize, y, ChunkSize, place, chunksToMesh);
-        } else if (z == ChunkSize - 1) {
-            tryStoreVoxel(cx - 1, cz + 1, ChunkSize, y, -1, place, chunksToMesh);
-        }
-    } else if (x == ChunkSize - 1) {
-        tryStoreVoxel(cx + 1, cz, -1, y, z, place, chunksToMesh);
-
-        if (z == 0) {
-            tryStoreVoxel(cx + 1, cz - 1, -1, y, ChunkSize, place, chunksToMesh);
-        } else if (z == ChunkSize - 1) {
-            tryStoreVoxel(cx + 1, cz + 1, -1, y, -1, place, chunksToMesh);
-        }
-    }
-
-    if (z == 0) {
-        tryStoreVoxel(cx, cz - 1, x, y, ChunkSize, place, chunksToMesh);
-    } else if (z == ChunkSize - 1) {
-        tryStoreVoxel(cx, cz + 1, x, y, -1, place, chunksToMesh);
-    }
-
-    for (Chunk* chunk : chunksToMesh) {
-        worldManager.queueMeshChunk(chunk);
-    }
-}
 
 size_t VoxelsApplication::enlargeVerticesBuffer(const size_t currentCapacity) {
     const size_t newCapacity = currentCapacity * 2;

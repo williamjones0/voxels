@@ -7,6 +7,7 @@
 #include "../core/Camera.hpp"
 #include "Level.hpp"
 #include "VertexFormat.hpp"
+#include "Primitive.hpp"
 
 #include <glad/glad.h>
 
@@ -14,7 +15,9 @@
 #include <condition_variable>
 #include <filesystem>
 #include <mutex>
+#include <optional>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 struct ChunkData {
@@ -26,6 +29,24 @@ struct ChunkData {
     unsigned int firstIndex;
     unsigned int _pad0;
     unsigned int _pad1;
+};
+
+struct RaycastResult {
+    int cx;
+    int cz;
+    int x;
+    int y;
+    int z;
+    int face;
+};
+
+struct Edit {
+    int cx;
+    int cz;
+    int x;
+    int y;
+    int z;
+    int voxelType;
 };
 
 constexpr int InitialVertexBufferSize = 1 << 20;
@@ -66,6 +87,12 @@ public:
     void save();
 
     int load(int x, int y, int z);
+
+    std::optional<RaycastResult> raycast();
+    void tryStoreVoxel(int cx, int cz, int x, int y, int z, int place, std::unordered_set<Chunk*>& chunksToMesh);
+    void updateVoxel(RaycastResult result, bool place);
+    void updateVoxels(const std::vector<Edit>& edits);
+    void placePrimitive(const glm::ivec3& origin, const Primitive& primitive);
 
     void cleanup();
 

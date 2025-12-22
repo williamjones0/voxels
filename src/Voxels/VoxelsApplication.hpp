@@ -12,23 +12,12 @@
 #include "player/FlyPlayerController.hpp"
 #include "ui/UIManager.hpp"
 
-#include <optional>
-
 struct ChunkDrawCommand {
     unsigned int count;
     unsigned int instanceCount;
     unsigned int firstIndex;
     unsigned int baseInstance;
     unsigned int chunkIndex;
-};
-
-struct RaycastResult {
-    int cx;
-    int cz;
-    int x;
-    int y;
-    int z;
-    int face;
 };
 
 class VoxelsApplication final : public Application {
@@ -43,10 +32,6 @@ protected:
 private:
     void setupInput();
     void setupUI();
-
-    std::optional<RaycastResult> raycast();
-    void tryStoreVoxel(int cx, int cz, int x, int y, int z, bool place, std::vector<Chunk*>& chunksToMesh);
-    void updateVoxel(RaycastResult result, bool place);
 
     size_t enlargeVerticesBuffer(size_t currentCapacity);
 

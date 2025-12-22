@@ -1,6 +1,7 @@
 #include "WorldManager.hpp"
 
 #include <fstream>
+#include <cmath>
 
 #include "Mesher.hpp"
 #include "RunMesher.hpp"
@@ -387,6 +388,274 @@ int WorldManager::load(const int x, const int y, const int z) {
     const int lz = z - (cz << ChunkSizeShift);
 
     return chunk->voxels[getVoxelIndex(lx + 1, y + 1, lz + 1, ChunkSize + 2)];
+}
+
+std::optional<RaycastResult> WorldManager::raycast() {
+    constexpr float big = 1e30f;
+
+    const float ox = camera.transform.position.x;
+    const float oy = camera.transform.position.y - 1;
+    const float oz = camera.transform.position.z;
+
+    const float dx = camera.front.x;
+    const float dy = camera.front.y;
+    const float dz = camera.front.z;
+
+    int px = static_cast<int>(std::floor(ox));
+    int py = static_cast<int>(std::floor(oy));
+    int pz = static_cast<int>(std::floor(oz));
+
+    const float dxi = 1.0f / dx;
+    const float dyi = 1.0f / dy;
+    const float dzi = 1.0f / dz;
+
+    const int sx = dx > 0 ? 1 : -1;
+    const int sy = dy > 0 ? 1 : -1;
+    const int sz = dz > 0 ? 1 : -1;
+
+    const float dtx = std::min(dxi * sx, big);
+    const float dty = std::min(dyi * sy, big);
+    const float dtz = std::min(dzi * sz, big);
+
+    float tx = abs((px + std::max(sx, 0) - ox) * dxi);
+    float ty = abs((py + std::max(sy, 0) - oy) * dyi);
+    float tz = abs((pz + std::max(sz, 0) - oz) * dzi);
+
+    constexpr int maxSteps = 16;
+
+    int cmpx = 0, cmpy = 0, cmpz = 0;
+
+    int faceHit = -1;
+
+    auto step = [](const float edge, const float x) -> int {
+        return x < edge ? 0 : 1;
+    };
+
+    for (int i = 0; i < maxSteps && py >= 0; i++) {
+        if (i > 0 && py < ChunkHeight) {
+            const int cx = std::floor(static_cast<float>(px) / ChunkSize);
+            const int cz = std::floor(static_cast<float>(pz) / ChunkSize);
+
+            const int localX = (px % ChunkSize + ChunkSize) % ChunkSize;
+            const int localZ = (pz % ChunkSize + ChunkSize) % ChunkSize;
+
+            const Chunk* chunk = getChunk(cx, cz);
+            if (!chunk || chunk->debug == 0) {
+                std::cout << "Chunk not found at (" << cx << ", " << cz << ")" << std::endl;
+                return std::nullopt;
+            }
+
+            if (const int v = chunk->load(localX, py, localZ); v != 0) {
+                // std::cout << "Voxel hit at " << px << ", " << py << ", " << pz << ", face: " << faceHit << std::endl;
+                return RaycastResult {
+                    .cx = cx,
+                    .cz = cz,
+                    .x = localX,
+                    .y = py,
+                    .z = localZ,
+                    .face = faceHit
+                };
+            }
+        }
+
+        // Advance to next voxel
+        cmpx = step(tx, tz) * step(tx, ty);
+        cmpy = step(ty, tx) * step(ty, tz);
+        cmpz = step(tz, ty) * step(tz, tx);
+
+        if (cmpx) {
+            faceHit = sx < 0 ? 0 : 1;  // 0: +x, 1: -x
+        } else if (cmpy) {
+            faceHit = sy < 0 ? 2 : 3;  // 2: +y, 3: -y
+        } else if (cmpz) {
+            faceHit = sz < 0 ? 4 : 5;  // 4: +z, 5: -z
+        }
+
+        tx += dtx * cmpx;
+        ty += dty * cmpy;
+        tz += dtz * cmpz;
+
+        px += sx * cmpx;
+        py += sy * cmpy;
+        pz += sz * cmpz;
+    }
+
+    return std::nullopt;
+}
+
+void WorldManager::tryStoreVoxel(const int cx, const int cz, const int x, const int y, const int z, const int voxelType, std::unordered_set<Chunk*>& chunksToMesh) {
+    Chunk* chunk = getChunk(cx, cz);
+    if (!chunk) {
+        return;
+    }
+
+    {
+        std::scoped_lock lock(chunk->mutex);
+        chunk->store(x, y, z, voxelType);
+    }
+    chunksToMesh.insert(chunk);
+}
+
+void WorldManager::updateVoxel(RaycastResult result, const bool place) {
+    auto [cx, cz, x, y, z, face] = result;
+
+    if (place) {
+        switch (face) {
+            case 0: x == ChunkSize - 1 ? (++cx, x = 0) : ++x; break;
+            case 1: x == 0             ? (--cx, x = ChunkSize - 1) : --x; break;
+            case 2: if (y < ChunkHeight - 2) ++y; break;
+            case 3: if (y > 0) --y; break;
+            case 4: z == ChunkSize - 1 ? (++cz, z = 0) : ++z; break;
+            case 5: z == 0             ? (--cz, z = ChunkSize - 1) : --z; break;
+            default:
+                std::cerr << "Invalid face: " << face << std::endl;
+                return;
+        }
+    }
+
+    updateVoxels({{cx, cz, x, y, z, static_cast<int>(place ? paletteIndex + 1 : 0)}});
+}
+
+void WorldManager::updateVoxels(const std::vector<Edit>& edits) {
+    std::unordered_set<Chunk*> chunksToMeshSet;
+
+    for (const auto&[cx, cz, x, y, z, voxelType] : edits) {
+        if (y >= ChunkHeight || y < 0) {
+            continue;
+        }
+
+        Chunk* chunk = getChunk(cx, cz);
+        if (!chunk) {
+            continue;
+        }
+
+        {
+            std::scoped_lock lock(chunk->mutex);
+            chunk->store(x, y, z, voxelType);
+        }
+
+        chunksToMeshSet.insert(chunk);
+
+        // If the voxel is on a chunk boundary, update the neighboring chunk(s)
+        if (x == 0) {
+            tryStoreVoxel(cx - 1, cz, ChunkSize, y, z, voxelType, chunksToMeshSet);
+            if (z == 0) {
+                tryStoreVoxel(cx - 1, cz - 1, ChunkSize, y, ChunkSize, voxelType, chunksToMeshSet);
+            } else if (z == ChunkSize - 1) {
+                tryStoreVoxel(cx - 1, cz + 1, ChunkSize, y, -1, voxelType, chunksToMeshSet);
+            }
+        } else if (x == ChunkSize - 1) {
+            tryStoreVoxel(cx + 1, cz, -1, y, z, voxelType, chunksToMeshSet);
+            if (z == 0) {
+                tryStoreVoxel(cx + 1, cz - 1, -1, y, ChunkSize, voxelType, chunksToMeshSet);
+            } else if (z == ChunkSize - 1) {
+                tryStoreVoxel(cx + 1, cz + 1, -1, y, -1, voxelType, chunksToMeshSet);
+            }
+        }
+        if (z == 0) {
+            tryStoreVoxel(cx, cz - 1, x, y, ChunkSize, voxelType, chunksToMeshSet);
+        } else if (z == ChunkSize - 1) {
+            tryStoreVoxel(cx, cz + 1, x, y, -1, voxelType, chunksToMeshSet);
+        }
+    }
+
+    for (Chunk* chunk : chunksToMeshSet) {
+        queueMeshChunk(chunk);
+    }
+}
+
+void WorldManager::placePrimitive(const glm::ivec3& origin, const Primitive& primitive) {
+    std::vector<Edit> edits;
+    if (const auto* cuboid = dynamic_cast<const Cuboid*>(&primitive)) {
+        const int sizeX = std::max(1, static_cast<int>(std::lround(cuboid->sizeX)));
+        const int sizeY = std::max(1, static_cast<int>(std::lround(cuboid->sizeY)));
+        const int sizeZ = std::max(1, static_cast<int>(std::lround(cuboid->sizeZ)));
+
+        for (int x = 0; x < sizeX; ++x) {
+            for (int y = 0; y < sizeY; ++y) {
+                for (int z = 0; z < sizeZ; ++z) {
+                    const int wx = origin.x + x;
+                    const int wy = origin.y + y;
+                    const int wz = origin.z + z;
+                    edits.emplace_back(Edit{
+                        .cx = wx >> ChunkSizeShift,
+                        .cz = wz >> ChunkSizeShift,
+                        .x = (wx % ChunkSize + ChunkSize) % ChunkSize,
+                        .y = wy,
+                        .z = (wz % ChunkSize + ChunkSize) % ChunkSize,
+                        .voxelType = static_cast<int>(paletteIndex + 1)
+                    });
+                }
+            }
+        }
+
+        updateVoxels(edits);
+        return;
+    }
+
+    if (const auto* sphere = dynamic_cast<const Sphere*>(&primitive)) {
+        const float r = std::max(0.5f, sphere->radius);
+        const int ri = static_cast<int>(std::ceil(r));
+        const float rSq = r * r;
+
+        std::unordered_set<Chunk*> touchedChunks;
+        for (int x = -ri; x <= ri; ++x) {
+            for (int y = -ri; y <= ri; ++y) {
+                for (int z = -ri; z <= ri; ++z) {
+                    if (static_cast<float>(x * x + y * y + z * z) <= rSq) {
+                        const int wx = origin.x + x;
+                        const int wy = origin.y + y;
+                        const int wz = origin.z + z;
+                        edits.emplace_back(Edit{
+                            .cx = wx >> ChunkSizeShift,
+                            .cz = wz >> ChunkSizeShift,
+                            .x = (wx % ChunkSize + ChunkSize) % ChunkSize,
+                            .y = wy,
+                            .z = (wz % ChunkSize + ChunkSize) % ChunkSize,
+                            .voxelType = static_cast<int>(paletteIndex + 1)
+                        });
+                    }
+                }
+            }
+        }
+
+        updateVoxels(edits);
+        return;
+    }
+
+    if (const auto* cyl = dynamic_cast<const Cylinder*>(&primitive)) {
+        const float r = std::max(0.5f, cyl->radius);
+        const int ri = static_cast<int>(std::ceil(r));
+        const float rSq = r * r;
+        const int hi = std::max(1, static_cast<int>(std::lround(cyl->height)));
+        const int halfH = hi / 2;
+
+        std::unordered_set<Chunk*> touchedChunks;
+        for (int y = -halfH; y <= halfH; ++y) {
+            for (int x = -ri; x <= ri; ++x) {
+                for (int z = -ri; z <= ri; ++z) {
+                    if (static_cast<float>(x * x + z * z) <= rSq) {
+                        const int wx = origin.x + x;
+                        const int wy = origin.y + y;
+                        const int wz = origin.z + z;
+                        edits.emplace_back(Edit{
+                            .cx = wx >> ChunkSizeShift,
+                            .cz = wz >> ChunkSizeShift,
+                            .x = (wx % ChunkSize + ChunkSize) % ChunkSize,
+                            .y = wy,
+                            .z = (wz % ChunkSize + ChunkSize) % ChunkSize,
+                            .voxelType = static_cast<int>(paletteIndex + 1)
+                        });
+                    }
+                }
+            }
+        }
+
+        updateVoxels(edits);
+        return;
+    }
+
+    std::cerr << "Unknown primitive type passed to placePrimitive\n";
 }
 
 void WorldManager::cleanup() {
