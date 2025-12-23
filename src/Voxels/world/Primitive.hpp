@@ -5,12 +5,17 @@ struct Primitive {
 };
 
 struct Cuboid : Primitive {
-    Cuboid(const float sx, const float sy, const float sz)
-        : sizeX(sx), sizeY(sy), sizeZ(sz) {}
+    Cuboid(const float sx, const float sy, const float sz,
+           const float ex, const float ey, const float ez)
+        : startX(sx), startY(sy), startZ(sz),
+          endX(ex), endY(ey), endZ(ez) {}
 
-    float sizeX;
-    float sizeY;
-    float sizeZ;
+    float startX;
+    float startY;
+    float startZ;
+    float endX;
+    float endY;
+    float endZ;
 };
 
 struct Sphere : Primitive {

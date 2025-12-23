@@ -366,9 +366,12 @@ void VoxelsApplication::setupUI() {
         ImGui::SliderScalar("##paletteIndex", ImGuiDataType_U32, &worldManager.paletteIndex, &min, &max);
 
         static int primitiveType = 0;
-        static float sizeX = 1.0f;
-        static float sizeY = 1.0f;
-        static float sizeZ = 1.0f;
+        static float startX = 1.0f;
+        static float endX = 1.0f;
+        static float startY = 1.0f;
+        static float endY = 1.0f;
+        static float startZ = 1.0f;
+        static float endZ = 1.0f;
         static float radius = 1.0f;
         static float cylRadius = 1.0f;
         static float height = 1.0f;
@@ -382,32 +385,42 @@ void VoxelsApplication::setupUI() {
             }
             case 1: {
                 // Cuboid
-                ImGui::Text("Size X:");
+                ImGui::Text("Start X:");
                 ImGui::SameLine();
-                ImGui::DragFloat("##sizeX", &sizeX, 0.1f, 0.1f, 100.0f, "%.2f");
-                ImGui::Text("Size Y:");
+                ImGui::DragFloat("##startX", &startX, 0.1f, 0.0f, 0.0f, "%.2f");
+                ImGui::Text("Start Y:");
                 ImGui::SameLine();
-                ImGui::DragFloat("##sizeY", &sizeY, 0.1f, 0.1f, 100.0f, "%.2f");
-                ImGui::Text("Size Z:");
+                ImGui::DragFloat("##startY", &startY, 0.1f, 0.0f, 0.0f, "%.2f");
+                ImGui::Text("Start Z:");
                 ImGui::SameLine();
-                ImGui::DragFloat("##sizeZ", &sizeZ, 0.1f, 0.1f, 100.0f, "%.2f");
+                ImGui::DragFloat("##startZ", &startZ, 0.1f, 0.0f, 0.0f, "%.2f");
+
+                ImGui::Text("End X:");
+                ImGui::SameLine();
+                ImGui::DragFloat("##endX", &endX, 0.1f, 0.0f, 0.0f, "%.2f");
+                ImGui::Text("End Y:");
+                ImGui::SameLine();
+                ImGui::DragFloat("##endY", &endY, 0.1f, 0.0f, 0.0f, "%.2f");
+                ImGui::Text("End Z:");
+                ImGui::SameLine();
+                ImGui::DragFloat("##endZ", &endZ, 0.1f, 0.0f, 0.0f, "%.2f");
                 break;
             }
             case 2: {
                 // Sphere
                 ImGui::Text("Radius:");
                 ImGui::SameLine();
-                ImGui::DragFloat("##radius", &radius, 0.1f, 0.1f, 100.0f, "%.2f");
+                ImGui::DragFloat("##radius", &radius, 0.1f, 0.1f, std::numeric_limits<float>::max(), "%.2f");
                 break;
             }
             case 3: {
                 // Cylinder
                 ImGui::Text("Radius:");
                 ImGui::SameLine();
-                ImGui::DragFloat("##cylRadius", &cylRadius, 0.1f, 0.1f, 100.0f, "%.2f");
+                ImGui::DragFloat("##cylRadius", &cylRadius, 0.1f, 0.1f, std::numeric_limits<float>::max(), "%.2f");
                 ImGui::Text("Height:");
                 ImGui::SameLine();
-                ImGui::DragFloat("##height", &height, 0.1f, 0.1f, 100.0f, "%.2f");
+                ImGui::DragFloat("##height", &height, 0.1f, 0.1f, std::numeric_limits<float>::max(), "%.2f");
                 break;
             }
             default: {
@@ -417,46 +430,33 @@ void VoxelsApplication::setupUI() {
         }
 
         if (primitiveType != 0) {
-            static int originType = 0;
-            ImGui::Text("Origin type:");
-            ImGui::SameLine();
-            ImGui::Combo("##originType", &originType, "Selected point, centered\0Selected point, bottom\0Custom\0");
+            static glm::vec3 origin{};
+            if (primitiveType != 1) {
+                ImGui::Text("Origin:");
+                ImGui::SameLine();
+                ImGui::DragFloat3("##origin", reinterpret_cast<float*>(&origin), 0.1f, 0.0f, 0.0f, "%.2f");
 
-            static glm::ivec3 origin{};
-            switch (originType) {
-                case 0: {
-                    // Selected point, centered
+                ImGui::SameLine();
+                if (ImGui::Button("CamPos")) {
+                    origin = camera.transform.position;
+                }
+
+                ImGui::SameLine();
+                if (ImGui::Button("RayPos")) {
                     if (const auto result = worldManager.raycast()) {
-                        origin.x = result->cx * ChunkSize + result->x;
-                        origin.y = result->y;
-                        origin.z = result->cz * ChunkSize + result->z;
+                        const int wx = (result->cx << ChunkSizeShift) + result->x;
+                        const int wy = result->y;
+                        const int wz = (result->cz << ChunkSizeShift) + result->z;
+                        origin = glm::vec3(static_cast<float>(wx), static_cast<float>(wy), static_cast<float>(wz));
                     }
-                    break;
-                }
-                case 1: {
-                    // Selected point, bottom
-                    if (const auto result = worldManager.raycast()) {
-                        origin.x = result->cx * ChunkSize + result->x;
-                        origin.y = result->y;
-                        origin.z = result->cz * ChunkSize + result->z;
-                    }
-                    break;
-                }
-                case 2: {
-                    ImGui::DragInt3("##customOrigin", reinterpret_cast<int*>(&origin));
-                    break;
-                }
-                default: {
-                    ImGui::Text("Unknown origin type.");
-                    break;
                 }
             }
 
             if (ImGui::Button("Place")) {
                 switch (primitiveType) {
                     case 1: {
-                        Cuboid c{sizeX, sizeY, sizeZ};
-                        worldManager.placePrimitive(origin, c);
+                        Cuboid c{startX, startY, startZ, endX, endY, endZ};
+                        worldManager.placePrimitive({}, c);
                         break;
                     }
                     case 2: {

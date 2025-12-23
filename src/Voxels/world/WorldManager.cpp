@@ -567,13 +567,9 @@ void WorldManager::updateVoxels(const std::vector<Edit>& edits) {
 void WorldManager::placePrimitive(const glm::ivec3& origin, const Primitive& primitive) {
     std::vector<Edit> edits;
     if (const auto* cuboid = dynamic_cast<const Cuboid*>(&primitive)) {
-        const int sizeX = std::max(1, static_cast<int>(std::lround(cuboid->sizeX)));
-        const int sizeY = std::max(1, static_cast<int>(std::lround(cuboid->sizeY)));
-        const int sizeZ = std::max(1, static_cast<int>(std::lround(cuboid->sizeZ)));
-
-        for (int x = 0; x < sizeX; ++x) {
-            for (int y = 0; y < sizeY; ++y) {
-                for (int z = 0; z < sizeZ; ++z) {
+        for (int x = cuboid->startX; x <= cuboid->endX; ++x) {
+            for (int y = cuboid->startY; y <= cuboid->endY; ++y) {
+                for (int z = cuboid->startZ; z <= cuboid->endZ; ++z) {
                     const int wx = origin.x + x;
                     const int wy = origin.y + y;
                     const int wz = origin.z + z;
