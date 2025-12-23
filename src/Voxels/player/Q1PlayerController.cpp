@@ -71,7 +71,7 @@ void Q1PlayerController::load() {
     Input::registerCallback({ActionType::MoveLeft, ActionStateType::Stop}, [this] { ++moveInput.x; });
     Input::registerCallback({ActionType::MoveRight, ActionStateType::Stop}, [this] { --moveInput.x; });
 
-    Input::registerCallback({ActionType::Jump, ActionStateType::Start}, [this] { queueJump(); });
+    Input::registerCallback({ActionType::Jump, ActionStateType::Start}, [this] { jumpQueued = true; });
     Input::registerCallback({ActionType::Jump, ActionStateType::Stop}, [this] { jumpQueued = false; });
 }
 
@@ -101,13 +101,11 @@ void Q1PlayerController::update(const float dt) {
     camFront = glm::rotateY(camFront, -static_cast<float>(yRot));
     camera.front = camFront;
 
-    queueJump();  // Update jump state based on current input
-
     // Check if we should jump BEFORE friction
     bool jumpingThisFrame = false;
     if (character.isGrounded && jumpQueued) {
         playerVelocity.y = ConvertedQuakeConstants::JumpSpeed;
-        jumpQueued = false;  // Consume the jump
+        if (!autoBunnyHop) jumpQueued = false;  // Consume the jump
         jumpingThisFrame = true;
         character.isGrounded = false;
     }
@@ -123,29 +121,6 @@ void Q1PlayerController::update(const float dt) {
     camera.transform.position = character.transform.position + glm::vec3(0, 1.2f, 0);
 
     currentSpeed = glm::length(glm::vec3(playerVelocity.x, 0, playerVelocity.z));
-}
-
-void Q1PlayerController::queueJump() {
-    if (autoBunnyHop) {
-        // Just queue a jump whenever space is held
-        jumpQueued = Input::isKeyDown(GLFW_KEY_SPACE);
-        return;
-    }
-
-    // Regular mode: only queue jump on transition from not pressed to pressed
-    bool jumpPressedThisFrame = Input::isKeyDown(GLFW_KEY_SPACE) && !wasJumpKeyDown;
-
-    if (jumpPressedThisFrame) {
-        jumpQueued = true;
-    }
-
-    // If jump key is released, clear the queue
-    if (!Input::isKeyDown(GLFW_KEY_SPACE)) {
-        jumpQueued = false;
-    }
-
-    // Store for next frame
-    wasJumpKeyDown = Input::isKeyDown(GLFW_KEY_SPACE);
 }
 
 void Q1PlayerController::airMove() {

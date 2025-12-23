@@ -33,10 +33,8 @@ private:
 
     CharacterController& character;
 
-    bool autoBunnyHop = true;
-
+    bool autoBunnyHop = false;
     bool jumpQueued = false;
-    bool wasJumpKeyDown = false;
 
     glm::vec3 moveInput{};
 
@@ -45,7 +43,6 @@ private:
     float xSensitivity = 0.016f;
     float ySensitivity = 0.016f;
 
-    void queueJump();
     void airMove();
     void applyFriction();
     void accelerate(glm::vec3 wishdir, float wishspeed, float accel);
