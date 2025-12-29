@@ -48,6 +48,6 @@ void UIManager::cleanup() {
     ImGui::DestroyContext();
 }
 
-void UIManager::registerWindow(const std::string& title, const WindowFn &fn, const bool visible) {
+void UIManager::registerWindow(const std::string& title, const WindowFn& fn, const bool visible) {
     windows.push_back(Window{title, fn, visible});
 }

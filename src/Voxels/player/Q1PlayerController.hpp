@@ -33,7 +33,7 @@ private:
 
     CharacterController& character;
 
-    bool autoBunnyHop = false;
+    bool autoBunnyHop = true;
     bool jumpQueued = false;
 
     glm::vec3 moveInput{};

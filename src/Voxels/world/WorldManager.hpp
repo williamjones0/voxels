@@ -40,15 +40,6 @@ struct RaycastResult {
     int face;
 };
 
-struct Edit {
-    int cx;
-    int cz;
-    int x;
-    int y;
-    int z;
-    int voxelType;
-};
-
 constexpr int InitialVertexBufferSize = 1 << 20;
 constexpr int MaxChunkTasks = 32;
 
@@ -91,8 +82,11 @@ public:
     std::optional<RaycastResult> raycast();
     void tryStoreVoxel(int cx, int cz, int x, int y, int z, int place, std::unordered_set<Chunk*>& chunksToMesh);
     void updateVoxel(RaycastResult result, bool place);
-    void updateVoxels(const std::vector<Edit>& edits);
-    void placePrimitive(const glm::ivec3& origin, const Primitive& primitive);
+    void updateVoxels(std::vector<Edit>& edits);
+    void updateVoxels(std::vector<Edit>&& edits);
+    void addPrimitive(std::unique_ptr<Primitive> primitive);
+    void placePrimitive(Primitive& primitive);
+    void movePrimitive(Primitive& primitive, const glm::ivec3& newOrigin);
 
     void cleanup();
 
@@ -103,6 +97,8 @@ public:
 
     std::array<glm::vec3, 1 << VertexFormat::ColourBits> palette;
     size_t paletteIndex = 0;
+
+    std::vector<std::unique_ptr<Primitive>> primitives;
 
     std::vector<Chunk*> chunks;
     std::vector<Chunk*> frontierChunks;

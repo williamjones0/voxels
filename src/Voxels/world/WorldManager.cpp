@@ -516,10 +516,11 @@ void WorldManager::updateVoxel(RaycastResult result, const bool place) {
     updateVoxels({{cx, cz, x, y, z, static_cast<int>(place ? paletteIndex + 1 : 0)}});
 }
 
-void WorldManager::updateVoxels(const std::vector<Edit>& edits) {
+void WorldManager::updateVoxels(std::vector<Edit>& edits) {
     std::unordered_set<Chunk*> chunksToMeshSet;
 
-    for (const auto&[cx, cz, x, y, z, voxelType] : edits) {
+    for (auto& edit : edits) {
+        auto [cx, cz, x, y, z, voxelType, _] = edit;
         if (y >= ChunkHeight || y < 0) {
             continue;
         }
@@ -531,6 +532,7 @@ void WorldManager::updateVoxels(const std::vector<Edit>& edits) {
 
         {
             std::scoped_lock lock(chunk->mutex);
+            edit.oldVoxelType = chunk->load(x, y, z);
             chunk->store(x, y, z, voxelType);
         }
 
@@ -564,94 +566,128 @@ void WorldManager::updateVoxels(const std::vector<Edit>& edits) {
     }
 }
 
-void WorldManager::placePrimitive(const glm::ivec3& origin, const Primitive& primitive) {
-    std::vector<Edit> edits;
-    if (const auto* cuboid = dynamic_cast<const Cuboid*>(&primitive)) {
-        for (int x = cuboid->startX; x <= cuboid->endX; ++x) {
-            for (int y = cuboid->startY; y <= cuboid->endY; ++y) {
-                for (int z = cuboid->startZ; z <= cuboid->endZ; ++z) {
-                    const int wx = origin.x + x;
-                    const int wy = origin.y + y;
-                    const int wz = origin.z + z;
-                    edits.emplace_back(Edit{
-                        .cx = wx >> ChunkSizeShift,
-                        .cz = wz >> ChunkSizeShift,
-                        .x = (wx % ChunkSize + ChunkSize) % ChunkSize,
-                        .y = wy,
-                        .z = (wz % ChunkSize + ChunkSize) % ChunkSize,
-                        .voxelType = static_cast<int>(paletteIndex + 1)
-                    });
-                }
-            }
+void WorldManager::updateVoxels(std::vector<Edit> &&edits) {
+    std::unordered_set<Chunk*> chunksToMeshSet;
+
+    for (auto& edit : edits) {
+        auto [cx, cz, x, y, z, voxelType, _] = edit;
+        if (y >= ChunkHeight || y < 0) {
+            continue;
         }
 
-        updateVoxels(edits);
-        return;
-    }
-
-    if (const auto* sphere = dynamic_cast<const Sphere*>(&primitive)) {
-        const float r = std::max(0.5f, sphere->radius);
-        const int ri = static_cast<int>(std::ceil(r));
-        const float rSq = r * r;
-
-        std::unordered_set<Chunk*> touchedChunks;
-        for (int x = -ri; x <= ri; ++x) {
-            for (int y = -ri; y <= ri; ++y) {
-                for (int z = -ri; z <= ri; ++z) {
-                    if (static_cast<float>(x * x + y * y + z * z) <= rSq) {
-                        const int wx = origin.x + x;
-                        const int wy = origin.y + y;
-                        const int wz = origin.z + z;
-                        edits.emplace_back(Edit{
-                            .cx = wx >> ChunkSizeShift,
-                            .cz = wz >> ChunkSizeShift,
-                            .x = (wx % ChunkSize + ChunkSize) % ChunkSize,
-                            .y = wy,
-                            .z = (wz % ChunkSize + ChunkSize) % ChunkSize,
-                            .voxelType = static_cast<int>(paletteIndex + 1)
-                        });
-                    }
-                }
-            }
+        Chunk* chunk = getChunk(cx, cz);
+        if (!chunk) {
+            continue;
         }
 
-        updateVoxels(edits);
-        return;
-    }
-
-    if (const auto* cyl = dynamic_cast<const Cylinder*>(&primitive)) {
-        const float r = std::max(0.5f, cyl->radius);
-        const int ri = static_cast<int>(std::ceil(r));
-        const float rSq = r * r;
-        const int hi = std::max(1, static_cast<int>(std::lround(cyl->height)));
-        const int halfH = hi / 2;
-
-        std::unordered_set<Chunk*> touchedChunks;
-        for (int y = -halfH; y <= halfH; ++y) {
-            for (int x = -ri; x <= ri; ++x) {
-                for (int z = -ri; z <= ri; ++z) {
-                    if (static_cast<float>(x * x + z * z) <= rSq) {
-                        const int wx = origin.x + x;
-                        const int wy = origin.y + y;
-                        const int wz = origin.z + z;
-                        edits.emplace_back(Edit{
-                            .cx = wx >> ChunkSizeShift,
-                            .cz = wz >> ChunkSizeShift,
-                            .x = (wx % ChunkSize + ChunkSize) % ChunkSize,
-                            .y = wy,
-                            .z = (wz % ChunkSize + ChunkSize) % ChunkSize,
-                            .voxelType = static_cast<int>(paletteIndex + 1)
-                        });
-                    }
-                }
-            }
+        {
+            std::scoped_lock lock(chunk->mutex);
+            // edit.oldVoxelType = chunk->load(x, y, z);
+            chunk->store(x, y, z, voxelType);
         }
 
-        updateVoxels(edits);
-        return;
+        chunksToMeshSet.insert(chunk);
+
+        // If the voxel is on a chunk boundary, update the neighboring chunk(s)
+        if (x == 0) {
+            tryStoreVoxel(cx - 1, cz, ChunkSize, y, z, voxelType, chunksToMeshSet);
+            if (z == 0) {
+                tryStoreVoxel(cx - 1, cz - 1, ChunkSize, y, ChunkSize, voxelType, chunksToMeshSet);
+            } else if (z == ChunkSize - 1) {
+                tryStoreVoxel(cx - 1, cz + 1, ChunkSize, y, -1, voxelType, chunksToMeshSet);
+            }
+        } else if (x == ChunkSize - 1) {
+            tryStoreVoxel(cx + 1, cz, -1, y, z, voxelType, chunksToMeshSet);
+            if (z == 0) {
+                tryStoreVoxel(cx + 1, cz - 1, -1, y, ChunkSize, voxelType, chunksToMeshSet);
+            } else if (z == ChunkSize - 1) {
+                tryStoreVoxel(cx + 1, cz + 1, -1, y, -1, voxelType, chunksToMeshSet);
+            }
+        }
+        if (z == 0) {
+            tryStoreVoxel(cx, cz - 1, x, y, ChunkSize, voxelType, chunksToMeshSet);
+        } else if (z == ChunkSize - 1) {
+            tryStoreVoxel(cx, cz + 1, x, y, -1, voxelType, chunksToMeshSet);
+        }
     }
 
-    std::cerr << "Unknown primitive type passed to placePrimitive\n";
+    for (Chunk* chunk : chunksToMeshSet) {
+        queueMeshChunk(chunk);
+    }
+}
+
+void WorldManager::addPrimitive(std::unique_ptr<Primitive> primitive) {
+    placePrimitive(*primitive);
+    primitives.push_back(std::move(primitive));
+}
+
+void WorldManager::placePrimitive(Primitive &primitive) {
+    primitive.edits.clear();
+    primitive.edits = primitive.generateEdits();
+    updateVoxels(primitive.edits);
+}
+
+void WorldManager::movePrimitive(Primitive& primitive, const glm::ivec3& newOrigin) {
+    // For each edit, if the current voxel is not the same as edit.oldVoxelType, don't change it (someone else edited on top there)
+    // If the current voxel is the same, then we were the last edit, change it back to oldVoxelType
+
+    // Make a set of the old edits and a set of the new edits
+    const std::unordered_set<Edit, EditHash> oldEdits(primitive.edits.begin(), primitive.edits.end());
+
+    primitive.origin = newOrigin;
+    std::vector<Edit> newEditsVec = primitive.generateEdits();
+    const std::unordered_set<Edit, EditHash> newEdits(newEditsVec.begin(), newEditsVec.end());
+
+    // The edits we need to remove are the ones in the old set that are not in the new set
+    std::vector<Edit> toRemove = {};
+    for (const auto& oldEdit : primitive.edits) {
+        if (!newEdits.contains(oldEdit)) {
+            toRemove.push_back(oldEdit);
+        }
+    }
+
+    // The edits we need to add are the ones in the new set that are not in the old set
+    std::vector<Edit> toAdd = {};
+    for (const auto& newEdit : newEdits) {
+        if (!oldEdits.contains(newEdit)) {
+            toAdd.push_back(newEdit);
+        }
+    }
+
+    // First, revert old edits
+    std::vector<Edit> revertEdits;
+    for (const auto& [cx, cz, x, y, z, voxelType, oldVoxelType] : toRemove) {
+        int currentVoxelType = 0;
+        Chunk* chunk = getChunk(cx, cz);
+        if (!chunk) {
+            continue;
+        }
+        {
+            std::scoped_lock lock(chunk->mutex);
+            currentVoxelType = chunk->load(x, y, z);
+        }
+
+        // If the voxel has been changed since we last edited it, don't change it
+        if (currentVoxelType != voxelType) {
+            // Someone else edited this voxel; leave it
+            continue;
+        }
+
+        // Change back to the old voxel type
+        revertEdits.emplace_back(Edit{cx, cz, x, y, z, oldVoxelType});
+    }
+    updateVoxels(revertEdits);
+
+    // Now, apply new edits
+    updateVoxels(toAdd);
+
+    // Update the primitive's edits
+    for (auto& edit : toRemove) {
+        std::erase(primitive.edits, edit);
+    }
+    for (auto& edit : toAdd) {
+        primitive.edits.push_back(edit);
+    }
 }
 
 void WorldManager::cleanup() {

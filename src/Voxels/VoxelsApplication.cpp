@@ -366,15 +366,11 @@ void VoxelsApplication::setupUI() {
         ImGui::SliderScalar("##paletteIndex", ImGuiDataType_U32, &worldManager.paletteIndex, &min, &max);
 
         static int primitiveType = 0;
-        static float startX = 1.0f;
-        static float endX = 1.0f;
-        static float startY = 1.0f;
-        static float endY = 1.0f;
-        static float startZ = 1.0f;
-        static float endZ = 1.0f;
-        static float radius = 1.0f;
-        static float cylRadius = 1.0f;
-        static float height = 1.0f;
+        static glm::ivec3 startPos{};
+        static glm::ivec3 endPos{};
+        static int sphRadius = 1.0f;
+        static int cylRadius = 1.0f;
+        static int height = 1.0f;
         ImGui::Text("Primitive type:");
         ImGui::SameLine();
         ImGui::Combo("##primitiveType", &primitiveType, "None\0Cuboid\0Sphere\0Cylinder\0");
@@ -385,42 +381,38 @@ void VoxelsApplication::setupUI() {
             }
             case 1: {
                 // Cuboid
-                ImGui::Text("Start X:");
+                ImGui::Text("Start:");
                 ImGui::SameLine();
-                ImGui::DragFloat("##startX", &startX, 0.1f, 0.0f, 0.0f, "%.2f");
-                ImGui::Text("Start Y:");
+                ImGui::DragInt3("##startPos", reinterpret_cast<int*>(&startPos), 0.1f, 0, 0, "%.2f");
                 ImGui::SameLine();
-                ImGui::DragFloat("##startY", &startY, 0.1f, 0.0f, 0.0f, "%.2f");
-                ImGui::Text("Start Z:");
-                ImGui::SameLine();
-                ImGui::DragFloat("##startZ", &startZ, 0.1f, 0.0f, 0.0f, "%.2f");
+                if (ImGui::Button("CamPos##start")) {
+                    startPos = glm::ivec3(camera.transform.position);
+                }
 
-                ImGui::Text("End X:");
+                ImGui::Text("End:");
                 ImGui::SameLine();
-                ImGui::DragFloat("##endX", &endX, 0.1f, 0.0f, 0.0f, "%.2f");
-                ImGui::Text("End Y:");
+                ImGui::DragInt3("##endPos", reinterpret_cast<int*>(&endPos), 0.1f, 0, 0, "%.2f");
                 ImGui::SameLine();
-                ImGui::DragFloat("##endY", &endY, 0.1f, 0.0f, 0.0f, "%.2f");
-                ImGui::Text("End Z:");
-                ImGui::SameLine();
-                ImGui::DragFloat("##endZ", &endZ, 0.1f, 0.0f, 0.0f, "%.2f");
+                if (ImGui::Button("CamPos##end")) {
+                    endPos = glm::ivec3(camera.transform.position);
+                }
                 break;
             }
             case 2: {
                 // Sphere
                 ImGui::Text("Radius:");
                 ImGui::SameLine();
-                ImGui::DragFloat("##radius", &radius, 0.1f, 0.1f, std::numeric_limits<float>::max(), "%.2f");
+                ImGui::DragInt("##radius", &sphRadius, 0.1f, 1, std::numeric_limits<int>::max(), "%.2f");
                 break;
             }
             case 3: {
                 // Cylinder
                 ImGui::Text("Radius:");
                 ImGui::SameLine();
-                ImGui::DragFloat("##cylRadius", &cylRadius, 0.1f, 0.1f, std::numeric_limits<float>::max(), "%.2f");
+                ImGui::DragInt("##cylRadius", &cylRadius, 0.1f, 1, std::numeric_limits<int>::max(), "%.2f");
                 ImGui::Text("Height:");
                 ImGui::SameLine();
-                ImGui::DragFloat("##height", &height, 0.1f, 0.1f, std::numeric_limits<float>::max(), "%.2f");
+                ImGui::DragInt("##height", &height, 0.1f, 1, std::numeric_limits<int>::max(), "%.2f");
                 break;
             }
             default: {
@@ -430,14 +422,14 @@ void VoxelsApplication::setupUI() {
         }
 
         if (primitiveType != 0) {
-            static glm::vec3 origin{};
+            static glm::ivec3 origin{};
             if (primitiveType != 1) {
                 ImGui::Text("Origin:");
                 ImGui::SameLine();
-                ImGui::DragFloat3("##origin", reinterpret_cast<float*>(&origin), 0.1f, 0.0f, 0.0f, "%.2f");
+                ImGui::DragInt3("##origin", reinterpret_cast<int*>(&origin), 0.1f, 0, 0, "%.2f");
 
                 ImGui::SameLine();
-                if (ImGui::Button("CamPos")) {
+                if (ImGui::Button("CamPos##origin")) {
                     origin = camera.transform.position;
                 }
 
@@ -447,7 +439,7 @@ void VoxelsApplication::setupUI() {
                         const int wx = (result->cx << ChunkSizeShift) + result->x;
                         const int wy = result->y;
                         const int wz = (result->cz << ChunkSizeShift) + result->z;
-                        origin = glm::vec3(static_cast<float>(wx), static_cast<float>(wy), static_cast<float>(wz));
+                        origin = {wx, wy, wz};
                     }
                 }
             }
@@ -455,23 +447,35 @@ void VoxelsApplication::setupUI() {
             if (ImGui::Button("Place")) {
                 switch (primitiveType) {
                     case 1: {
-                        Cuboid c{startX, startY, startZ, endX, endY, endZ};
-                        worldManager.placePrimitive({}, c);
+                        worldManager.addPrimitive(std::make_unique<Cuboid>(worldManager.paletteIndex + 1, glm::vec3{}, startPos, endPos));
                         break;
                     }
                     case 2: {
-                        Sphere s{radius};
-                        worldManager.placePrimitive(origin, s);
+                        worldManager.addPrimitive(std::make_unique<Sphere>(worldManager.paletteIndex + 1, origin, sphRadius));
                         break;
                     }
                     case 3: {
-                        Cylinder cyl{cylRadius, height};
-                        worldManager.placePrimitive(origin, cyl);
+                        worldManager.addPrimitive(std::make_unique<Cylinder>(worldManager.paletteIndex + 1, origin, cylRadius, height));
                         break;
                     }
                     default: break;
                 }
-             }
+            }
+        }
+
+        // List of primitives with a position slider
+        ImGui::Separator();
+        ImGui::Text("Primitives:");
+        for (size_t i = 0; i < worldManager.primitives.size(); ++i) {
+            ImGui::Text("%zu: %s at ", i,
+                        dynamic_cast<Cuboid*>(worldManager.primitives[i].get()) ? "Cuboid" :
+                        dynamic_cast<Sphere*>(worldManager.primitives[i].get()) ? "Sphere" :
+                        dynamic_cast<Cylinder*>(worldManager.primitives[i].get()) ? "Cylinder" : "Unknown");
+            if (ImGui::DragInt3(("##primitivePos" + std::to_string(i)).c_str(),
+                              reinterpret_cast<int*>(&(worldManager.primitives[i]->origin)),
+                              0.1f, 0, 0, "%.2f")) {
+                worldManager.movePrimitive(*worldManager.primitives[i], worldManager.primitives[i]->origin);
+            }
         }
 
         ImGui::End();

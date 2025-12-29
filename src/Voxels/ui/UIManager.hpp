@@ -15,7 +15,7 @@ public:
     void render();
     void cleanup();
 
-    void registerWindow(const std::string& title, const WindowFn &fn, bool visible = true);
+    void registerWindow(const std::string& title, const WindowFn& fn, bool visible = true);
 
 private:
     struct Window { std::string title; WindowFn fn; bool visible; };
