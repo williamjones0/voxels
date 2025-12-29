@@ -86,6 +86,7 @@ public:
     void updateVoxels(std::vector<Edit>&& edits);
     void addPrimitive(std::unique_ptr<Primitive> primitive);
     void placePrimitive(Primitive& primitive);
+    void removePrimitive(size_t index);
     void movePrimitive(Primitive& primitive, const glm::ivec3& newOrigin);
 
     void cleanup();

@@ -447,7 +447,7 @@ void VoxelsApplication::setupUI() {
             if (ImGui::Button("Place")) {
                 switch (primitiveType) {
                     case 1: {
-                        worldManager.addPrimitive(std::make_unique<Cuboid>(worldManager.paletteIndex + 1, glm::vec3{}, startPos, endPos));
+                        worldManager.addPrimitive(std::make_unique<Cuboid>(worldManager.paletteIndex + 1, glm::ivec3{}, startPos, endPos));
                         break;
                     }
                     case 2: {
@@ -471,10 +471,16 @@ void VoxelsApplication::setupUI() {
                         dynamic_cast<Cuboid*>(worldManager.primitives[i].get()) ? "Cuboid" :
                         dynamic_cast<Sphere*>(worldManager.primitives[i].get()) ? "Sphere" :
                         dynamic_cast<Cylinder*>(worldManager.primitives[i].get()) ? "Cylinder" : "Unknown");
+            ImGui::SameLine();
             if (ImGui::DragInt3(("##primitivePos" + std::to_string(i)).c_str(),
                               reinterpret_cast<int*>(&(worldManager.primitives[i]->origin)),
                               0.1f, 0, 0, "%.2f")) {
                 worldManager.movePrimitive(*worldManager.primitives[i], worldManager.primitives[i]->origin);
+            }
+            ImGui::SameLine();
+            if (ImGui::Button(("Remove##" + std::to_string(i)).c_str())) {
+                worldManager.removePrimitive(i);
+                --i; // Adjust index since we removed an element
             }
         }
 

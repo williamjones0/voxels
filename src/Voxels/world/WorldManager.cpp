@@ -627,6 +627,40 @@ void WorldManager::placePrimitive(Primitive &primitive) {
     updateVoxels(primitive.edits);
 }
 
+void WorldManager::removePrimitive(const size_t index) {
+    // For each edit, if the current voxel is not the same as edit.voxelType, don't change it (someone else edited on top there)
+    // If the current voxel is the same, then we were the last edit, change it back to oldVoxelType
+
+    Primitive& primitive = *primitives[index];
+
+    std::vector<Edit> revertEdits;
+    for (const auto& [cx, cz, x, y, z, voxelType, oldVoxelType] : primitive.edits) {
+        int currentVoxelType = 0;
+        Chunk* chunk = getChunk(cx, cz);
+        if (!chunk) {
+            continue;
+        }
+        {
+            std::scoped_lock lock(chunk->mutex);
+            currentVoxelType = chunk->load(x, y, z);
+        }
+
+        // If the voxel has been changed since we last edited it, don't change it
+        if (currentVoxelType != voxelType) {
+            // Someone else edited this voxel; leave it
+            continue;
+        }
+
+        // Change back to the old voxel type
+        revertEdits.emplace_back(Edit{cx, cz, x, y, z, oldVoxelType});
+    }
+    updateVoxels(revertEdits);
+    primitive.edits.clear();
+
+    // Now delete the primitive from the primitives vector
+    primitives.erase(primitives.begin() + index);
+}
+
 void WorldManager::movePrimitive(Primitive& primitive, const glm::ivec3& newOrigin) {
     // For each edit, if the current voxel is not the same as edit.oldVoxelType, don't change it (someone else edited on top there)
     // If the current voxel is the same, then we were the last edit, change it back to oldVoxelType
