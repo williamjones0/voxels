@@ -475,7 +475,7 @@ void VoxelsApplication::setupUI() {
             if (ImGui::DragInt3(("##primitivePos" + std::to_string(i)).c_str(),
                               reinterpret_cast<int*>(&(worldManager.primitives[i]->origin)),
                               0.1f, 0, 0, "%.2f")) {
-                worldManager.movePrimitive(*worldManager.primitives[i], worldManager.primitives[i]->origin);
+                worldManager.movePrimitive(i, worldManager.primitives[i]->origin);
             }
             ImGui::SameLine();
             if (ImGui::Button(("Remove##" + std::to_string(i)).c_str())) {

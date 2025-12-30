@@ -11,8 +11,8 @@
 
 #include <glad/glad.h>
 
+#include <array>
 #include <atomic>
-#include <condition_variable>
 #include <filesystem>
 #include <mutex>
 #include <optional>
@@ -87,7 +87,7 @@ public:
     void addPrimitive(std::unique_ptr<Primitive> primitive);
     void placePrimitive(Primitive& primitive);
     void removePrimitive(size_t index);
-    void movePrimitive(Primitive& primitive, const glm::ivec3& newOrigin);
+    void movePrimitive(size_t index, const glm::ivec3& newOrigin);
 
     void cleanup();
 

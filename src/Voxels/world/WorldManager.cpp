@@ -628,10 +628,34 @@ void WorldManager::placePrimitive(Primitive &primitive) {
 }
 
 void WorldManager::removePrimitive(const size_t index) {
-    // For each edit, if the current voxel is not the same as edit.voxelType, don't change it (someone else edited on top there)
-    // If the current voxel is the same, then we were the last edit, change it back to oldVoxelType
+    // For each edit, if the current voxel is not the same as edit.voxelType, don't change it (someone else edited on top there).
+    // In this case, we also need to update that primitive's oldVoxelType to our oldVoxelType
+    // The case is:
+    // A placed -> B placed on top of A -> A removed -> B's oldVoxelTypes need to be updated
+
+    // Other case: if the current voxel is the same, then we were the last edit, change it back to oldVoxelType
+
+    // 1) Get all the edits that overlap with another primitive (use naive slow method at first here)
+    // 2) For every overlapping edit such that its oldVoxelType is equal to our voxel type (i.e., we were the most recent edit before it):
+    //    a) Set its oldVoxelType to our oldVoxelType (set it to what came before us)
 
     Primitive& primitive = *primitives[index];
+
+    // Fix overlapping edits
+    for (size_t i = 0; i < primitives.size(); ++i) {
+        if (i == index) continue;  // skip ourselves
+
+        // Find all edits whose positions are the same as an edit we will be removing
+        for (auto& otherEdit : primitives[i]->edits) {
+            auto it = std::ranges::find(primitive.edits, otherEdit);  // TODO: slow and bad
+            if (it != primitive.edits.end()) {
+                if (otherEdit.oldVoxelType == it->voxelType) {
+                    // We were the most recent edit: set the oldVoxelType to what came before us
+                    otherEdit.oldVoxelType = it->oldVoxelType;
+                }
+            }
+        }
+    }
 
     std::vector<Edit> revertEdits;
     for (const auto& [cx, cz, x, y, z, voxelType, oldVoxelType] : primitive.edits) {
@@ -661,9 +685,11 @@ void WorldManager::removePrimitive(const size_t index) {
     primitives.erase(primitives.begin() + index);
 }
 
-void WorldManager::movePrimitive(Primitive& primitive, const glm::ivec3& newOrigin) {
+void WorldManager::movePrimitive(const size_t index, const glm::ivec3& newOrigin) {
     // For each edit, if the current voxel is not the same as edit.oldVoxelType, don't change it (someone else edited on top there)
     // If the current voxel is the same, then we were the last edit, change it back to oldVoxelType
+
+    Primitive& primitive = *primitives[index];
 
     // Make a set of the old edits and a set of the new edits
     const std::unordered_set<Edit, EditHash> oldEdits(primitive.edits.begin(), primitive.edits.end());
@@ -685,6 +711,23 @@ void WorldManager::movePrimitive(Primitive& primitive, const glm::ivec3& newOrig
     for (const auto& newEdit : newEdits) {
         if (!oldEdits.contains(newEdit)) {
             toAdd.push_back(newEdit);
+        }
+    }
+
+    // Fix overlapping edits
+    for (size_t i = 0; i < primitives.size(); ++i) {
+        if (i == index) continue;  // skip ourselves
+
+        // Find all edits whose positions are the same as an edit we will be removing
+        for (auto& otherEdit : primitives[i]->edits) {
+            // equality for edit is determined only by position
+            auto it = std::ranges::find(toRemove, otherEdit);  // TODO: slow and bad
+            if (it != toRemove.end()) {
+                if (otherEdit.oldVoxelType == it->voxelType) {
+                    // We were the most recent edit: set the oldVoxelType to what came before us
+                    otherEdit.oldVoxelType = it->oldVoxelType;
+                }
+            }
         }
     }
 
