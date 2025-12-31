@@ -366,14 +366,17 @@ void VoxelsApplication::setupUI() {
         ImGui::SliderScalar("##paletteIndex", ImGuiDataType_U32, &worldManager.paletteIndex, &min, &max);
 
         static int primitiveType = 0;
-        static glm::ivec3 startPos{};
-        static glm::ivec3 endPos{};
+        static glm::ivec3 cuboidStartPos{};
+        static glm::ivec3 cuboidEndPos{};
         static int sphRadius = 1.0f;
         static int cylRadius = 1.0f;
         static int height = 1.0f;
+        static glm::ivec3 planeStartPos{};
+        static glm::ivec3 planeEndPos{};
+        static Plane::Axis planeAxis = Plane::Axis::Y;
         ImGui::Text("Primitive type:");
         ImGui::SameLine();
-        ImGui::Combo("##primitiveType", &primitiveType, "None\0Cuboid\0Sphere\0Cylinder\0");
+        ImGui::Combo("##primitiveType", &primitiveType, "None\0Cuboid\0Sphere\0Cylinder\0Plane\0");
         switch (primitiveType) {
             case 0: {
                 // None
@@ -383,18 +386,18 @@ void VoxelsApplication::setupUI() {
                 // Cuboid
                 ImGui::Text("Start:");
                 ImGui::SameLine();
-                ImGui::DragInt3("##startPos", reinterpret_cast<int*>(&startPos), 0.1f, 0, 0, "%.2f");
+                ImGui::DragInt3("##cuboidStartPos", reinterpret_cast<int*>(&cuboidStartPos), 0.1f, 0, 0, "%.2f");
                 ImGui::SameLine();
                 if (ImGui::Button("CamPos##start")) {
-                    startPos = glm::ivec3(camera.transform.position);
+                    cuboidStartPos = glm::ivec3(camera.transform.position);
                 }
 
                 ImGui::Text("End:");
                 ImGui::SameLine();
-                ImGui::DragInt3("##endPos", reinterpret_cast<int*>(&endPos), 0.1f, 0, 0, "%.2f");
+                ImGui::DragInt3("##cuboidEndPos", reinterpret_cast<int*>(&cuboidEndPos), 0.1f, 0, 0, "%.2f");
                 ImGui::SameLine();
                 if (ImGui::Button("CamPos##end")) {
-                    endPos = glm::ivec3(camera.transform.position);
+                    cuboidEndPos = glm::ivec3(camera.transform.position);
                 }
                 break;
             }
@@ -413,6 +416,30 @@ void VoxelsApplication::setupUI() {
                 ImGui::Text("Height:");
                 ImGui::SameLine();
                 ImGui::DragInt("##height", &height, 0.1f, 1, std::numeric_limits<int>::max(), "%.2f");
+                break;
+            }
+            case 4: {
+                // Plane
+                ImGui::Text("Start:");
+                ImGui::SameLine();
+                ImGui::DragInt3("##planeStartPos", reinterpret_cast<int*>(&planeStartPos), 0.1f, 0, 0, "%.2f");
+                ImGui::SameLine();
+                if (ImGui::Button("CamPos##start")) {
+                    planeStartPos = glm::ivec3(camera.transform.position);
+                }
+
+                ImGui::Text("End:");
+                ImGui::SameLine();
+                ImGui::DragInt3("##planeEndPos", reinterpret_cast<int*>(&planeEndPos), 0.1f, 0, 0, "%.2f");
+                ImGui::SameLine();
+                if (ImGui::Button("CamPos##end")) {
+                    planeEndPos = glm::ivec3(camera.transform.position);
+                }
+
+                ImGui::Text("Axis:");
+                ImGui::SameLine();
+                ImGui::Combo("##planeAxis", reinterpret_cast<int*>(&planeAxis), "X\0Y\0Z\0");
+
                 break;
             }
             default: {
@@ -447,7 +474,7 @@ void VoxelsApplication::setupUI() {
             if (ImGui::Button("Place")) {
                 switch (primitiveType) {
                     case 1: {
-                        worldManager.addPrimitive(std::make_unique<Cuboid>(worldManager.paletteIndex + 1, glm::ivec3{}, startPos, endPos));
+                        worldManager.addPrimitive(std::make_unique<Cuboid>(worldManager.paletteIndex + 1, glm::ivec3{}, cuboidStartPos, cuboidEndPos));
                         break;
                     }
                     case 2: {
@@ -456,6 +483,10 @@ void VoxelsApplication::setupUI() {
                     }
                     case 3: {
                         worldManager.addPrimitive(std::make_unique<Cylinder>(worldManager.paletteIndex + 1, origin, cylRadius, height));
+                        break;
+                    }
+                    case 4: {
+                        worldManager.addPrimitive(std::make_unique<Plane>(worldManager.paletteIndex + 1, glm::ivec3{}, planeStartPos, planeEndPos, planeAxis));
                         break;
                     }
                     default: break;
@@ -470,7 +501,9 @@ void VoxelsApplication::setupUI() {
             ImGui::Text("%zu: %s at ", i,
                         dynamic_cast<Cuboid*>(worldManager.primitives[i].get()) ? "Cuboid" :
                         dynamic_cast<Sphere*>(worldManager.primitives[i].get()) ? "Sphere" :
-                        dynamic_cast<Cylinder*>(worldManager.primitives[i].get()) ? "Cylinder" : "Unknown");
+                        dynamic_cast<Cylinder*>(worldManager.primitives[i].get()) ? "Cylinder" :
+                        dynamic_cast<Plane*>(worldManager.primitives[i].get()) ? "Plane" :
+                        "Unknown");
             ImGui::SameLine();
             if (ImGui::DragInt3(("##primitivePos" + std::to_string(i)).c_str(),
                               reinterpret_cast<int*>(&(worldManager.primitives[i]->origin)),
