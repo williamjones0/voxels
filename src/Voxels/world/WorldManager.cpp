@@ -8,6 +8,14 @@
 #include "../util/Util.hpp"
 #include "tracy/Tracy.hpp"
 
+namespace {
+    struct IVec3Hash {
+        std::size_t operator()(const glm::ivec3& v) const noexcept {
+            return std::hash<int>()(v.x) ^ (std::hash<int>()(v.y) << 1) ^ (std::hash<int>()(v.z) << 2);
+        }
+    };
+}
+
 WorldManager::WorldManager(
     Camera& camera,
     std::function<size_t(size_t)> outOfCapacityCallback,
@@ -628,6 +636,7 @@ void WorldManager::placePrimitive(Primitive &primitive) {
 }
 
 void WorldManager::removePrimitive(const size_t index) {
+    ZoneScoped;
     // For each edit, if the current voxel is not the same as edit.voxelType, don't change it (someone else edited on top there).
     // In this case, we also need to update that primitive's oldVoxelType to our oldVoxelType
     // The case is:
@@ -641,129 +650,208 @@ void WorldManager::removePrimitive(const size_t index) {
 
     Primitive& primitive = *primitives[index];
 
-    // Fix overlapping edits
-    for (size_t i = 0; i < primitives.size(); ++i) {
-        if (i == index) continue;  // skip ourselves
+    std::unordered_map<glm::ivec3, std::pair<int, int>, IVec3Hash> positionToEditInfo;
+    {
+        ZoneScopedN("Build positionToEditInfo");
+        for (auto&[cx, cz, x, y, z, voxelType, oldVoxelType] : primitive.edits) {
+            positionToEditInfo.try_emplace(glm::ivec3{cx * ChunkSize + x, y, cz * ChunkSize + z}, std::pair{voxelType, oldVoxelType});
+        }
+    }
 
-        // Find all edits whose positions are the same as an edit we will be removing
-        for (auto& otherEdit : primitives[i]->edits) {
-            auto it = std::ranges::find(primitive.edits, otherEdit);  // TODO: slow and bad
-            if (it != primitive.edits.end()) {
-                if (otherEdit.oldVoxelType == it->voxelType) {
-                    // We were the most recent edit: set the oldVoxelType to what came before us
-                    otherEdit.oldVoxelType = it->oldVoxelType;
+    // Fix overlapping edits
+    {
+        ZoneScopedN("Fix overlapping edits");
+        for (size_t i = 0; i < primitives.size(); ++i) {
+            if (i == index) continue;  // skip ourselves
+
+            // Find all edits whose positions are the same as an edit we will be removing
+            for (auto& otherEdit : primitives[i]->edits) {
+                const auto it = positionToEditInfo.find({otherEdit.cx * ChunkSize + otherEdit.x, otherEdit.y, otherEdit.cz * ChunkSize + otherEdit.z});
+                if (it != positionToEditInfo.end()) {
+                    if (otherEdit.oldVoxelType == it->second.first) {
+                        // We were the most recent edit: set the oldVoxelType to what came before us
+                        otherEdit.oldVoxelType = it->second.second;
+                    }
                 }
             }
         }
     }
 
     std::vector<Edit> revertEdits;
-    for (const auto& [cx, cz, x, y, z, voxelType, oldVoxelType] : primitive.edits) {
-        int currentVoxelType = 0;
-        Chunk* chunk = getChunk(cx, cz);
-        if (!chunk) {
-            continue;
-        }
-        {
-            std::scoped_lock lock(chunk->mutex);
-            currentVoxelType = chunk->load(x, y, z);
-        }
+    {
+        ZoneScopedN("Create revertEdits");
+        for (const auto& [cx, cz, x, y, z, voxelType, oldVoxelType] : primitive.edits) {
+            int currentVoxelType = 0;
+            Chunk* chunk = getChunk(cx, cz);
+            if (!chunk) {
+                continue;
+            }
+            {
+                std::scoped_lock lock(chunk->mutex);
+                currentVoxelType = chunk->load(x, y, z);
+            }
 
-        // If the voxel has been changed since we last edited it, don't change it
-        if (currentVoxelType != voxelType) {
-            // Someone else edited this voxel; leave it
-            continue;
-        }
+            // If the voxel has been changed since we last edited it, don't change it
+            if (currentVoxelType != voxelType) {
+                // Someone else edited this voxel; leave it
+                continue;
+            }
 
-        // Change back to the old voxel type
-        revertEdits.emplace_back(Edit{cx, cz, x, y, z, oldVoxelType});
+            // Change back to the old voxel type
+            revertEdits.emplace_back(Edit{cx, cz, x, y, z, oldVoxelType});
+        }
     }
-    updateVoxels(revertEdits);
+
+    {
+        ZoneScopedN("Update voxels");
+        updateVoxels(revertEdits);
+    }
     primitive.edits.clear();
 
     // Now delete the primitive from the primitives vector
-    primitives.erase(primitives.begin() + index);
+    {
+        ZoneScopedN("Erase primitive");
+        primitives.erase(primitives.begin() + index);
+    }
 }
 
 void WorldManager::movePrimitive(const size_t index, const glm::ivec3& newOrigin) {
+    ZoneScoped;
     // For each edit, if the current voxel is not the same as edit.oldVoxelType, don't change it (someone else edited on top there)
     // If the current voxel is the same, then we were the last edit, change it back to oldVoxelType
 
     Primitive& primitive = *primitives[index];
 
     // Make a set of the old edits and a set of the new edits
-    const std::unordered_set<Edit, EditHash> oldEdits(primitive.edits.begin(), primitive.edits.end());
+    std::unordered_set<Edit, EditHash> oldEdits;
+    {
+        ZoneScopedN("Build oldEdits");
+        oldEdits = std::unordered_set<Edit, EditHash>(primitive.edits.begin(), primitive.edits.end());
+    }
 
     primitive.origin = newOrigin;
-    std::vector<Edit> newEditsVec = primitive.generateEdits();
-    const std::unordered_set<Edit, EditHash> newEdits(newEditsVec.begin(), newEditsVec.end());
+    std::vector<Edit> newEditsVec;
+    {
+        ZoneScopedN("Generate edits");
+        newEditsVec = primitive.generateEdits();
+    }
+
+    std::unordered_set<Edit, EditHash> newEdits;
+    {
+        ZoneScopedN("Build newEdits");
+        newEdits = std::unordered_set<Edit, EditHash>(newEditsVec.begin(), newEditsVec.end());
+    }
 
     // The edits we need to remove are the ones in the old set that are not in the new set
     std::vector<Edit> toRemove = {};
-    for (const auto& oldEdit : primitive.edits) {
-        if (!newEdits.contains(oldEdit)) {
-            toRemove.push_back(oldEdit);
+    std::vector<size_t> toRemoveIndices = {};
+    {
+        ZoneScopedN("Create toRemove");
+        for (size_t i = 0; i < primitive.edits.size(); ++i) {
+            const auto& oldEdit = primitive.edits[i];
+            if (!newEdits.contains(oldEdit)) {
+                toRemove.push_back(oldEdit);
+                toRemoveIndices.push_back(i);
+            }
         }
     }
 
     // The edits we need to add are the ones in the new set that are not in the old set
     std::vector<Edit> toAdd = {};
-    for (const auto& newEdit : newEdits) {
-        if (!oldEdits.contains(newEdit)) {
-            toAdd.push_back(newEdit);
+    {
+        ZoneScopedN("Create toAdd");
+        for (const auto& newEdit : newEdits) {
+            if (!oldEdits.contains(newEdit)) {
+                toAdd.push_back(newEdit);
+            }
+        }
+    }
+
+    std::unordered_map<glm::ivec3, std::pair<int, int>, IVec3Hash> positionToEditInfo;
+    {
+        ZoneScopedN("Build positionToEditInfo");
+        for (auto&[cx, cz, x, y, z, voxelType, oldVoxelType] : primitive.edits) {
+            positionToEditInfo.try_emplace(glm::ivec3{cx * ChunkSize + x, y, cz * ChunkSize + z}, std::pair{voxelType, oldVoxelType});
         }
     }
 
     // Fix overlapping edits
-    for (size_t i = 0; i < primitives.size(); ++i) {
-        if (i == index) continue;  // skip ourselves
+    {
+        ZoneScopedN("Fix overlapping edits");
+        for (size_t i = 0; i < primitives.size(); ++i) {
+            if (i == index) continue;  // skip ourselves
 
-        // Find all edits whose positions are the same as an edit we will be removing
-        for (auto& otherEdit : primitives[i]->edits) {
-            // equality for edit is determined only by position
-            auto it = std::ranges::find(toRemove, otherEdit);  // TODO: slow and bad
-            if (it != toRemove.end()) {
-                if (otherEdit.oldVoxelType == it->voxelType) {
-                    // We were the most recent edit: set the oldVoxelType to what came before us
-                    otherEdit.oldVoxelType = it->oldVoxelType;
+            // Find all edits whose positions are the same as an edit we will be removing
+            for (auto& otherEdit : primitives[i]->edits) {
+                const auto it = positionToEditInfo.find({otherEdit.cx * ChunkSize + otherEdit.x, otherEdit.y, otherEdit.cz * ChunkSize + otherEdit.z});
+                if (it != positionToEditInfo.end()) {
+                    if (otherEdit.oldVoxelType == it->second.first) {
+                        // We were the most recent edit: set the oldVoxelType to what came before us
+                        otherEdit.oldVoxelType = it->second.second;
+                    }
                 }
             }
         }
     }
 
     // First, revert old edits
-    std::vector<Edit> revertEdits;
-    for (const auto& [cx, cz, x, y, z, voxelType, oldVoxelType] : toRemove) {
-        int currentVoxelType = 0;
-        Chunk* chunk = getChunk(cx, cz);
-        if (!chunk) {
-            continue;
-        }
-        {
-            std::scoped_lock lock(chunk->mutex);
-            currentVoxelType = chunk->load(x, y, z);
-        }
+    {
+        ZoneScopedN("Revert old edits");
+        std::vector<Edit> revertEdits;
+        for (const auto& [cx, cz, x, y, z, voxelType, oldVoxelType] : toRemove) {
+            int currentVoxelType = 0;
+            Chunk* chunk = getChunk(cx, cz);
+            if (!chunk) {
+                continue;
+            }
+            {
+                std::scoped_lock lock(chunk->mutex);
+                currentVoxelType = chunk->load(x, y, z);
+            }
 
-        // If the voxel has been changed since we last edited it, don't change it
-        if (currentVoxelType != voxelType) {
-            // Someone else edited this voxel; leave it
-            continue;
-        }
+            // If the voxel has been changed since we last edited it, don't change it
+            if (currentVoxelType != voxelType) {
+                // Someone else edited this voxel; leave it
+                continue;
+            }
 
-        // Change back to the old voxel type
-        revertEdits.emplace_back(Edit{cx, cz, x, y, z, oldVoxelType});
+            // Change back to the old voxel type
+            revertEdits.emplace_back(Edit{cx, cz, x, y, z, oldVoxelType});
+        }
+        updateVoxels(revertEdits);
     }
-    updateVoxels(revertEdits);
 
     // Now, apply new edits
-    updateVoxels(toAdd);
+    {
+        ZoneScopedN("Apply new edits");
+        updateVoxels(toAdd);
+    }
 
     // Update the primitive's edits
-    for (auto& edit : toRemove) {
-        std::erase(primitive.edits, edit);
+    {
+        ZoneScopedN("Update primitive edits (remove)");
+        // Remove edits by index in one linear pass. Build a mask for O(1) membership tests
+        if (!toRemoveIndices.empty()) {
+            const size_t n = primitive.edits.size();
+            std::vector<char> removeMask(n, 0);
+            for (size_t idx : toRemoveIndices) {
+                if (idx < n) removeMask[idx] = 1;
+            }
+
+            std::vector<Edit> updatedEditsVec;
+            updatedEditsVec.reserve(n - toRemoveIndices.size());
+            for (size_t i = 0; i < n; ++i) {
+                if (!removeMask[i]) updatedEditsVec.push_back(primitive.edits[i]);
+            }
+            primitive.edits.swap(updatedEditsVec);
+        }
     }
-    for (auto& edit : toAdd) {
-        primitive.edits.push_back(edit);
+
+    {
+        ZoneScopedN("Update primitive edits (add)");
+        for (auto& edit : toAdd) {
+            primitive.edits.push_back(edit);
+        }
     }
 }
 
