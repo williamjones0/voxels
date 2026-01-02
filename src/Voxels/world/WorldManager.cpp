@@ -2,19 +2,12 @@
 
 #include <fstream>
 #include <cmath>
+#include <ranges>
 
 #include "Mesher.hpp"
 #include "RunMesher.hpp"
 #include "../util/Util.hpp"
 #include "tracy/Tracy.hpp"
-
-namespace {
-    struct IVec3Hash {
-        std::size_t operator()(const glm::ivec3& v) const noexcept {
-            return std::hash<int>()(v.x) ^ (std::hash<int>()(v.y) << 1) ^ (std::hash<int>()(v.z) << 2);
-        }
-    };
-}
 
 WorldManager::WorldManager(
     Camera& camera,
@@ -521,14 +514,67 @@ void WorldManager::updateVoxel(RaycastResult result, const bool place) {
         }
     }
 
-    updateVoxels({{cx, cz, x, y, z, static_cast<int>(place ? paletteIndex + 1 : 0)}});
+    // If the position is inside a primitive, update its edits so that the edit is preserved when moving it
+    const glm::ivec3 worldPos = glm::ivec3((cx << ChunkSizeShift) + x, y, (cz << ChunkSizeShift) + z);
+    for (const auto& primitive : primitives) {
+        // Coarse search; can produce false positives but not false negatives
+        if (primitive->isPosInside(worldPos)) {
+            // Now check the position actually matches, and make sure the corresponding edit's voxelType is the same as the world's actual voxel type
+            // (i.e., we should only edit the primitive that's on top)
+
+            const glm::ivec3 localPos = worldPos - primitive->origin;
+            const auto it = primitive->edits.find(worldPos);
+            if (it != primitive->edits.end()) {
+                auto& editOpt = it->second;
+                if (editOpt.has_value()) {
+                    assert(!place);  // if we are removing, there should be an edit here
+                    auto& [voxelType, oldVoxelType] = editOpt.value();
+                    // Check real world voxel type matches
+                    if (voxelType == load(worldPos.x, worldPos.y, worldPos.z)) {
+                        // Add a userEdit so that we can apply it when regenerating edits later
+                        primitive->userEdits[localPos] = 0;
+
+                        // Change the edit directly as well so that moving etc. will work properly
+
+                        // We know that the update is a removal because an edit exists at this position
+
+                        // Remove the edit by setting it to nullopt. The key should remain in the map, though;
+                        // this is because we need it to be there when checking if a user edit is within a primitive
+                        editOpt = std::nullopt;
+
+                        break;
+                    }
+                } else {
+                    // No edit at this position
+                    // We know that we are placing here, because if we were removing, there would be an edit there
+                    assert(place);
+                    editOpt = {static_cast<int>(paletteIndex + 1), 0};
+                    primitive->userEdits[localPos] = paletteIndex + 1;
+                    break;
+                }
+            }
+        }
+    }
+
+    Primitive::EditMap edits;
+    edits[{(cx << ChunkSizeShift) + x, y, (cz << ChunkSizeShift) + z}] = {place ? static_cast<int>(paletteIndex + 1) : 0, 0};
+    updateVoxels(edits);
 }
 
-void WorldManager::updateVoxels(std::vector<Edit>& edits) {
+void WorldManager::updateVoxels(Primitive::EditMap& edits) {
     std::unordered_set<Chunk*> chunksToMeshSet;
 
-    for (auto& edit : edits) {
-        auto [cx, cz, x, y, z, voxelType, _] = edit;
+    for (auto& [pos, editOpt] : edits) {
+        if (!editOpt.has_value()) continue;
+
+        const int cx = pos.x >> ChunkSizeShift;
+        const int cz = pos.z >> ChunkSizeShift;
+        const int x = pos.x - (cx << ChunkSizeShift);
+        const int y = pos.y;
+        const int z = pos.z - (cz << ChunkSizeShift);
+
+        const int voxelType = editOpt->voxelType;
+
         if (y >= ChunkHeight || y < 0) {
             continue;
         }
@@ -540,57 +586,7 @@ void WorldManager::updateVoxels(std::vector<Edit>& edits) {
 
         {
             std::scoped_lock lock(chunk->mutex);
-            edit.oldVoxelType = chunk->load(x, y, z);
-            chunk->store(x, y, z, voxelType);
-        }
-
-        chunksToMeshSet.insert(chunk);
-
-        // If the voxel is on a chunk boundary, update the neighboring chunk(s)
-        if (x == 0) {
-            tryStoreVoxel(cx - 1, cz, ChunkSize, y, z, voxelType, chunksToMeshSet);
-            if (z == 0) {
-                tryStoreVoxel(cx - 1, cz - 1, ChunkSize, y, ChunkSize, voxelType, chunksToMeshSet);
-            } else if (z == ChunkSize - 1) {
-                tryStoreVoxel(cx - 1, cz + 1, ChunkSize, y, -1, voxelType, chunksToMeshSet);
-            }
-        } else if (x == ChunkSize - 1) {
-            tryStoreVoxel(cx + 1, cz, -1, y, z, voxelType, chunksToMeshSet);
-            if (z == 0) {
-                tryStoreVoxel(cx + 1, cz - 1, -1, y, ChunkSize, voxelType, chunksToMeshSet);
-            } else if (z == ChunkSize - 1) {
-                tryStoreVoxel(cx + 1, cz + 1, -1, y, -1, voxelType, chunksToMeshSet);
-            }
-        }
-        if (z == 0) {
-            tryStoreVoxel(cx, cz - 1, x, y, ChunkSize, voxelType, chunksToMeshSet);
-        } else if (z == ChunkSize - 1) {
-            tryStoreVoxel(cx, cz + 1, x, y, -1, voxelType, chunksToMeshSet);
-        }
-    }
-
-    for (Chunk* chunk : chunksToMeshSet) {
-        queueMeshChunk(chunk);
-    }
-}
-
-void WorldManager::updateVoxels(std::vector<Edit> &&edits) {
-    std::unordered_set<Chunk*> chunksToMeshSet;
-
-    for (auto& edit : edits) {
-        auto [cx, cz, x, y, z, voxelType, _] = edit;
-        if (y >= ChunkHeight || y < 0) {
-            continue;
-        }
-
-        Chunk* chunk = getChunk(cx, cz);
-        if (!chunk) {
-            continue;
-        }
-
-        {
-            std::scoped_lock lock(chunk->mutex);
-            // edit.oldVoxelType = chunk->load(x, y, z);
+            editOpt->oldVoxelType = chunk->load(x, y, z);
             chunk->store(x, y, z, voxelType);
         }
 
@@ -630,7 +626,6 @@ void WorldManager::addPrimitive(std::unique_ptr<Primitive> primitive) {
 }
 
 void WorldManager::placePrimitive(Primitive &primitive) {
-    primitive.edits.clear();
     primitive.edits = primitive.generateEdits();
     updateVoxels(primitive.edits);
 }
@@ -650,55 +645,55 @@ void WorldManager::removePrimitive(const size_t index) {
 
     Primitive& primitive = *primitives[index];
 
-    std::unordered_map<glm::ivec3, std::pair<int, int>, IVec3Hash> positionToEditInfo;
-    {
-        ZoneScopedN("Build positionToEditInfo");
-        for (auto&[cx, cz, x, y, z, voxelType, oldVoxelType] : primitive.edits) {
-            positionToEditInfo.try_emplace(glm::ivec3{cx * ChunkSize + x, y, cz * ChunkSize + z}, std::pair{voxelType, oldVoxelType});
-        }
-    }
-
     // Fix overlapping edits
     {
         ZoneScopedN("Fix overlapping edits");
         for (size_t i = 0; i < primitives.size(); ++i) {
             if (i == index) continue;  // skip ourselves
 
-            // Find all edits whose positions are the same as an edit we will be removing
-            for (auto& otherEdit : primitives[i]->edits) {
-                const auto it = positionToEditInfo.find({otherEdit.cx * ChunkSize + otherEdit.x, otherEdit.y, otherEdit.cz * ChunkSize + otherEdit.z});
-                if (it != positionToEditInfo.end()) {
-                    if (otherEdit.oldVoxelType == it->second.first) {
-                        // We were the most recent edit: set the oldVoxelType to what came before us
-                        otherEdit.oldVoxelType = it->second.second;
+            // Find all edits in the other primitive whose positions are the same as one of our edits we will be removing
+            for (auto& [otherPos, otherEditOpt] : primitives[i]->edits) {
+                if (!otherEditOpt.has_value()) continue;  // skip the position if no edit is associated with it
+
+                const auto it = primitive.edits.find(otherPos);
+                if (it != primitive.edits.end()) {
+                    const auto& editOpt = it->second;
+                    if (editOpt.has_value()) {
+                        // Position is in the primitive and an edit exists there
+                        if (otherEditOpt->oldVoxelType == editOpt->voxelType) {
+                            // We were the most recent edit: set the oldVoxelType to what came before us
+                            otherEditOpt->oldVoxelType = editOpt->oldVoxelType;
+                        }
                     }
                 }
             }
         }
     }
 
-    std::vector<Edit> revertEdits;
+    Primitive::EditMap revertEdits;
     {
         ZoneScopedN("Create revertEdits");
-        for (const auto& [cx, cz, x, y, z, voxelType, oldVoxelType] : primitive.edits) {
+        for (const auto& [pos, editOpt] : primitive.edits) {
+            if (!editOpt.has_value()) continue;
+
             int currentVoxelType = 0;
-            Chunk* chunk = getChunk(cx, cz);
+            Chunk* chunk = getChunk(pos.x >> ChunkSizeShift, pos.z >> ChunkSizeShift);
             if (!chunk) {
                 continue;
             }
             {
                 std::scoped_lock lock(chunk->mutex);
-                currentVoxelType = chunk->load(x, y, z);
+                currentVoxelType = chunk->load(pos.x & (ChunkSize - 1), pos.y, pos.z & (ChunkSize - 1));
             }
 
             // If the voxel has been changed since we last edited it, don't change it
-            if (currentVoxelType != voxelType) {
+            if (currentVoxelType != editOpt->voxelType) {
                 // Someone else edited this voxel; leave it
                 continue;
             }
 
             // Change back to the old voxel type
-            revertEdits.emplace_back(Edit{cx, cz, x, y, z, oldVoxelType});
+            revertEdits.emplace(pos, Edit{editOpt->oldVoxelType, 0});
         }
     }
 
@@ -706,7 +701,6 @@ void WorldManager::removePrimitive(const size_t index) {
         ZoneScopedN("Update voxels");
         updateVoxels(revertEdits);
     }
-    primitive.edits.clear();
 
     // Now delete the primitive from the primitives vector
     {
@@ -722,56 +716,65 @@ void WorldManager::movePrimitive(const size_t index, const glm::ivec3& newOrigin
 
     Primitive& primitive = *primitives[index];
 
-    // Make a set of the old edits and a set of the new edits
-    std::unordered_set<Edit, EditHash> oldEdits;
-    {
-        ZoneScopedN("Build oldEdits");
-        oldEdits = std::unordered_set<Edit, EditHash>(primitive.edits.begin(), primitive.edits.end());
-    }
-
     primitive.origin = newOrigin;
-    std::vector<Edit> newEditsVec;
-    {
-        ZoneScopedN("Generate edits");
-        newEditsVec = primitive.generateEdits();
-    }
+    Primitive::EditMap newEdits = primitive.generateEdits();
 
-    std::unordered_set<Edit, EditHash> newEdits;
-    {
-        ZoneScopedN("Build newEdits");
-        newEdits = std::unordered_set<Edit, EditHash>(newEditsVec.begin(), newEditsVec.end());
-    }
-
-    // The edits we need to remove are the ones in the old set that are not in the new set
-    std::vector<Edit> toRemove = {};
-    std::vector<size_t> toRemoveIndices = {};
+    // The edits we need to remove are the ones in the old map that are not in the new map
+    Primitive::EditMap toRemove;
     {
         ZoneScopedN("Create toRemove");
-        for (size_t i = 0; i < primitive.edits.size(); ++i) {
-            const auto& oldEdit = primitive.edits[i];
-            if (!newEdits.contains(oldEdit)) {
-                toRemove.push_back(oldEdit);
-                toRemoveIndices.push_back(i);
+        for (const auto& [pos, oldEditOpt] : primitive.edits) {
+            const auto it = newEdits.find(pos);
+            if (it == newEdits.end()) {
+                // Old position not present in new map: need to add the edit
+                toRemove.emplace(pos, oldEditOpt);
+                continue;
             }
+
+            auto& newEditOpt = it->second;
+            if (!oldEditOpt.has_value() && !newEditOpt.has_value()) {
+                // Both new and old have no edit at that position, so we don't need to remove the old edit
+                continue;
+            }
+
+            if (oldEditOpt.has_value() && newEditOpt.has_value() && oldEditOpt->voxelType == newEditOpt->voxelType) {
+                // Both new and old have an edit at the position, and the voxel types are the same, so we don't need to remove the old edit
+                continue;
+            }
+
+            // In all other cases, the new and old have different edits
+            //  - old is nullopt, new isn't
+            //  - new is nullopt, old isn't
+            //  - neither are nullopt but voxelTypes differ
+            toRemove.emplace(pos, oldEditOpt);
         }
     }
 
-    // The edits we need to add are the ones in the new set that are not in the old set
-    std::vector<Edit> toAdd = {};
+    // The edits we need to add are the ones in the new map that are not in the old map
+    Primitive::EditMap toAdd;
     {
         ZoneScopedN("Create toAdd");
-        for (const auto& newEdit : newEdits) {
-            if (!oldEdits.contains(newEdit)) {
-                toAdd.push_back(newEdit);
+        for (const auto& [pos, newEditOpt] : newEdits) {
+            const auto it = primitive.edits.find(pos);
+            if (it == primitive.edits.end()) {
+                // New position not present in old map: need to add the edit
+                toAdd.emplace(pos, newEditOpt);
+                continue;
             }
-        }
-    }
 
-    std::unordered_map<glm::ivec3, std::pair<int, int>, IVec3Hash> positionToEditInfo;
-    {
-        ZoneScopedN("Build positionToEditInfo");
-        for (auto&[cx, cz, x, y, z, voxelType, oldVoxelType] : primitive.edits) {
-            positionToEditInfo.try_emplace(glm::ivec3{cx * ChunkSize + x, y, cz * ChunkSize + z}, std::pair{voxelType, oldVoxelType});
+            auto& oldEditOpt = it->second;
+            if (!oldEditOpt.has_value() && !newEditOpt.has_value()) {
+                // Both new and old have no edit at that position, so we don't need to add the new edit
+                continue;
+            }
+
+            if (oldEditOpt.has_value() && newEditOpt.has_value() && oldEditOpt->voxelType == newEditOpt->voxelType) {
+                // Both new and old have an edit at the position, and the voxel types are the same, so we don't need to add the new edit
+                continue;
+            }
+
+            // In all other cases, the new and old have different edits
+            toAdd.emplace(pos, newEditOpt);
         }
     }
 
@@ -781,13 +784,19 @@ void WorldManager::movePrimitive(const size_t index, const glm::ivec3& newOrigin
         for (size_t i = 0; i < primitives.size(); ++i) {
             if (i == index) continue;  // skip ourselves
 
-            // Find all edits whose positions are the same as an edit we will be removing
-            for (auto& otherEdit : primitives[i]->edits) {
-                const auto it = positionToEditInfo.find({otherEdit.cx * ChunkSize + otherEdit.x, otherEdit.y, otherEdit.cz * ChunkSize + otherEdit.z});
-                if (it != positionToEditInfo.end()) {
-                    if (otherEdit.oldVoxelType == it->second.first) {
-                        // We were the most recent edit: set the oldVoxelType to what came before us
-                        otherEdit.oldVoxelType = it->second.second;
+            // Find all edits in the other primitive whose positions are the same as one of our edits we will be removing
+            for (auto& [otherPos, otherEditOpt] : primitives[i]->edits) {
+                if (!otherEditOpt.has_value()) continue;  // skip the position if no edit is associated with it
+
+                const auto it = primitive.edits.find(otherPos);
+                if (it != primitive.edits.end()) {
+                    const auto& editOpt = it->second;
+                    if (editOpt.has_value()) {
+                        // Position is in the primitive and an edit exists there
+                        if (otherEditOpt->oldVoxelType == editOpt->voxelType) {
+                            // We were the most recent edit: set the oldVoxelType to what came before us
+                            otherEditOpt->oldVoxelType = editOpt->oldVoxelType;
+                        }
                     }
                 }
             }
@@ -797,26 +806,29 @@ void WorldManager::movePrimitive(const size_t index, const glm::ivec3& newOrigin
     // First, revert old edits
     {
         ZoneScopedN("Revert old edits");
-        std::vector<Edit> revertEdits;
-        for (const auto& [cx, cz, x, y, z, voxelType, oldVoxelType] : toRemove) {
+        Primitive::EditMap revertEdits;
+        for (const auto& [pos, editOpt] : toRemove) {
+            // If editOpt is nullopt, there is nothing to change back to, so continue
+            if (!editOpt.has_value()) continue;
+
             int currentVoxelType = 0;
-            Chunk* chunk = getChunk(cx, cz);
+            Chunk* chunk = getChunk(pos.x >> ChunkSizeShift, pos.z >> ChunkSizeShift);
             if (!chunk) {
                 continue;
             }
             {
                 std::scoped_lock lock(chunk->mutex);
-                currentVoxelType = chunk->load(x, y, z);
+                currentVoxelType = chunk->load(pos.x & (ChunkSize - 1), pos.y, pos.z & (ChunkSize - 1));
             }
 
             // If the voxel has been changed since we last edited it, don't change it
-            if (currentVoxelType != voxelType) {
+            if (currentVoxelType != editOpt->voxelType) {
                 // Someone else edited this voxel; leave it
                 continue;
             }
 
             // Change back to the old voxel type
-            revertEdits.emplace_back(Edit{cx, cz, x, y, z, oldVoxelType});
+            revertEdits.emplace(pos, Edit{editOpt->oldVoxelType, 0});
         }
         updateVoxels(revertEdits);
     }
@@ -830,27 +842,15 @@ void WorldManager::movePrimitive(const size_t index, const glm::ivec3& newOrigin
     // Update the primitive's edits
     {
         ZoneScopedN("Update primitive edits (remove)");
-        // Remove edits by index in one linear pass. Build a mask for O(1) membership tests
-        if (!toRemoveIndices.empty()) {
-            const size_t n = primitive.edits.size();
-            std::vector<char> removeMask(n, 0);
-            for (size_t idx : toRemoveIndices) {
-                if (idx < n) removeMask[idx] = 1;
-            }
-
-            std::vector<Edit> updatedEditsVec;
-            updatedEditsVec.reserve(n - toRemoveIndices.size());
-            for (size_t i = 0; i < n; ++i) {
-                if (!removeMask[i]) updatedEditsVec.push_back(primitive.edits[i]);
-            }
-            primitive.edits.swap(updatedEditsVec);
+        for (const auto &pos: toRemove | std::views::keys) {
+            primitive.edits.erase(pos);
         }
     }
 
     {
         ZoneScopedN("Update primitive edits (add)");
-        for (auto& edit : toAdd) {
-            primitive.edits.push_back(edit);
+        for (const auto& [pos, editOpt] : toAdd) {
+            primitive.edits.emplace(pos, editOpt);
         }
     }
 }

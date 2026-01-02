@@ -37,9 +37,9 @@ private:
 
     Camera camera = Camera(glm::vec3(8.0f, 100.0f, 8.0f));
     CharacterController characterController = CharacterController(worldManager);
-    Q1PlayerController playerController = Q1PlayerController(camera, characterController);
+    // Q1PlayerController playerController = Q1PlayerController(camera, characterController);
     // Q3PlayerController playerController = Q3PlayerController(camera, characterController);
-    // FlyPlayerController playerController = FlyPlayerController(camera);
+    FlyPlayerController playerController = FlyPlayerController(camera);
 
     bool wireframe = false;
 

@@ -4,41 +4,25 @@
 #include <vector>
 
 struct Edit {
-    int cx;
-    int cz;
-    int x;
-    int y;
-    int z;
     int voxelType;
     int oldVoxelType;
-
-    bool operator==(const Edit& other) const {
-        return cx == other.cx &&
-               cz == other.cz &&
-               x == other.x &&
-               y == other.y &&
-               z == other.z &&
-               voxelType == other.voxelType;
-    }
 };
 
-struct EditHash {
-    size_t operator()(const Edit& edit) const {
-        return std::hash<int>()(edit.cx) ^
-               std::hash<int>()(edit.cz) << 1 ^
-               std::hash<int>()(edit.x) << 2 ^
-               std::hash<int>()(edit.y) << 3 ^
-               std::hash<int>()(edit.z) << 4 ^
-               std::hash<int>()(edit.voxelType) << 5;
+struct IVec3Hash {
+    std::size_t operator()(const glm::ivec3& v) const noexcept {
+        return std::hash<int>()(v.x) ^ (std::hash<int>()(v.y) << 1) ^ (std::hash<int>()(v.z) << 2);
     }
 };
 
 struct Primitive {
     virtual ~Primitive() = default;
 
-    [[nodiscard]] virtual std::vector<Edit> generateEdits() = 0;
+    using EditMap = std::unordered_map<glm::ivec3, std::optional<Edit>, IVec3Hash>;
+    [[nodiscard]] virtual EditMap generateEdits() = 0;
+    virtual bool isPosInside(const glm::ivec3& pos) const = 0;
 
-    std::vector<Edit> edits;
+    EditMap edits;  // global pos -> optional Edit
+    std::unordered_map<glm::ivec3, int, IVec3Hash> userEdits;  // local pos -> voxelType
     int voxelType{};
     glm::ivec3 origin{};
 };
@@ -52,27 +36,35 @@ struct Cuboid : Primitive {
     glm::ivec3 start;
     glm::ivec3 end;
 
-    std::vector<Edit> generateEdits() override {
-        std::vector<Edit> edits;
+    EditMap generateEdits() override {
+        EditMap editMap;
         for (int x = start.x; x <= end.x; ++x) {
             for (int y = std::max(0, start.y); y <= std::min(ChunkHeight, end.y); ++y) {
                 for (int z = start.z; z <= end.z; ++z) {
                     const int wx = origin.x + x;
                     const int wy = origin.y + y;
                     const int wz = origin.z + z;
-                    edits.push_back(Edit{
-                        .cx = wx >> ChunkSizeShift,
-                        .cz = wz >> ChunkSizeShift,
-                        .x = (wx % ChunkSize + ChunkSize) % ChunkSize,
-                        .y = wy,
-                        .z = (wz % ChunkSize + ChunkSize) % ChunkSize,
-                        .voxelType = voxelType
-                    });
+
+                    const auto it = userEdits.find(glm::ivec3(x, y, z));
+                    const int voxelType = it != userEdits.end() ? it->second : this->voxelType;
+                    if (voxelType == 0) {
+                        // There still needs to be an entry for this position, but there is just no edit there
+                        editMap[{wx, wy, wz}] = std::nullopt;
+                        continue;
+                    }
+
+                    editMap[{wx, wy, wz}] = {voxelType, 0};
                 }
             }
         }
 
-        return edits;
+        return editMap;
+    }
+
+    bool isPosInside(const glm::ivec3 &pos) const override {
+        return pos.x >= origin.x + start.x && pos.x <= origin.x + end.x &&
+               pos.y >= origin.y + start.y && pos.y <= origin.y + end.y &&
+               pos.z >= origin.z + start.z && pos.z <= origin.z + end.z;
     }
 };
 
@@ -84,8 +76,8 @@ struct Sphere : Primitive {
 
     int radius;
 
-    std::vector<Edit> generateEdits() override {
-        std::vector<Edit> edits;
+    EditMap generateEdits() override {
+        EditMap editMap;
 
         // oy + y >= 0
         // y >= -oy
@@ -100,20 +92,26 @@ struct Sphere : Primitive {
                         const int wx = origin.x + x;
                         const int wy = origin.y + y;
                         const int wz = origin.z + z;
-                        edits.push_back(Edit{
-                            .cx = wx >> ChunkSizeShift,
-                            .cz = wz >> ChunkSizeShift,
-                            .x = (wx % ChunkSize + ChunkSize) % ChunkSize,
-                            .y = wy,
-                            .z = (wz % ChunkSize + ChunkSize) % ChunkSize,
-                            .voxelType = voxelType
-                        });
+
+                        const auto it = userEdits.find(glm::ivec3(x, y, z));
+                        const int voxelType = it != userEdits.end() ? it->second : this->voxelType;
+                        if (voxelType == 0) {
+                            editMap[{wx, wy, wz}] = std::nullopt;
+                            continue;
+                        }
+
+                        editMap[{wx, wy, wz}] = Edit{voxelType, 0};
                     }
                 }
             }
         }
 
-        return edits;
+        return editMap;
+    }
+
+    bool isPosInside(const glm::ivec3 &pos) const override {
+        const glm::ivec3 relPos = pos - origin;
+        return relPos.x * relPos.x + relPos.y * relPos.y + relPos.z * relPos.z <= radius * radius;
     }
 };
 
@@ -127,8 +125,8 @@ struct Cylinder : Primitive {
     int radius;
     int height;
 
-    std::vector<Edit> generateEdits() override {
-        std::vector<Edit> edits;
+    EditMap generateEdits() override {
+        EditMap editMap;
 
         for (int y = -height / 2; y <= height / 2; ++y) {
             for (int x = -radius; x <= radius; ++x) {
@@ -137,20 +135,27 @@ struct Cylinder : Primitive {
                         const int wx = origin.x + x;
                         const int wy = origin.y + y;
                         const int wz = origin.z + z;
-                        edits.push_back(Edit{
-                            .cx = wx >> ChunkSizeShift,
-                            .cz = wz >> ChunkSizeShift,
-                            .x = (wx % ChunkSize + ChunkSize) % ChunkSize,
-                            .y = wy,
-                            .z = (wz % ChunkSize + ChunkSize) % ChunkSize,
-                            .voxelType = voxelType
-                        });
+
+                        const auto it = userEdits.find(glm::ivec3(x, y, z));
+                        const int voxelType = it != userEdits.end() ? it->second : this->voxelType;
+                        if (voxelType == 0) {
+                            editMap[{wx, wy, wz}] = std::nullopt;
+                            continue;
+                        }
+
+                        editMap[{wx, wy, wz}] = Edit{voxelType, 0};
                     }
                 }
             }
         }
 
-        return edits;
+        return editMap;
+    }
+
+    bool isPosInside(const glm::ivec3 &pos) const override {
+        const glm::ivec3 relPos = pos - origin;
+        return relPos.y >= -height / 2 && relPos.y <= height / 2 &&
+               relPos.x * relPos.x + relPos.z * relPos.z <= radius * radius;
     }
 };
 
@@ -167,9 +172,8 @@ struct Plane : Primitive {
     glm::ivec3 end;
     Axis axis;
 
-    std::vector<Edit> generateEdits() override {
-        std::vector<Edit> edits;
-        std::unordered_set<Edit, EditHash> uniqueEdits;
+    EditMap generateEdits() override {
+        EditMap editMap;
 
         if (axis == Axis::Y) {
             // Plane parallel to Y axis - trace line in XZ plane, extrude along Y
@@ -194,18 +198,14 @@ struct Plane : Primitive {
                     const int wy = origin.y + y;
                     const int wz = origin.z + z;
 
-                    Edit edit{
-                        .cx = wx >> ChunkSizeShift,
-                        .cz = wz >> ChunkSizeShift,
-                        .x = (wx % ChunkSize + ChunkSize) % ChunkSize,
-                        .y = wy,
-                        .z = (wz % ChunkSize + ChunkSize) % ChunkSize,
-                        .voxelType = voxelType
-                    };
-
-                    if (uniqueEdits.insert(edit).second) {
-                        edits.push_back(edit);
+                    const auto it = userEdits.find(glm::ivec3(x, y, z));
+                    const int voxelType = it != userEdits.end() ? it->second : this->voxelType;
+                    if (voxelType == 0) {
+                        editMap[{wx, wy, wz}] = std::nullopt;
+                        continue;
                     }
+
+                    editMap[{wx, wy, wz}] = Edit{voxelType, 0};
                 }
             }
         } else if (axis == Axis::X) {
@@ -232,18 +232,14 @@ struct Plane : Primitive {
                     const int wy = origin.y + y;
                     const int wz = origin.z + z;
 
-                    Edit edit{
-                        .cx = wx >> ChunkSizeShift,
-                        .cz = wz >> ChunkSizeShift,
-                        .x = (wx % ChunkSize + ChunkSize) % ChunkSize,
-                        .y = wy,
-                        .z = (wz % ChunkSize + ChunkSize) % ChunkSize,
-                        .voxelType = voxelType
-                    };
-
-                    if (uniqueEdits.insert(edit).second) {
-                        edits.push_back(edit);
+                    const auto it = userEdits.find(glm::ivec3(x, y, z));
+                    const int voxelType = it != userEdits.end() ? it->second : this->voxelType;
+                    if (voxelType == 0) {
+                        editMap[{wx, wy, wz}] = std::nullopt;
+                        continue;
                     }
+
+                    editMap[{wx, wy, wz}] = Edit{voxelType, 0};
                 }
             }
         } else { // Axis::Z
@@ -270,22 +266,34 @@ struct Plane : Primitive {
                     const int wy = origin.y + y;
                     const int wz = origin.z + z;
 
-                    Edit edit{
-                        .cx = wx >> ChunkSizeShift,
-                        .cz = wz >> ChunkSizeShift,
-                        .x = (wx % ChunkSize + ChunkSize) % ChunkSize,
-                        .y = wy,
-                        .z = (wz % ChunkSize + ChunkSize) % ChunkSize,
-                        .voxelType = voxelType
-                    };
-
-                    if (uniqueEdits.insert(edit).second) {
-                        edits.push_back(edit);
+                    const auto it = userEdits.find(glm::ivec3(x, y, z));
+                    const int voxelType = it != userEdits.end() ? it->second : this->voxelType;
+                    if (voxelType == 0) {
+                        editMap[{wx, wy, wz}] = std::nullopt;
+                        continue;
                     }
+
+                    editMap[{wx, wy, wz}] = Edit{voxelType, 0};
                 }
             }
         }
 
-        return edits;
+        return editMap;
+    }
+
+    bool isPosInside(const glm::ivec3 &pos) const override {
+        if (axis == Axis::Y) {
+            return pos.x >= origin.x + start.x && pos.x <= origin.x + end.x &&
+                   pos.y >= origin.y + start.y && pos.y <= origin.y + end.y &&
+                   pos.z >= origin.z + start.z && pos.z <= origin.z + end.z;
+        } else if (axis == Axis::X) {
+            return pos.x >= origin.x + start.x && pos.x <= origin.x + end.x &&
+                   pos.y >= origin.y + start.y && pos.y <= origin.y + end.y &&
+                   pos.z >= origin.z + start.z && pos.z <= origin.z + end.z;
+        } else { // Axis::Z
+            return pos.x >= origin.x + start.x && pos.x <= origin.x + end.x &&
+                   pos.y >= origin.y + start.y && pos.y <= origin.y + end.y &&
+                   pos.z >= origin.z + start.z && pos.z <= origin.z + end.z;
+        }
     }
 };

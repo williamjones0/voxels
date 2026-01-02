@@ -209,133 +209,133 @@ void VoxelsApplication::setupUI() {
         ImGui::End();
     });
 
-    uiManager.registerWindow("Controller", [this] {
-        // Display Q1PlayerController fields
-        ImGui::Begin("Controller", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
-
-        // player velocity
-        ImGui::Text("Player Velocity: (%.2f, %.2f, %.2f)",
-                    playerController.playerVelocity.x,
-                    playerController.playerVelocity.y,
-                    playerController.playerVelocity.z);
-        ImGui::Text("Current Speed: %.2f", playerController.currentSpeed);
-
-        ImGui::Text("wishdir: (%.2f, %.2f, %.2f)",
-                    playerController.d_wishdir.x,
-                    playerController.d_wishdir.y,
-                    playerController.d_wishdir.z);
-        ImGui::Text("wishvel: (%.2f, %.2f, %.2f)",
-                    playerController.d_wishvel.x,
-                    playerController.d_wishvel.y,
-                    playerController.d_wishvel.z);
-        ImGui::Text("wishspeed: %.2f", playerController.d_wishspeed);
-
-        constexpr float scaleDown = 1.0f / 4.0f;
-        glm::vec2 vel = glm::vec2(playerController.playerVelocity.x, -playerController.playerVelocity.z) * scaleDown;
-        glm::vec2 wish = glm::vec2(
-            playerController.d_wishdir.x * playerController.d_wishspeed,
-            -playerController.d_wishdir.z * playerController.d_wishspeed
-        ) * scaleDown;
-
-        const ImVec2 canvasSize(200, 200);
-        ImVec2 canvasPos = ImGui::GetCursorScreenPos();
-
-        ImDrawList* drawList = ImGui::GetWindowDrawList();
-
-        // Draw background
-        drawList->AddRectFilled(
-            canvasPos,
-            ImVec2(canvasPos.x + canvasSize.x, canvasPos.y + canvasSize.y),
-            IM_COL32(40, 40, 40, 255)
-        );
-
-        // Optional border
-        drawList->AddRect(
-            canvasPos,
-            ImVec2(canvasPos.x + canvasSize.x, canvasPos.y + canvasSize.y),
-            IM_COL32(255, 255, 255, 255)
-        );
-
-        // Center of the canvas
-        ImVec2 origin(
-            canvasPos.x + canvasSize.x * 0.5f,
-            canvasPos.y + canvasSize.y * 0.5f
-        );
-
-        // Scale factor (tweak this)
-        float scale = 20.0f;
-
-        // Convert vectors (x,z → screen x,y)
-        ImVec2 velEnd(
-            origin.x + vel.x * scale,
-            origin.y - vel.y * scale
-        );
-
-        ImVec2 wishEnd(
-            origin.x + wish.x * scale,
-            origin.y - wish.y * scale
-        );
-
-        // Draw arrows
-        auto drawArrow = [&](ImVec2 from, ImVec2 to, ImU32 color)
-        {
-            drawList->AddLine(from, to, color, 2.0f);
-
-            // Arrowhead
-            ImVec2 dir = ImVec2(to.x - from.x, to.y - from.y);
-            float len = sqrtf(dir.x * dir.x + dir.y * dir.y);
-            if (len < 1e-3f) return;
-
-            dir.x /= len;
-            dir.y /= len;
-
-            ImVec2 perp(-dir.y, dir.x);
-            float headSize = 8.0f;
-
-            ImVec2 p1 = to;
-            ImVec2 p2 = ImVec2(
-                to.x - dir.x * headSize + perp.x * headSize * 0.5f,
-                to.y - dir.y * headSize + perp.y * headSize * 0.5f
-            );
-            ImVec2 p3 = ImVec2(
-                to.x - dir.x * headSize - perp.x * headSize * 0.5f,
-                to.y - dir.y * headSize - perp.y * headSize * 0.5f
-            );
-
-            drawList->AddTriangleFilled(p1, p2, p3, color);
-        };
-
-        // Colours
-        drawArrow(origin, velEnd, IM_COL32(0, 200, 0, 255));     // velocity = green
-        drawArrow(origin, wishEnd, IM_COL32(0, 0, 200, 255));    // wishdir = blue
-
-        // Reserve space in layout
-        ImGui::InvisibleButton("canvas", canvasSize);
-
-
-        // accelerate function values, separate this with an imgui separator
-        ImGui::Separator();
-        ImGui::Text("Accelerate");
-        ImGui::Text("currentSpeed: %.2f", playerController.d_accel_currentSpeed);
-        ImGui::Text("addSpeed: %.2f", playerController.d_accel_addSpeed);
-        ImGui::Text("accelSpeed: %.2f", playerController.d_accel_accelSpeed);
-
-        // air accelerate
-        ImGui::Separator();
-        ImGui::Text("Air Accelerate");
-        ImGui::Text("currentSpeed: %.2f", playerController.d_airaccel_currentSpeed);
-        ImGui::Text("addSpeed: %.2f", playerController.d_airaccel_addSpeed);
-        ImGui::Text("accelSpeed: %.2f", playerController.d_airaccel_accelSpeed);
-
-        // DEBUG CURRENT ACTIONS
-        ImGui::Separator();
-        ImGui::Text("Current Actions:");
-        for (ActionType action : Input::currentActions) {
-            ImGui::Text("- %d", static_cast<int>(action));
-        }
-
-        ImGui::End();
-    });
+    // uiManager.registerWindow("Controller", [this] {
+    //     // Display Q1PlayerController fields
+    //     ImGui::Begin("Controller", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+    //
+    //     // player velocity
+    //     ImGui::Text("Player Velocity: (%.2f, %.2f, %.2f)",
+    //                 playerController.playerVelocity.x,
+    //                 playerController.playerVelocity.y,
+    //                 playerController.playerVelocity.z);
+    //     ImGui::Text("Current Speed: %.2f", playerController.currentSpeed);
+    //
+    //     ImGui::Text("wishdir: (%.2f, %.2f, %.2f)",
+    //                 playerController.d_wishdir.x,
+    //                 playerController.d_wishdir.y,
+    //                 playerController.d_wishdir.z);
+    //     ImGui::Text("wishvel: (%.2f, %.2f, %.2f)",
+    //                 playerController.d_wishvel.x,
+    //                 playerController.d_wishvel.y,
+    //                 playerController.d_wishvel.z);
+    //     ImGui::Text("wishspeed: %.2f", playerController.d_wishspeed);
+    //
+    //     constexpr float scaleDown = 1.0f / 4.0f;
+    //     glm::vec2 vel = glm::vec2(playerController.playerVelocity.x, -playerController.playerVelocity.z) * scaleDown;
+    //     glm::vec2 wish = glm::vec2(
+    //         playerController.d_wishdir.x * playerController.d_wishspeed,
+    //         -playerController.d_wishdir.z * playerController.d_wishspeed
+    //     ) * scaleDown;
+    //
+    //     const ImVec2 canvasSize(200, 200);
+    //     ImVec2 canvasPos = ImGui::GetCursorScreenPos();
+    //
+    //     ImDrawList* drawList = ImGui::GetWindowDrawList();
+    //
+    //     // Draw background
+    //     drawList->AddRectFilled(
+    //         canvasPos,
+    //         ImVec2(canvasPos.x + canvasSize.x, canvasPos.y + canvasSize.y),
+    //         IM_COL32(40, 40, 40, 255)
+    //     );
+    //
+    //     // Optional border
+    //     drawList->AddRect(
+    //         canvasPos,
+    //         ImVec2(canvasPos.x + canvasSize.x, canvasPos.y + canvasSize.y),
+    //         IM_COL32(255, 255, 255, 255)
+    //     );
+    //
+    //     // Center of the canvas
+    //     ImVec2 origin(
+    //         canvasPos.x + canvasSize.x * 0.5f,
+    //         canvasPos.y + canvasSize.y * 0.5f
+    //     );
+    //
+    //     // Scale factor (tweak this)
+    //     float scale = 20.0f;
+    //
+    //     // Convert vectors (x,z → screen x,y)
+    //     ImVec2 velEnd(
+    //         origin.x + vel.x * scale,
+    //         origin.y - vel.y * scale
+    //     );
+    //
+    //     ImVec2 wishEnd(
+    //         origin.x + wish.x * scale,
+    //         origin.y - wish.y * scale
+    //     );
+    //
+    //     // Draw arrows
+    //     auto drawArrow = [&](ImVec2 from, ImVec2 to, ImU32 color)
+    //     {
+    //         drawList->AddLine(from, to, color, 2.0f);
+    //
+    //         // Arrowhead
+    //         ImVec2 dir = ImVec2(to.x - from.x, to.y - from.y);
+    //         float len = sqrtf(dir.x * dir.x + dir.y * dir.y);
+    //         if (len < 1e-3f) return;
+    //
+    //         dir.x /= len;
+    //         dir.y /= len;
+    //
+    //         ImVec2 perp(-dir.y, dir.x);
+    //         float headSize = 8.0f;
+    //
+    //         ImVec2 p1 = to;
+    //         ImVec2 p2 = ImVec2(
+    //             to.x - dir.x * headSize + perp.x * headSize * 0.5f,
+    //             to.y - dir.y * headSize + perp.y * headSize * 0.5f
+    //         );
+    //         ImVec2 p3 = ImVec2(
+    //             to.x - dir.x * headSize - perp.x * headSize * 0.5f,
+    //             to.y - dir.y * headSize - perp.y * headSize * 0.5f
+    //         );
+    //
+    //         drawList->AddTriangleFilled(p1, p2, p3, color);
+    //     };
+    //
+    //     // Colours
+    //     drawArrow(origin, velEnd, IM_COL32(0, 200, 0, 255));     // velocity = green
+    //     drawArrow(origin, wishEnd, IM_COL32(0, 0, 200, 255));    // wishdir = blue
+    //
+    //     // Reserve space in layout
+    //     ImGui::InvisibleButton("canvas", canvasSize);
+    //
+    //
+    //     // accelerate function values, separate this with an imgui separator
+    //     ImGui::Separator();
+    //     ImGui::Text("Accelerate");
+    //     ImGui::Text("currentSpeed: %.2f", playerController.d_accel_currentSpeed);
+    //     ImGui::Text("addSpeed: %.2f", playerController.d_accel_addSpeed);
+    //     ImGui::Text("accelSpeed: %.2f", playerController.d_accel_accelSpeed);
+    //
+    //     // air accelerate
+    //     ImGui::Separator();
+    //     ImGui::Text("Air Accelerate");
+    //     ImGui::Text("currentSpeed: %.2f", playerController.d_airaccel_currentSpeed);
+    //     ImGui::Text("addSpeed: %.2f", playerController.d_airaccel_addSpeed);
+    //     ImGui::Text("accelSpeed: %.2f", playerController.d_airaccel_accelSpeed);
+    //
+    //     // DEBUG CURRENT ACTIONS
+    //     ImGui::Separator();
+    //     ImGui::Text("Current Actions:");
+    //     for (ActionType action : Input::currentActions) {
+    //         ImGui::Text("- %d", static_cast<int>(action));
+    //     }
+    //
+    //     ImGui::End();
+    // });
 
     uiManager.registerWindow("Demo", [] {
         ImGui::ShowDemoWindow();

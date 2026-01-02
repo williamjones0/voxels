@@ -82,8 +82,7 @@ public:
     std::optional<RaycastResult> raycast();
     void tryStoreVoxel(int cx, int cz, int x, int y, int z, int place, std::unordered_set<Chunk*>& chunksToMesh);
     void updateVoxel(RaycastResult result, bool place);
-    void updateVoxels(std::vector<Edit>& edits);
-    void updateVoxels(std::vector<Edit>&& edits);
+    void updateVoxels(Primitive::EditMap& edits);
     void addPrimitive(std::unique_ptr<Primitive> primitive);
     void placePrimitive(Primitive& primitive);
     void removePrimitive(size_t index);
