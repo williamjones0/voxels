@@ -28,9 +28,10 @@ struct Primitive {
 };
 
 struct Cuboid : Primitive {
-    Cuboid(const int voxelType, const glm::ivec3& origin, const glm::ivec3& start, const glm::ivec3& end) : start(start), end(end) {
+    Cuboid(const int voxelType, const glm::ivec3& start, const glm::ivec3& end) {
+        this->start = glm::min(start, end);
+        this->end = glm::max(start, end);
         this->voxelType = voxelType;
-        this->origin = origin;
     }
 
     glm::ivec3 start;
@@ -162,10 +163,10 @@ struct Cylinder : Primitive {
 struct Plane : Primitive {
     enum class Axis { X, Y, Z };
 
-    Plane(const int voxelType, const glm::ivec3& origin, const glm::ivec3& start, const glm::ivec3& end, const Axis axis)
-        : start(start), end(end), axis(axis) {
+    Plane(const int voxelType, const glm::ivec3& start, const glm::ivec3& end, const Axis axis) : axis(axis) {
+        this->start = glm::min(start, end);
+        this->end = glm::max(start, end);
         this->voxelType = voxelType;
-        this->origin = origin;
     }
 
     glm::ivec3 start;
@@ -183,9 +184,6 @@ struct Plane : Primitive {
 
             if (steps == 0) steps = 1;
 
-            int minY = std::min(start.y, end.y);
-            int maxY = std::max(start.y, end.y);
-
             // Bresenham line tracing
             for (int step = 0; step <= steps; ++step) {
                 float t = static_cast<float>(step) / steps;
@@ -193,7 +191,7 @@ struct Plane : Primitive {
                 int z = static_cast<int>(std::round(start.z + t * dz));
 
                 // For each point on the line, create voxels along the Y axis
-                for (int y = std::max(0, minY); y <= std::min(ChunkHeight - 1, maxY); ++y) {
+                for (int y = std::max(0, start.y); y <= std::min(ChunkHeight - 1, end.y); ++y) {
                     const int wx = origin.x + x;
                     const int wy = origin.y + y;
                     const int wz = origin.z + z;
@@ -216,9 +214,6 @@ struct Plane : Primitive {
 
             if (steps == 0) steps = 1;
 
-            int minX = std::min(start.x, end.x);
-            int maxX = std::max(start.x, end.x);
-
             for (int step = 0; step <= steps; ++step) {
                 float t = static_cast<float>(step) / steps;
                 int y = static_cast<int>(std::round(start.y + t * dy));
@@ -227,7 +222,7 @@ struct Plane : Primitive {
                 if (y < 0 || y >= ChunkHeight) continue;
 
                 // For each point on the line, create voxels along the X axis
-                for (int x = minX; x <= maxX; ++x) {
+                for (int x = start.x; x <= end.x; ++x) {
                     const int wx = origin.x + x;
                     const int wy = origin.y + y;
                     const int wz = origin.z + z;
@@ -250,9 +245,6 @@ struct Plane : Primitive {
 
             if (steps == 0) steps = 1;
 
-            int minZ = std::min(start.z, end.z);
-            int maxZ = std::max(start.z, end.z);
-
             for (int step = 0; step <= steps; ++step) {
                 float t = static_cast<float>(step) / steps;
                 int x = static_cast<int>(std::round(start.x + t * dx));
@@ -261,7 +253,7 @@ struct Plane : Primitive {
                 if (y < 0 || y >= ChunkHeight) continue;
 
                 // For each point on the line, create voxels along the Z axis
-                for (int z = minZ; z <= maxZ; ++z) {
+                for (int z = start.z; z <= start.z; ++z) {
                     const int wx = origin.x + x;
                     const int wy = origin.y + y;
                     const int wz = origin.z + z;

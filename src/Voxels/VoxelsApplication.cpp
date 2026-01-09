@@ -366,14 +366,19 @@ void VoxelsApplication::setupUI() {
         ImGui::SliderScalar("##paletteIndex", ImGuiDataType_U32, &worldManager.paletteIndex, &min, &max);
 
         static int primitiveType = 0;
+
         static glm::ivec3 cuboidStartPos{};
         static glm::ivec3 cuboidEndPos{};
+
         static int sphRadius = 1.0f;
+
         static int cylRadius = 1.0f;
-        static int height = 1.0f;
+        static int cylHeight = 1.0f;
+
         static glm::ivec3 planeStartPos{};
         static glm::ivec3 planeEndPos{};
         static Plane::Axis planeAxis = Plane::Axis::Y;
+
         ImGui::Text("Primitive type:");
         ImGui::SameLine();
         ImGui::Combo("##primitiveType", &primitiveType, "None\0Cuboid\0Sphere\0Cylinder\0Plane\0");
@@ -415,7 +420,7 @@ void VoxelsApplication::setupUI() {
                 ImGui::DragInt("##cylRadius", &cylRadius, 0.1f, 1, std::numeric_limits<int>::max(), "%.2f");
                 ImGui::Text("Height:");
                 ImGui::SameLine();
-                ImGui::DragInt("##height", &height, 0.1f, 1, std::numeric_limits<int>::max(), "%.2f");
+                ImGui::DragInt("##height", &cylHeight, 0.1f, 1, std::numeric_limits<int>::max(), "%.2f");
                 break;
             }
             case 4: {
@@ -450,7 +455,8 @@ void VoxelsApplication::setupUI() {
 
         if (primitiveType != 0) {
             static glm::ivec3 origin{};
-            if (primitiveType != 1) {
+            // Cuboids and planes should not have an origin selection
+            if (primitiveType != 1 && primitiveType != 4) {
                 ImGui::Text("Origin:");
                 ImGui::SameLine();
                 ImGui::DragInt3("##origin", reinterpret_cast<int*>(&origin), 0.1f, 0, 0, "%.2f");
@@ -474,7 +480,7 @@ void VoxelsApplication::setupUI() {
             if (ImGui::Button("Place")) {
                 switch (primitiveType) {
                     case 1: {
-                        worldManager.addPrimitive(std::make_unique<Cuboid>(worldManager.paletteIndex + 1, glm::ivec3{}, cuboidStartPos, cuboidEndPos));
+                        worldManager.addPrimitive(std::make_unique<Cuboid>(worldManager.paletteIndex + 1, cuboidStartPos, cuboidEndPos));
                         break;
                     }
                     case 2: {
@@ -482,11 +488,11 @@ void VoxelsApplication::setupUI() {
                         break;
                     }
                     case 3: {
-                        worldManager.addPrimitive(std::make_unique<Cylinder>(worldManager.paletteIndex + 1, origin, cylRadius, height));
+                        worldManager.addPrimitive(std::make_unique<Cylinder>(worldManager.paletteIndex + 1, origin, cylRadius, cylHeight));
                         break;
                     }
                     case 4: {
-                        worldManager.addPrimitive(std::make_unique<Plane>(worldManager.paletteIndex + 1, glm::ivec3{}, planeStartPos, planeEndPos, planeAxis));
+                        worldManager.addPrimitive(std::make_unique<Plane>(worldManager.paletteIndex + 1, planeStartPos, planeEndPos, planeAxis));
                         break;
                     }
                     default: break;
@@ -513,7 +519,7 @@ void VoxelsApplication::setupUI() {
             ImGui::SameLine();
             if (ImGui::Button(("Remove##" + std::to_string(i)).c_str())) {
                 worldManager.removePrimitive(i);
-                --i; // Adjust index since we removed an element
+                --i;  // Adjust index since we removed an element
             }
         }
 
