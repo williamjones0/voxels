@@ -174,6 +174,8 @@ Chunk* WorldManager::createChunk(const int cx, const int cz) {
             chunk->init();
             chunk->generate(generationType, level);
 
+            checkPrimitivesInChunk(chunk);
+
             chunk->beingMeshed = true;
             meshResult = Mesher::meshChunk(chunk);
             // RunMesher runMesher(chunk, generationType);
@@ -193,6 +195,58 @@ Chunk* WorldManager::createChunk(const int cx, const int cz) {
     });
 
     return chunk;
+}
+
+void WorldManager::checkPrimitivesInChunk(Chunk* chunk) const {
+    // - check bounding box against corners
+    // - if any intersect then find bounding box intersection
+    // - loop over the positions in this and look in edit map
+
+    const int chunkMinX = chunk->cx * ChunkSize - 1;
+    const int chunkMinZ = chunk->cz * ChunkSize - 1;
+    const int chunkMaxX = (chunk->cx + 1) * ChunkSize;
+    const int chunkMaxZ = (chunk->cz + 1) * ChunkSize;
+
+    for (const auto& primitive : primitives) {
+        // AABB check
+        const glm::ivec3 primMin = primitive->start + primitive->origin;
+        const glm::ivec3 primMax = primitive->end + primitive->origin;
+
+        if (primMax.x < chunkMinX || primMin.x > chunkMaxX ||
+            primMax.z < chunkMinZ || primMin.z > chunkMaxZ ||
+            primMax.y < 0 || primMin.y > ChunkHeight - 1) {
+            continue;
+        }
+
+        // Find intersection AABB
+        const int minX = std::max(chunkMinX, primMin.x);
+        const int maxX = std::min(chunkMaxX, primMax.x);
+        const int minY = std::max(0, primMin.y);
+        const int maxY = std::min(ChunkHeight - 1, primMax.y);
+        const int minZ = std::max(chunkMinZ, primMin.z);
+        const int maxZ = std::min(chunkMaxZ, primMax.z);
+
+        // Loop over intersection AABB and apply edits (the chunk will be meshed afterwards by createChunk)
+        for (int x = minX; x <= maxX; ++x) {
+            for (int y = minY; y <= maxY; ++y) {
+                for (int z = minZ; z <= maxZ; ++z) {
+                    const auto it = primitive->edits.find({x, y, z});
+                    if (it != primitive->edits.end()) {
+                        const std::optional<Edit>& editOpt = it->second;
+
+                        const int lx = x - (chunk->cx << ChunkSizeShift);
+                        const int lz = z - (chunk->cz << ChunkSizeShift);
+
+                        if (editOpt.has_value()) {
+                            chunk->store(lx, y, lz, editOpt->voxelType);
+                        } else {
+                            chunk->store(lx, y, lz, EmptyVoxel);
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 void WorldManager::addFrontier(Chunk* chunk) {
@@ -388,7 +442,7 @@ int WorldManager::load(const int x, const int y, const int z) {
     const int lx = x - (cx << ChunkSizeShift);
     const int lz = z - (cz << ChunkSizeShift);
 
-    return chunk->voxels[getVoxelIndex(lx + 1, y + 1, lz + 1, ChunkSize + 2)];
+    return chunk->load(lx, y, lz);
 }
 
 std::optional<RaycastResult> WorldManager::raycast() {

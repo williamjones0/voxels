@@ -61,6 +61,7 @@ public:
     bool ensureChunkIfVisible(int cx, int cz);
     Chunk* ensureChunk(int cx, int cz);
     Chunk* createChunk(int cx, int cz);
+    void checkPrimitivesInChunk(Chunk* chunk) const;
     void addFrontier(Chunk* chunk);
     void updateFrontierNeighbour(Chunk* frontier, int cx, int cz);
     bool createNewFrontierChunks();

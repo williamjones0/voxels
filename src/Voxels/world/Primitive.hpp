@@ -19,12 +19,14 @@ struct Primitive {
 
     using EditMap = std::unordered_map<glm::ivec3, std::optional<Edit>, IVec3Hash>;
     [[nodiscard]] virtual EditMap generateEdits() = 0;
-    virtual bool isPosInside(const glm::ivec3& pos) const = 0;
+    [[nodiscard]] virtual bool isPosInside(const glm::ivec3& pos) const = 0;
 
     EditMap edits;  // global pos -> optional Edit
     std::unordered_map<glm::ivec3, int, IVec3Hash> userEdits;  // local pos -> voxelType
     int voxelType{};
     glm::ivec3 origin{};
+    glm::ivec3 start{};
+    glm::ivec3 end{};
 };
 
 struct Cuboid : Primitive {
@@ -33,9 +35,6 @@ struct Cuboid : Primitive {
         this->end = glm::max(start, end);
         this->voxelType = voxelType;
     }
-
-    glm::ivec3 start;
-    glm::ivec3 end;
 
     EditMap generateEdits() override {
         EditMap editMap;
@@ -62,7 +61,7 @@ struct Cuboid : Primitive {
         return editMap;
     }
 
-    bool isPosInside(const glm::ivec3 &pos) const override {
+    bool isPosInside(const glm::ivec3& pos) const override {
         return pos.x >= origin.x + start.x && pos.x <= origin.x + end.x &&
                pos.y >= origin.y + start.y && pos.y <= origin.y + end.y &&
                pos.z >= origin.z + start.z && pos.z <= origin.z + end.z;
@@ -73,6 +72,8 @@ struct Sphere : Primitive {
     explicit Sphere(const int voxelType, const glm::ivec3& origin, const int r) : radius(r) {
         this->voxelType = voxelType;
         this->origin = origin;
+        this->start = glm::ivec3(-radius);
+        this->end = glm::ivec3(radius);
     }
 
     int radius;
@@ -110,7 +111,7 @@ struct Sphere : Primitive {
         return editMap;
     }
 
-    bool isPosInside(const glm::ivec3 &pos) const override {
+    bool isPosInside(const glm::ivec3& pos) const override {
         const glm::ivec3 relPos = pos - origin;
         return relPos.x * relPos.x + relPos.y * relPos.y + relPos.z * relPos.z <= radius * radius;
     }
@@ -121,6 +122,8 @@ struct Cylinder : Primitive {
         : radius(r), height(h) {
         this->voxelType = voxelType;
         this->origin = origin;
+        this->start = glm::ivec3(-radius, -height / 2, -radius);
+        this->end = glm::ivec3(radius, height / 2, radius);
     }
 
     int radius;
@@ -153,7 +156,7 @@ struct Cylinder : Primitive {
         return editMap;
     }
 
-    bool isPosInside(const glm::ivec3 &pos) const override {
+    bool isPosInside(const glm::ivec3& pos) const override {
         const glm::ivec3 relPos = pos - origin;
         return relPos.y >= -height / 2 && relPos.y <= height / 2 &&
                relPos.x * relPos.x + relPos.z * relPos.z <= radius * radius;
@@ -169,8 +172,6 @@ struct Plane : Primitive {
         this->voxelType = voxelType;
     }
 
-    glm::ivec3 start;
-    glm::ivec3 end;
     Axis axis;
 
     EditMap generateEdits() override {
@@ -273,19 +274,9 @@ struct Plane : Primitive {
         return editMap;
     }
 
-    bool isPosInside(const glm::ivec3 &pos) const override {
-        if (axis == Axis::Y) {
-            return pos.x >= origin.x + start.x && pos.x <= origin.x + end.x &&
-                   pos.y >= origin.y + start.y && pos.y <= origin.y + end.y &&
-                   pos.z >= origin.z + start.z && pos.z <= origin.z + end.z;
-        } else if (axis == Axis::X) {
-            return pos.x >= origin.x + start.x && pos.x <= origin.x + end.x &&
-                   pos.y >= origin.y + start.y && pos.y <= origin.y + end.y &&
-                   pos.z >= origin.z + start.z && pos.z <= origin.z + end.z;
-        } else { // Axis::Z
-            return pos.x >= origin.x + start.x && pos.x <= origin.x + end.x &&
-                   pos.y >= origin.y + start.y && pos.y <= origin.y + end.y &&
-                   pos.z >= origin.z + start.z && pos.z <= origin.z + end.z;
-        }
+    bool isPosInside(const glm::ivec3& pos) const override {
+        return pos.x >= origin.x + start.x && pos.x <= origin.x + end.x &&
+               pos.y >= origin.y + start.y && pos.y <= origin.y + end.y &&
+               pos.z >= origin.z + start.z && pos.z <= origin.z + end.z;
     }
 };
