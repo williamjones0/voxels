@@ -26,7 +26,7 @@ void Chunk::init() {
     voxels = std::vector(VoxelsSize, 0);
 }
 
-void Chunk::generate(const GenerationType type, const Level& level) {
+void Chunk::generate(const GenerationType type) {
     switch (type) {
         case GenerationType::Flat:
             generateFlat();
@@ -36,9 +36,6 @@ void Chunk::generate(const GenerationType type, const Level& level) {
             break;
         case GenerationType::Perlin3D:
             generateVoxels3D();
-            break;
-        case GenerationType::LevelLoad:
-            generateVoxels(level);
             break;
     }
 }
@@ -145,32 +142,6 @@ void Chunk::generateVoxels3D() {
     }
 
     minY = std::max(0, minY - 1);
-    maxY = std::min(ChunkHeight, maxY + 2);
-}
-
-void Chunk::generateVoxels(const Level& level) {
-    for (int y = 0; y < ChunkHeight; ++y) {
-        for (int z = -1; z < ChunkSize + 1; ++z) {
-            for (int x = -1; x < ChunkSize + 1; ++x) {
-                const int gx = cx * ChunkSize + x;
-                const int gz = cz * ChunkSize + z;
-
-                if (gx < 0 || gz < 0 || gx >= level.maxX || gz >= level.maxZ || y >= level.maxY) {
-                    continue; // Out of bounds
-                }
-
-                const int value = level.data[y * level.maxX * level.maxZ + gz * level.maxX + gx];
-
-                store(x, y, z, value);
-
-                if (value != EmptyVoxel) {
-                    minY = std::min(y, minY);
-                    maxY = std::max(y, maxY);
-                }
-            }
-        }
-    }
-
     maxY = std::min(ChunkHeight, maxY + 2);
 }
 

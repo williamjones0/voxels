@@ -25,6 +25,7 @@ enum class ActionType {
     Exit,
     ToggleWireframe,
     SaveLevel,
+    LoadLevel,
 
     ToggleUIMode,
 

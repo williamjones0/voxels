@@ -52,7 +52,7 @@ private:
             return enlargeVerticesBuffer(size);
         },
         GenerationType::Perlin2D,
-        std::filesystem::path(PROJECT_SOURCE_DIR) / "data/levels/level0.json"
+        std::filesystem::path(PROJECT_SOURCE_DIR) / "data/levels/new_level.json"
     );
 
     UIManager uiManager;

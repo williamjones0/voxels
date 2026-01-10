@@ -127,6 +127,7 @@ void VoxelsApplication::setupInput() {
     Input::bindings.insert({{GLFW_KEY_ESCAPE, GLFW_PRESS}, {ActionType::Exit, ActionStateType::None}});
     Input::bindings.insert({{GLFW_KEY_T, GLFW_PRESS}, {ActionType::ToggleWireframe, ActionStateType::None}});
     Input::bindings.insert({{GLFW_KEY_P, GLFW_PRESS}, {ActionType::SaveLevel, ActionStateType::None}});
+    Input::bindings.insert({{GLFW_KEY_LEFT_BRACKET, GLFW_PRESS}, {ActionType::LoadLevel, ActionStateType::None}});
 
     Input::bindings.insert({{Input::uiToggleKey, GLFW_PRESS}, {ActionType::ToggleUIMode, ActionStateType::None}});
 
@@ -161,7 +162,13 @@ void VoxelsApplication::setupInput() {
     });
 
     Input::registerCallback({ActionType::SaveLevel, ActionStateType::None}, [this] {
-        worldManager.save();
+        worldManager.saveLevel();
+    });
+
+    Input::registerCallback({ActionType::LoadLevel, ActionStateType::None}, [this] {
+        worldManager.loadLevel();
+        shader.use();
+        shader.setVec3Array("palette", worldManager.palette.data(), worldManager.palette.size());
     });
 
     Input::registerCallback({ActionType::ToggleUIMode, ActionStateType::None}, [this] {

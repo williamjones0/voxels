@@ -1,7 +1,12 @@
 #pragma once
 
+#include <glm/glm.hpp>
+
+#include <optional>
 #include <unordered_set>
 #include <vector>
+
+#include "Chunk.hpp"
 
 struct Edit {
     int voxelType;
@@ -18,11 +23,13 @@ struct Primitive {
     virtual ~Primitive() = default;
 
     using EditMap = std::unordered_map<glm::ivec3, std::optional<Edit>, IVec3Hash>;
+    using UserEditMap = std::unordered_map<glm::ivec3, int, IVec3Hash>;
+
     [[nodiscard]] virtual EditMap generateEdits() = 0;
     [[nodiscard]] virtual bool isPosInside(const glm::ivec3& pos) const = 0;
 
     EditMap edits;  // global pos -> optional Edit
-    std::unordered_map<glm::ivec3, int, IVec3Hash> userEdits;  // local pos -> voxelType
+    UserEditMap userEdits;  // local pos -> voxelType
     int voxelType{};
     glm::ivec3 origin{};
     glm::ivec3 start{};

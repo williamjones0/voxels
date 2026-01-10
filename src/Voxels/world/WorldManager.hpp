@@ -5,7 +5,6 @@
 #include "../core/FreeListAllocator.hpp"
 #include "../core/ThreadPool.hpp"
 #include "../core/Camera.hpp"
-#include "Level.hpp"
 #include "VertexFormat.hpp"
 #include "Primitive.hpp"
 
@@ -43,7 +42,7 @@ struct RaycastResult {
 constexpr int InitialVertexBufferSize = 1 << 20;
 constexpr int MaxChunkTasks = 32;
 
-constexpr int MaxRenderDistanceChunks = 32;
+constexpr int MaxRenderDistanceChunks = 8;
 constexpr int MaxRenderDistanceMetres = MaxRenderDistanceChunks << ChunkSizeShift;
 constexpr int MaxChunks = (2 * MaxRenderDistanceChunks + 1) * (2 * MaxRenderDistanceChunks + 1);
 
@@ -61,7 +60,7 @@ public:
     bool ensureChunkIfVisible(int cx, int cz);
     Chunk* ensureChunk(int cx, int cz);
     Chunk* createChunk(int cx, int cz);
-    void checkPrimitivesInChunk(Chunk* chunk) const;
+    void applyEditsToChunk(Chunk* chunk);
     void addFrontier(Chunk* chunk);
     void updateFrontierNeighbour(Chunk* frontier, int cx, int cz);
     bool createNewFrontierChunks();
@@ -76,7 +75,8 @@ public:
 
     void queueMeshChunk(Chunk* chunk);
 
-    void save();
+    void saveLevel();
+    void loadLevel();
 
     int load(int x, int y, int z);
 
@@ -93,13 +93,13 @@ public:
 
     GenerationType generationType;
     const std::filesystem::path levelFile;
-
-    Level level;
+    std::optional<std::pair<glm::ivec2, glm::ivec2>> levelChunkBounds;
 
     std::array<glm::vec3, 1 << VertexFormat::ColourBits> palette{};
     size_t paletteIndex = 0;
 
     std::vector<std::unique_ptr<Primitive>> primitives;
+    Primitive::UserEditMap userEdits;  // global pos -> voxelType
 
     std::vector<Chunk*> chunks;
     std::vector<Chunk*> frontierChunks;

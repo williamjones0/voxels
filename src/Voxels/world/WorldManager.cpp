@@ -1,12 +1,18 @@
 #include "WorldManager.hpp"
 
-#include <fstream>
 #include <cmath>
+#include <filesystem>
+#include <fstream>
+#include <iostream>
 #include <ranges>
+
+#include <nlohmann/json.hpp>
 
 #include "Mesher.hpp"
 #include "RunMesher.hpp"
 #include "tracy/Tracy.hpp"
+
+using json = nlohmann::json;
 
 WorldManager::WorldManager(
     Camera& camera,
@@ -37,10 +43,6 @@ WorldManager::WorldManager(
     palette[7] = glm::vec3(138.0/255.0, 0.0, 212.0/255.0);
 
     threadPool.start();
-
-    if (generationType == GenerationType::LevelLoad) {
-        level.read(levelFile);
-    }
 }
 
 bool WorldManager::updateFrontierChunks() {
@@ -109,11 +111,9 @@ void WorldManager::destroyFrontierChunks() {
 }
 
 bool WorldManager::ensureChunkIfVisible(const int cx, const int cz) {
-    const int maxChunkX = static_cast<int>(std::ceil(static_cast<double>(level.maxX) / ChunkSize)) - 1;
-    const int maxChunkZ = static_cast<int>(std::ceil(static_cast<double>(level.maxZ) / ChunkSize)) - 1;
-
-    if (!chunkInRenderDistance(cx, cz) ||
-        generationType == GenerationType::LevelLoad && (cx < 0 || cx > maxChunkX || cz < 0 || cz > maxChunkZ)) {
+    if (!chunkInRenderDistance(cx, cz) || (levelChunkBounds.has_value() &&
+        (cx < levelChunkBounds->first.x || cx > levelChunkBounds->second.x ||
+         cz < levelChunkBounds->first.y || cz > levelChunkBounds->second.y))) {
         return false;
     }
 
@@ -171,9 +171,9 @@ Chunk* WorldManager::createChunk(const int cx, const int cz) {
         {
             std::scoped_lock lock(chunk->mutex);
             chunk->init();
-            chunk->generate(generationType, level);
+            chunk->generate(generationType);
 
-            checkPrimitivesInChunk(chunk);
+            applyEditsToChunk(chunk);
 
             chunk->beingMeshed = true;
             meshResult = Mesher::meshChunk(chunk);
@@ -196,15 +196,35 @@ Chunk* WorldManager::createChunk(const int cx, const int cz) {
     return chunk;
 }
 
-void WorldManager::checkPrimitivesInChunk(Chunk* chunk) const {
-    // - check bounding box against corners
-    // - if any intersect then find bounding box intersection
-    // - loop over the positions in this and look in edit map
-
+void WorldManager::applyEditsToChunk(Chunk* chunk) {
     const int chunkMinX = chunk->cx * ChunkSize - 1;
     const int chunkMinZ = chunk->cz * ChunkSize - 1;
     const int chunkMaxX = (chunk->cx + 1) * ChunkSize;
     const int chunkMaxZ = (chunk->cz + 1) * ChunkSize;
+
+    // User edits
+    for (const auto& [pos, voxelType] : userEdits) {
+        if (pos.x < chunkMinX || pos.x > chunkMaxX ||
+            pos.z < chunkMinZ || pos.z > chunkMaxZ ||
+            pos.y < 0 || pos.y > ChunkHeight - 1) {
+            continue;
+        }
+
+        const int lx = pos.x - (chunk->cx << ChunkSizeShift);
+        const int lz = pos.z - (chunk->cz << ChunkSizeShift);
+
+        if (voxelType == 0) {
+            chunk->store(lx, pos.y, lz, EmptyVoxel);
+        } else {
+            chunk->store(lx, pos.y, lz, voxelType);
+        }
+    }
+
+    // Primitives
+
+    // - check bounding box against corners
+    // - if any intersect then find bounding box intersection
+    // - loop over the positions in this and look in edit map
 
     for (const auto& primitive : primitives) {
         // AABB check
@@ -412,20 +432,224 @@ void WorldManager::queueMeshChunk(Chunk* chunk) {
     });
 }
 
-void WorldManager::save() {
-    level.data.clear();
-    level.data.reserve(level.maxX * level.maxZ * level.maxY);
-    for (int y = 0; y < level.maxY; ++y) {
-        for (int z = 0; z < level.maxZ; ++z) {
-            for (int x = 0; x < level.maxX; ++x) {
-                int voxel = load(x, y, z);
-                level.data.push_back(voxel);
-            }
-        }
+void WorldManager::saveLevel() {
+    json levelJson;
+
+    // Generation type
+    switch (generationType) {
+        case GenerationType::Flat:
+            levelJson["generationType"] = "Flat";
+            break;
+        case GenerationType::Perlin2D:
+            levelJson["generationType"] = "Perlin2D";
+            break;
+        case GenerationType::Perlin3D:
+            levelJson["generationType"] = "Perlin3D";
+            break;
     }
-    level.save(levelFile);
+
+    // Palette
+    json paletteJson = json::array();
+    for (const auto& color : palette) {
+        paletteJson.push_back({color.r, color.g, color.b});
+    }
+    levelJson["palette"] = paletteJson;
+
+    // Primitives
+    json primitivesJson = json::array();
+    for (const auto& primitive : primitives) {
+        json primitiveJson;
+        // Store the type of primitive.
+        // For any type, store userEdits (but not edits themselves; they will be regenerated on load)
+        // as well as the voxelType, origin, start and end
+        // For sphere, also store radius; for cylinder, radius and height; for plane, axis
+
+        primitiveJson["voxelType"] = primitive->voxelType;
+        primitiveJson["origin"] = {primitive->origin.x, primitive->origin.y, primitive->origin.z};
+        // Only cuboid and plane need the start and end in order to reconstruct the shape, so don't store them for the others
+
+        // User edits
+        json userEditsJson;
+        for (const auto& [pos, voxelType] : primitive->userEdits) {
+            userEditsJson.push_back({
+                {"pos", {pos.x, pos.y, pos.z}},
+                {"voxelType", voxelType}
+            });
+        }
+        primitiveJson["userEdits"] = userEditsJson;
+
+        // Type-specific data
+        if (dynamic_cast<Cuboid*>(primitive.get())) {
+            primitiveJson["type"] = "Cuboid";
+            primitiveJson["start"] = {primitive->start.x, primitive->start.y, primitive->start.z};
+            primitiveJson["end"] = {primitive->end.x, primitive->end.y, primitive->end.z};
+        } else if (dynamic_cast<Sphere*>(primitive.get())) {
+            primitiveJson["type"] = "Sphere";
+            Sphere* sphere = dynamic_cast<Sphere*>(primitive.get());
+            primitiveJson["radius"] = sphere->radius;
+        } else if (dynamic_cast<Cylinder*>(primitive.get())) {
+            primitiveJson["type"] = "Cylinder";
+            Cylinder* cylinder = dynamic_cast<Cylinder*>(primitive.get());
+            primitiveJson["radius"] = cylinder->radius;
+            primitiveJson["height"] = cylinder->height;
+        } else if (dynamic_cast<Plane*>(primitive.get())) {
+            primitiveJson["type"] = "Plane";
+            Plane* plane = dynamic_cast<Plane*>(primitive.get());
+            std::string axisStr;
+            switch (plane->axis) {
+                case Plane::Axis::X:
+                    axisStr = "X";
+                    break;
+                case Plane::Axis::Y:
+                    axisStr = "Y";
+                    break;
+                case Plane::Axis::Z:
+                    axisStr = "Z";
+                    break;
+            }
+            primitiveJson["axis"] = axisStr;
+            primitiveJson["start"] = {primitive->start.x, primitive->start.y, primitive->start.z};
+            primitiveJson["end"] = {primitive->end.x, primitive->end.y, primitive->end.z};
+        }
+        primitivesJson.push_back(primitiveJson);
+    }
+    levelJson["primitives"] = primitivesJson;
+
+    // User edits
+    json userEditsJson;
+    for (const auto& [pos, voxelType] : userEdits) {
+        userEditsJson.push_back({
+            {"pos", {pos.x, pos.y, pos.z}},
+            {"voxelType", voxelType}
+        });
+    }
+    levelJson["userEdits"] = userEditsJson;
+
+    // Save to file
+    std::ofstream outfile(levelFile);
+    if (!outfile.is_open()) {
+        std::cerr << "Failed to open level file for saving: " << levelFile << std::endl;
+        return;
+    }
+
+    outfile << levelJson.dump(4);
+    outfile.close();
 
     std::cout << "Level saved to " << levelFile << std::endl;
+}
+
+void WorldManager::loadLevel() {
+    std::cout << "Loading level from " << levelFile << std::endl;
+    std::ifstream infile(levelFile);
+    if (!infile.is_open()) {
+        std::cerr << "Failed to open level file for loading: " << levelFile << std::endl;
+        return;
+    }
+
+    json levelJson;
+    infile >> levelJson;
+    infile.close();
+
+    // Generation type
+    std::string generationTypeStr = levelJson.value("generationType", "Flat");
+    if (generationTypeStr == "Flat") {
+        generationType = GenerationType::Flat;
+    } else if (generationTypeStr == "Perlin2D") {
+        generationType = GenerationType::Perlin2D;
+    } else if (generationTypeStr == "Perlin3D") {
+        generationType = GenerationType::Perlin3D;
+    } else {
+        std::cerr << "Unknown generation type: " << generationTypeStr << ", defaulting to Flat" << std::endl;
+        generationType = GenerationType::Flat;
+    }
+
+    // Palette
+    palette.fill(glm::vec3());
+    json paletteJson = levelJson.value("palette", json::array());
+    for (size_t i = 0; i < paletteJson.size() && i < palette.size(); ++i) {
+        const auto& colorArray = paletteJson[i];
+        if (colorArray.is_array() && colorArray.size() == 3) {
+            palette[i] = glm::vec3(colorArray[0], colorArray[1], colorArray[2]);
+        }
+    }
+
+    // Primitives
+    primitives.clear();
+    json primitivesJson = levelJson.value("primitives", json::array());
+    for (const auto& primitiveJson : primitivesJson) {
+        // Common data
+        const int voxelType = primitiveJson.value("voxelType", 1);
+        const auto originArray = primitiveJson.value("origin", json::array({0, 0, 0}));
+        const auto startArray = primitiveJson.value("start", json::array({0, 0, 0}));
+        const auto endArray = primitiveJson.value("end", json::array({0, 0, 0}));
+        glm::ivec3 origin = glm::ivec3(originArray[0], originArray[1], originArray[2]);
+        glm::ivec3 start = glm::ivec3(startArray[0], startArray[1], startArray[2]);
+        glm::ivec3 end = glm::ivec3(endArray[0], endArray[1], endArray[2]);
+
+        // User edits
+        Primitive::UserEditMap primitiveUserEdits;
+        json userEditsJson = primitiveJson.value("userEdits", json::array());
+        for (const auto& editJson : userEditsJson) {
+            const auto posArray = editJson.value("pos", json::array({0, 0, 0}));
+            glm::ivec3 pos = glm::ivec3(posArray[0], posArray[1], posArray[2]);
+            const int editVoxelType = editJson.value("voxelType", 1);
+            primitiveUserEdits[pos] = editVoxelType;
+        }
+
+        std::string type = primitiveJson.value("type", "Cuboid");
+        if (type == "Cuboid") {
+            auto primitive = std::make_unique<Cuboid>(voxelType, start, end);
+            primitive->userEdits = primitiveUserEdits;
+            primitives.push_back(std::move(primitive));
+        } else if (type == "Sphere") {
+            const int radius = primitiveJson.value("radius", 1);
+            auto primitive = std::make_unique<Sphere>(voxelType, origin, radius);
+            primitive->userEdits = primitiveUserEdits;
+            primitives.push_back(std::move(primitive));
+        } else if (type == "Cylinder") {
+            const int radius = primitiveJson.value("radius", 1);
+            const int height = primitiveJson.value("height", 1);
+            auto primitive = std::make_unique<Cylinder>(voxelType, origin, radius, height);
+            primitive->userEdits = primitiveUserEdits;
+            primitives.push_back(std::move(primitive));
+        } else if (type == "Plane") {
+            std::string axisStr = primitiveJson.value("axis", "Y");
+            Plane::Axis axis = Plane::Axis::Y;
+            if (axisStr == "X") {
+                axis = Plane::Axis::X;
+            } else if (axisStr == "Z") {
+                axis = Plane::Axis::Z;
+            }
+            auto primitive = std::make_unique<Plane>(voxelType, start, end, axis);
+            primitive->userEdits = primitiveUserEdits;
+            primitives.push_back(std::move(primitive));
+        }
+    }
+
+    // User edits
+    userEdits.clear();
+    json userEditsJson = levelJson.value("userEdits", json::array());
+    for (const auto& editJson : userEditsJson) {
+        const auto posArray = editJson.value("pos", json::array({0, 0, 0}));
+        glm::ivec3 pos = glm::ivec3(posArray[0], posArray[1], posArray[2]);
+        const int editVoxelType = editJson.value("voxelType", 1);
+        userEdits[pos] = editVoxelType;
+    }
+
+    // Reload the world
+    chunks.clear();
+    frontierChunks.clear();
+    chunkByCoords.clear();
+    chunkData.clear();
+    chunkData.resize(MaxChunks);
+
+    for (const auto& primitive : primitives) {
+        placePrimitive(*primitive);
+    }
+
+    createChunk(0, 0);
+
+    std::cout << "Level loaded from " << levelFile << std::endl;
 }
 
 int WorldManager::load(const int x, const int y, const int z) {
@@ -602,12 +826,14 @@ void WorldManager::updateVoxel(RaycastResult result, const bool place) {
                     // We know that we are placing here, because if we were removing, there would be an edit there
                     assert(place);
                     editOpt = {static_cast<int>(paletteIndex + 1), 0};
-                    primitive->userEdits[localPos] = paletteIndex + 1;
+                    primitive->userEdits[localPos] = static_cast<int>(paletteIndex + 1);
                     break;
                 }
             }
         }
     }
+
+    userEdits[{(cx << ChunkSizeShift) + x, y, (cz << ChunkSizeShift) + z}] = place ? static_cast<int>(paletteIndex + 1) : 0;
 
     Primitive::EditMap edits;
     edits[{(cx << ChunkSizeShift) + x, y, (cz << ChunkSizeShift) + z}] = {place ? static_cast<int>(paletteIndex + 1) : 0, 0};

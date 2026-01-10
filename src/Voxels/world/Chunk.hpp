@@ -1,9 +1,5 @@
 #pragma once
 
-#include "Level.hpp"
-
-#include <glm/glm.hpp>
-
 #include <atomic>
 #include <mutex>
 #include <vector>
@@ -18,8 +14,7 @@ constexpr int VoxelsSize = (ChunkSize + 2) * (ChunkSize + 2) * ChunkHeight;
 enum class GenerationType {
     Flat,
     Perlin2D,
-    Perlin3D,
-    LevelLoad
+    Perlin3D
 };
 
 constexpr int EmptyVoxel = 0;
@@ -55,11 +50,10 @@ public:
     void store(int x, int y, int z, int v);
     int load(int x, int y, int z) const;
     void init();
-    void generate(GenerationType type, const Level& level);
+    void generate(GenerationType type);
     void generateFlat();
     void generateVoxels2D();
     void generateVoxels3D();
-    void generateVoxels(const Level& level);
 
     static size_t getVoxelIndex(size_t x, size_t y, size_t z);
 };
