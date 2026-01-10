@@ -96,7 +96,7 @@ public:
 
     Level level;
 
-    std::array<glm::vec3, 1 << VertexFormat::ColourBits> palette;
+    std::array<glm::vec3, 1 << VertexFormat::ColourBits> palette{};
     size_t paletteIndex = 0;
 
     std::vector<std::unique_ptr<Primitive>> primitives;

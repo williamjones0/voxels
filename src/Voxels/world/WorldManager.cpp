@@ -6,7 +6,6 @@
 
 #include "Mesher.hpp"
 #include "RunMesher.hpp"
-#include "../util/Util.hpp"
 #include "tracy/Tracy.hpp"
 
 WorldManager::WorldManager(
@@ -449,7 +448,7 @@ std::optional<RaycastResult> WorldManager::raycast() {
     constexpr float big = 1e30f;
 
     const float ox = camera.transform.position.x;
-    const float oy = camera.transform.position.y - 1;
+    const float oy = camera.transform.position.y;
     const float oz = camera.transform.position.z;
 
     const float dx = camera.front.x;
@@ -837,6 +836,18 @@ void WorldManager::movePrimitive(const size_t index, const glm::ivec3& newOrigin
         ZoneScopedN("Fix overlapping edits");
         for (size_t i = 0; i < primitives.size(); ++i) {
             if (i == index) continue;  // skip ourselves
+
+            // Skip if bounding boxes don't overlap
+            const glm::ivec3 otherMin = primitives[i]->start + primitives[i]->origin;
+            const glm::ivec3 otherMax = primitives[i]->end + primitives[i]->origin;
+            const glm::ivec3 thisMin = primitive.start + primitive.origin;
+            const glm::ivec3 thisMax = primitive.end + primitive.origin;
+
+            if (otherMax.x < thisMin.x || otherMin.x > thisMax.x ||
+                otherMax.y < thisMin.y || otherMin.y > thisMax.y ||
+                otherMax.z < thisMin.z || otherMin.z > thisMax.z) {
+                continue;
+            }
 
             // Find all edits in the other primitive whose positions are the same as one of our edits we will be removing
             for (auto& [otherPos, otherEditOpt] : primitives[i]->edits) {

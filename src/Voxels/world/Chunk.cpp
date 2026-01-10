@@ -1,7 +1,6 @@
 #include "Chunk.hpp"
 
 #include "../util/PerlinNoise.hpp"
-#include "../util/Util.hpp"
 
 constexpr float Epsilon = 0.000001;
 
@@ -14,13 +13,13 @@ Chunk::Chunk(const int cx, const int cz)
 {}
 
 void Chunk::store(const int x, const int y, const int z, const int v) {
-    voxels[getVoxelIndex(x + 1, y + 1, z + 1, ChunkSize + 2)] = v;
+    voxels[getVoxelIndex(x + 1, y, z + 1)] = v;
     minY = std::min(minY, y);
     maxY = std::max(maxY, y + 2);
 }
 
 int Chunk::load(const int x, const int y, const int z) const {
-    return voxels[getVoxelIndex(x + 1, y + 1, z + 1, ChunkSize + 2)];
+    return voxels[getVoxelIndex(x + 1, y, z + 1)];
 }
 
 void Chunk::init() {
@@ -48,12 +47,10 @@ void Chunk::generateFlat() {
     for (int y = 0; y < ChunkHeight; ++y) {
         for (int z = -1; z < ChunkSize + 1; ++z) {
             for (int x = -1; x < ChunkSize + 1; ++x) {
-                const int i = getVoxelIndex(x + 1, y + 1, z + 1, ChunkSize + 2);
-
                 if (y == ChunkHeight / 2) {
-                    voxels[i] = 1;
+                    store(x, y, z, 1);
                 } else if (y < ChunkHeight / 2) {
-                    voxels[i] = 2;
+                    store(x, y, z, 2);
                 }
             }
         }
@@ -64,6 +61,10 @@ void Chunk::generateFlat() {
 }
 
 double terrainNoise(const int x, const int z) {
+    auto clamp = [](auto v, auto low, auto high) {
+        return std::max(low, std::min(v, high));
+    };
+
     return clamp(perlin.octave2D_01(x * 0.01, z * 0.01, 1), 0.0, 1.0 - Epsilon);
 }
 
@@ -109,8 +110,6 @@ void Chunk::generateVoxels2D() {
             }
 
             for (int y0 = 0; y0 < y; ++y0) {
-                const int i = getVoxelIndex(x + 1, y0, z + 1, ChunkSize + 2);
-
                 int voxelType;
                 if (y0 == y - 1) {
                     voxelType = 1;
@@ -119,7 +118,7 @@ void Chunk::generateVoxels2D() {
                 } else {
                     voxelType = 2;
                 }
-                voxels[i] = voxelType;
+                store(x, y0, z, voxelType);
             }
         }
     }
@@ -137,7 +136,7 @@ void Chunk::generateVoxels3D() {
                 const auto noise_z = static_cast<float>(cz * ChunkSize + z + 1);
 
                 if (const double noise = perlin.octave3D_01(noise_x * 0.01, noise_y * 0.01, noise_z * 0.01, 4); noise > 0.5) {
-                    voxels[getVoxelIndex(x + 1, y + 1, z + 1, ChunkSize + 2)] = 1;
+                    store(x, y, z, 1);
                     minY = std::min(y, minY);
                     maxY = std::max(y, maxY);
                 }
@@ -162,7 +161,7 @@ void Chunk::generateVoxels(const Level& level) {
 
                 const int value = level.data[y * level.maxX * level.maxZ + gz * level.maxX + gx];
 
-                voxels[getVoxelIndex(x + 1, y + 1, z + 1, ChunkSize + 2)] = value;
+                store(x, y, z, value);
 
                 if (value != EmptyVoxel) {
                     minY = std::min(y, minY);
@@ -173,4 +172,8 @@ void Chunk::generateVoxels(const Level& level) {
     }
 
     maxY = std::min(ChunkHeight, maxY + 2);
+}
+
+size_t Chunk::getVoxelIndex(const size_t x, const size_t y, const size_t z) {
+    return y * (ChunkSize + 2) * (ChunkSize + 2) + z * (ChunkSize + 2) + x;
 }

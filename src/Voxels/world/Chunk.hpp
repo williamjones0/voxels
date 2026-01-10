@@ -13,7 +13,7 @@ constexpr int ChunkHeightShift = 7;
 constexpr int ChunkSize = 1 << ChunkSizeShift;
 constexpr int ChunkHeight = 1 << ChunkHeightShift;
 
-constexpr int VoxelsSize = (ChunkSize + 2) * (ChunkSize + 2) * (ChunkHeight + 2);
+constexpr int VoxelsSize = (ChunkSize + 2) * (ChunkSize + 2) * ChunkHeight;
 
 enum class GenerationType {
     Flat,
@@ -60,4 +60,6 @@ public:
     void generateVoxels2D();
     void generateVoxels3D();
     void generateVoxels(const Level& level);
+
+    static size_t getVoxelIndex(size_t x, size_t y, size_t z);
 };

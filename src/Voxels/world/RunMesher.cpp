@@ -1,7 +1,6 @@
 #include "RunMesher.hpp"
 
 #include "VertexFormat.hpp"
-#include "../util/Util.hpp"
 
 constexpr int FrontNormal = 0;
 constexpr int BackNormal = 1;
@@ -15,7 +14,7 @@ RunMesher::MeshResult RunMesher::meshChunk() {
     for (size_t j = chunk->minY; j < chunk->maxY; ++j) {  // y
         for (size_t k = 1; k < ChunkSize + 1; ++k) {      // z
             for (size_t i = 1; i < ChunkSize + 1; ++i) {  // x
-                const size_t access = getVoxelIndex(i, j, k, ChunkSize + 2);
+                const size_t access = Chunk::getVoxelIndex(i, j, k);
                 const int voxel = chunk->voxels[access];
 
                 if (voxel == 0 || (generationType == GenerationType::Perlin2D && voxel == 3)) {
@@ -39,7 +38,7 @@ void RunMesher::createRun(const int voxel, const size_t i, const size_t j, const
         int length = 0;
 
         for (int q = j; q < ChunkHeight; ++q) {
-            const size_t chunkAccess = getVoxelIndex(i, q, k, ChunkSize + 2);
+            const size_t chunkAccess = Chunk::getVoxelIndex(i, q, k);
 
             // If we reach a different block or an empty block, end the run
             if (differentBlock(chunkAccess, voxel)) {
@@ -67,7 +66,7 @@ void RunMesher::createRun(const int voxel, const size_t i, const size_t j, const
     if (!visitedXP[access] && shouldMeshFace(i + 1, j, k)) {
         int length = 0;
         for (int q = j; q < ChunkHeight; ++q) {
-            const size_t chunkAccess = getVoxelIndex(i, q, k, ChunkSize + 2);
+            const size_t chunkAccess = Chunk::getVoxelIndex(i, q, k);
 
             if (differentBlock(chunkAccess, voxel)) {
                 break;
@@ -94,7 +93,7 @@ void RunMesher::createRun(const int voxel, const size_t i, const size_t j, const
     if (!visitedZN[access] && shouldMeshFace(i, j, k - 1)) {
         int length = 0;
         for (int q = j; q < ChunkHeight; ++q) {
-            const size_t chunkAccess = getVoxelIndex(i, q, k, ChunkSize + 2);
+            const size_t chunkAccess = Chunk::getVoxelIndex(i, q, k);
 
             if (differentBlock(chunkAccess, voxel)) {
                 break;
@@ -121,7 +120,7 @@ void RunMesher::createRun(const int voxel, const size_t i, const size_t j, const
     if (!visitedZP[access] && shouldMeshFace(i, j, k + 1)) {
         int length = 0;
         for (int q = j; q < ChunkHeight; ++q) {
-            const size_t chunkAccess = getVoxelIndex(i, q, k, ChunkSize + 2);
+            const size_t chunkAccess = Chunk::getVoxelIndex(i, q, k);
 
             if (differentBlock(chunkAccess, voxel)) {
                 break;
@@ -148,7 +147,7 @@ void RunMesher::createRun(const int voxel, const size_t i, const size_t j, const
     if (!visitedYN[access] && shouldMeshFace(i, j - 1, k)) {
         int length = 0;
         for (int q = i; q < ChunkSize + 1; ++q) {
-            const size_t chunkAccess = getVoxelIndex(q, j, k, ChunkSize + 2);
+            const size_t chunkAccess = Chunk::getVoxelIndex(q, j, k);
 
             if (differentBlock(chunkAccess, voxel)) {
                 break;
@@ -175,7 +174,7 @@ void RunMesher::createRun(const int voxel, const size_t i, const size_t j, const
     if (!visitedYP[access] && shouldMeshFace(i, j + 1, k)) {
         int length = 0;
         for (int q = i; q < ChunkSize + 1; ++q) {
-            const size_t chunkAccess = getVoxelIndex(q, j, k, ChunkSize + 2);
+            const size_t chunkAccess = Chunk::getVoxelIndex(q, j, k);
 
             if (differentBlock(chunkAccess, voxel)) {
                 break;
@@ -204,7 +203,7 @@ bool RunMesher::shouldMeshFace(const int i, const int j, const int k) const {
 
     bool isAdjVoxelEmpty = true;
     if (adjInBounds) {
-        isAdjVoxelEmpty = chunk->voxels[getVoxelIndex(i, j, k, ChunkSize + 2)] == 0;
+        isAdjVoxelEmpty = chunk->voxels[Chunk::getVoxelIndex(i, j, k)] == 0;
     }
 
     return adjInBounds && isAdjVoxelEmpty;

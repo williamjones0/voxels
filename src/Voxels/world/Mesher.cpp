@@ -2,7 +2,6 @@
 
 #include "VertexFormat.hpp"
 #include "../util/PerlinNoise.hpp"
-#include "../util/Util.hpp"
 
 constexpr int FaceSize = 18;
 
@@ -152,7 +151,7 @@ auto Mesher::meshChunk(Chunk* chunk) -> MeshResult {
     for (int y = chunk->minY; y < chunk->maxY; ++y) {
         for (int z = 1; z < ChunkSize + 1; ++z) {
             for (int x = 1; x < ChunkSize + 1; ++x) {
-                int voxel = voxels[getVoxelIndex(x, y, z, ChunkSize + 2)];
+                const int voxel = voxels[Chunk::getVoxelIndex(x, y, z)];
                 if (voxel == EmptyVoxel) {
                     continue;
                 }
@@ -165,7 +164,7 @@ auto Mesher::meshChunk(Chunk* chunk) -> MeshResult {
                     for (int j = -1; j <= 1; ++j) {
                         for (int k = -1; k <= 1; ++k) {
                             presence[index] = inBounds(x + i, y + j, z + k)
-                                && voxels[getVoxelIndex(x + i, y + j, z + k, ChunkSize + 2)] != 0;
+                                && voxels[Chunk::getVoxelIndex(x + i, y + j, z + k)] != 0;
                             ++index;
                         }
                     }
@@ -483,7 +482,7 @@ bool Mesher::shouldMeshFace(const int x, const int y, const int z, const int i, 
 
     bool isAdjVoxelEmpty = true;
     if (adjInBounds) {
-        isAdjVoxelEmpty = voxels[getVoxelIndex(x + i, y + j, z + k, ChunkSize + 2)] == 0;
+        isAdjVoxelEmpty = voxels[Chunk::getVoxelIndex(x + i, y + j, z + k)] == 0;
     }
 
     return adjInBounds && isAdjVoxelEmpty;
