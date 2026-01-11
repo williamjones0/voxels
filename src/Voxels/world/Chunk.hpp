@@ -12,6 +12,7 @@ constexpr int ChunkHeight = 1 << ChunkHeightShift;
 constexpr int VoxelsSize = (ChunkSize + 2) * (ChunkSize + 2) * ChunkHeight;
 
 enum class GenerationType {
+    None,
     Flat,
     Perlin2D,
     Perlin3D

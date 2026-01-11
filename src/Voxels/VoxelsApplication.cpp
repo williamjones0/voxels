@@ -523,6 +523,11 @@ void VoxelsApplication::setupUI() {
                               0.1f, 0, 0, "%.2f")) {
                 worldManager.movePrimitive(i, worldManager.primitives[i]->origin);
             }
+            ImGui::Text("Palette index:");
+            if (ImGui::SliderScalar(("##primitivePaletteIndex" + std::to_string(i)).c_str(), ImGuiDataType_U32, &(worldManager.primitives[i]->voxelType), &min, &max)) {
+                worldManager.movePrimitive(i, worldManager.primitives[i]->origin);  // TODO: hacky
+            }
+
             ImGui::SameLine();
             if (ImGui::Button(("Remove##" + std::to_string(i)).c_str())) {
                 worldManager.removePrimitive(i);

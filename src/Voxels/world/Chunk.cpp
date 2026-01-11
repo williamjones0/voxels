@@ -28,6 +28,8 @@ void Chunk::init() {
 
 void Chunk::generate(const GenerationType type) {
     switch (type) {
+        case GenerationType::None:
+            break;
         case GenerationType::Flat:
             generateFlat();
             break;

@@ -261,7 +261,7 @@ struct Plane : Primitive {
                 if (y < 0 || y >= ChunkHeight) continue;
 
                 // For each point on the line, create voxels along the Z axis
-                for (int z = start.z; z <= start.z; ++z) {
+                for (int z = start.z; z <= end.z; ++z) {
                     const int wx = origin.x + x;
                     const int wy = origin.y + y;
                     const int wz = origin.z + z;

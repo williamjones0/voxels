@@ -437,6 +437,9 @@ void WorldManager::saveLevel() {
 
     // Generation type
     switch (generationType) {
+        case GenerationType::None:
+            levelJson["generationType"] = "None";
+            break;
         case GenerationType::Flat:
             levelJson["generationType"] = "Flat";
             break;
@@ -552,7 +555,9 @@ void WorldManager::loadLevel() {
 
     // Generation type
     std::string generationTypeStr = levelJson.value("generationType", "Flat");
-    if (generationTypeStr == "Flat") {
+    if (generationTypeStr == "None") {
+        generationType = GenerationType::None;
+    } else if (generationTypeStr == "Flat") {
         generationType = GenerationType::Flat;
     } else if (generationTypeStr == "Perlin2D") {
         generationType = GenerationType::Perlin2D;
