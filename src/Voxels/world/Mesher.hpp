@@ -12,7 +12,7 @@ public:
         std::vector<uint32_t> vertices;
     };
 
-    [[nodiscard]] static MeshResult meshChunk(Chunk* chunk);
+    [[nodiscard]] static MeshResult meshChunk(Chunk* chunk, const std::vector<int>& voxels, int minY, int maxY);
 
 private:
     static inline int vertexAO(uint8_t side1, uint8_t side2, uint8_t corner);

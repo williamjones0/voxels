@@ -140,6 +140,7 @@ Chunk* WorldManager::createChunk(const int cx, const int cz) {
     auto* chunk = new Chunk(cx, cz);
 
     if (index < chunks.size()) {
+        delete chunks[index];
         chunks[index] = chunk;
     } else {
         chunks.emplace_back(chunk);
@@ -161,37 +162,11 @@ Chunk* WorldManager::createChunk(const int cx, const int cz) {
 
     ++chunkTasksCount;
 
-    threadPool.queueTask([chunk, this] {
-        ZoneScoped;
+    chunk->init();
+    chunk->generate(generationType);
+    applyEditsToChunk(chunk);
 
-        Mesher::MeshResult meshResult;
-
-        // No other thread should access the chunk while it's generating
-        // Without this lock, block breaking/placing could break the meshing
-        {
-            std::scoped_lock lock(chunk->mutex);
-            chunk->init();
-            chunk->generate(generationType);
-
-            applyEditsToChunk(chunk);
-
-            chunk->beingMeshed = true;
-            meshResult = Mesher::meshChunk(chunk);
-            // RunMesher runMesher(chunk, generationType);
-            // meshResult = runMesher.meshChunk();
-            chunk->beingMeshed = false;
-
-            chunk->debug = 1;
-        }
-
-        // If pendingMeshResults is currently being iterated through, we need to lock the mutex
-        // Additionally, only one thread should be in this critical section at the same time
-        {
-            std::scoped_lock lock(pendingMeshResultsMutex);
-            chunk->debug = 2;
-            pendingMeshResults.push_back(std::move(meshResult));
-        }
-    });
+    queueMeshChunk(chunk);
 
     return chunk;
 }
@@ -342,14 +317,8 @@ void WorldManager::updateVerticesBuffer(const GLuint& verticesBuffer, const GLui
             Chunk* chunk = meshResult.chunk;
             const std::vector<uint32_t>& vertices = meshResult.vertices;
 
-            std::scoped_lock chunkLock(chunk->mutex);
             // If the chunk was already destroyed in destroyFrontierChunks, we don't want to allocate, so just skip it
             if (chunk->destroyed) {
-                continue;
-            }
-
-            // If the chunk wasn't created yet (TODO: somehow?)
-            if (chunk->debug == 0) {
                 continue;
             }
 
@@ -413,17 +382,13 @@ Chunk* WorldManager::getChunk(const int cx, const int cz) {
 }
 
 void WorldManager::queueMeshChunk(Chunk* chunk) {
-    threadPool.queueTask([chunk, this] {
-        Mesher::MeshResult meshResult;
-        {
-            std::scoped_lock lock(chunk->mutex);
-            chunk->beingMeshed = true;
-            meshResult = Mesher::meshChunk(chunk);
-            // RunMesher runMesher(chunk, generationType);
-            // meshResult = runMesher.meshChunk();
-            chunk->beingMeshed = false;
-        }
+    // Need the voxels vector, the minY and maxY
+    const std::vector<int>& voxels = chunk->voxels;
+    const int minY = chunk->minY;
+    const int maxY = chunk->maxY;
 
+    threadPool.queueTask([chunk, voxels, minY, maxY, this] {
+        Mesher::MeshResult meshResult = Mesher::meshChunk(chunk, voxels, minY, maxY);
         // If newMeshResults is currently being iterated through, we need to wait
         {
             std::scoped_lock lock(pendingMeshResultsMutex);
@@ -772,10 +737,7 @@ void WorldManager::tryStoreVoxel(const int cx, const int cz, const int x, const 
         return;
     }
 
-    {
-        std::scoped_lock lock(chunk->mutex);
-        chunk->store(x, y, z, voxelType);
-    }
+    chunk->store(x, y, z, voxelType);
     chunksToMesh.insert(chunk);
 }
 
@@ -868,11 +830,8 @@ void WorldManager::updateVoxels(Primitive::EditMap& edits) {
             continue;
         }
 
-        {
-            std::scoped_lock lock(chunk->mutex);
-            editOpt->oldVoxelType = chunk->load(x, y, z);
-            chunk->store(x, y, z, voxelType);
-        }
+        editOpt->oldVoxelType = chunk->load(x, y, z);
+        chunk->store(x, y, z, voxelType);
 
         chunksToMeshSet.insert(chunk);
 
@@ -965,10 +924,8 @@ void WorldManager::removePrimitive(const size_t index) {
             if (!chunk) {
                 continue;
             }
-            {
-                std::scoped_lock lock(chunk->mutex);
-                currentVoxelType = chunk->load(pos.x & (ChunkSize - 1), pos.y, pos.z & (ChunkSize - 1));
-            }
+
+            currentVoxelType = chunk->load(pos.x & (ChunkSize - 1), pos.y, pos.z & (ChunkSize - 1));
 
             // If the voxel has been changed since we last edited it, don't change it
             if (currentVoxelType != editOpt->voxelType) {
@@ -1112,10 +1069,8 @@ void WorldManager::movePrimitive(const size_t index, const glm::ivec3& newOrigin
             if (!chunk) {
                 continue;
             }
-            {
-                std::scoped_lock lock(chunk->mutex);
-                currentVoxelType = chunk->load(pos.x & (ChunkSize - 1), pos.y, pos.z & (ChunkSize - 1));
-            }
+
+            currentVoxelType = chunk->load(pos.x & (ChunkSize - 1), pos.y, pos.z & (ChunkSize - 1));
 
             // If the voxel has been changed since we last edited it, don't change it
             if (currentVoxelType != editOpt->voxelType) {

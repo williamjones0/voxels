@@ -51,7 +51,7 @@ private:
         [this](const size_t size) {
             return enlargeVerticesBuffer(size);
         },
-        GenerationType::None,
+        GenerationType::Perlin2D,
         std::filesystem::path(PROJECT_SOURCE_DIR) / "data/levels/new_level2.json"
     );
 

@@ -42,7 +42,7 @@ struct RaycastResult {
 constexpr int InitialVertexBufferSize = 1 << 20;
 constexpr int MaxChunkTasks = 32;
 
-constexpr int MaxRenderDistanceChunks = 8;
+constexpr int MaxRenderDistanceChunks = 32;
 constexpr int MaxRenderDistanceMetres = MaxRenderDistanceChunks << ChunkSizeShift;
 constexpr int MaxChunks = (2 * MaxRenderDistanceChunks + 1) * (2 * MaxRenderDistanceChunks + 1);
 

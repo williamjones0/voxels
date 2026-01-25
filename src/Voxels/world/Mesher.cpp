@@ -140,15 +140,13 @@ int Mesher::dirToIndex(const int i, const int j, const int k) {
     return (i + 1) * 9 + (j + 1) * 3 + k + 1;
 }
 
-auto Mesher::meshChunk(Chunk* chunk) -> MeshResult {
-    const std::vector<int>& voxels = chunk->voxels;
-
+auto Mesher::meshChunk(Chunk* chunk, const std::vector<int>& voxels, const int minY, const int maxY) -> MeshResult {
     std::vector<int> positions;
     std::vector<int> colours;
     std::vector<int> normals;
     std::vector<int> ao;
 
-    for (int y = chunk->minY; y < chunk->maxY; ++y) {
+    for (int y = minY; y < maxY; ++y) {
         for (int z = 1; z < ChunkSize + 1; ++z) {
             for (int x = 1; x < ChunkSize + 1; ++x) {
                 const int voxel = voxels[Chunk::getVoxelIndex(x, y, z)];
