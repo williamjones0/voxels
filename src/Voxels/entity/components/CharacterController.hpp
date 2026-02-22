@@ -1,15 +1,13 @@
 #pragma once
 
 #include <glm/glm.hpp>
-#include <glm/gtc/quaternion.hpp>
 
-#include "../world/WorldManager.hpp"
+#include "../Entity.hpp"
+#include "../../world/WorldManager.hpp"
 
-class CharacterController {
+class CharacterController : public Component {
 public:
     explicit CharacterController(WorldManager& worldManager) : worldManager(worldManager) {}
-
-    Transform transform = Transform(glm::vec3(0.0f, 100.0f, 0.0f));
 
     bool isGrounded = false;
 

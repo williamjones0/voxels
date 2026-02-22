@@ -8,8 +8,13 @@
 #include <tracy/TracyOpenGL.hpp>
 
 #include <iostream>
-#include <algorithm>
 
+#include "entity/components/CameraProperties.hpp"
+#include "entity/components/CharacterController.hpp"
+#include "entity/components/FlyPlayerController.hpp"
+#include "entity/components/Q1PlayerController.hpp"
+#include "entity/components/Q3PlayerController.hpp"
+#include "entity/components/Transform.hpp"
 #include "io/Input.hpp"
 #include "world/VertexFormat.hpp"
 
@@ -43,7 +48,14 @@ bool VoxelsApplication::load() {
         return false;
     }
 
-    camera = Camera(glm::vec3(8.0f, 80.0f, 8.0f));
+    player = std::make_unique<Entity>();
+    player->add<Transform>(glm::vec3(8.0f, 80.0f, 8.0f));
+    player->add<Kinematics>();
+    player->add<Q1PlayerController>();
+    player->add<CharacterController>(worldManager);
+
+    camera = std::make_unique<Entity>();
+    camera->add<CameraProperties>();
 
     shader = Shader("vert.glsl", "frag.glsl");
     drawCommandProgram = Shader("drawcmd_comp.glsl");
@@ -137,13 +149,13 @@ void VoxelsApplication::setupInput() {
 
     // Register action callbacks
     Input::registerCallback({ActionType::Break, ActionStateType::None}, [this] {
-        if (const auto result = worldManager.raycast()) {
+        if (const auto result = worldManager.raycast(player->get<Transform>()->position, getFront(player->get<Transform>()->rotation), 16)) {
             worldManager.updateVoxel(*result, false);
         }
     });
 
     Input::registerCallback({ActionType::Place, ActionStateType::None}, [this] {
-        if (const auto result = worldManager.raycast()) {
+        if (const auto result = worldManager.raycast(player->get<Transform>()->position, getFront(player->get<Transform>()->rotation), 16)) {
             worldManager.updateVoxel(*result, true);
         }
     });
@@ -201,9 +213,9 @@ void VoxelsApplication::setupUI() {
         ImGui::Begin("Stats", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 
         ImGui::Text("Camera Position: (%.2f, %.2f, %.2f)",
-                    camera.transform.position.x,
-                    camera.transform.position.y,
-                    camera.transform.position.z);
+                    player->get<Transform>()->position.x,
+                    player->get<Transform>()->position.y,
+                    player->get<Transform>()->position.z);
         ImGui::Text("Chunks Loaded: %llu", worldManager.chunks.size());
         ImGui::Text("FPS: %.2f", 1.0f / deltaTime);
 
@@ -401,7 +413,7 @@ void VoxelsApplication::setupUI() {
                 ImGui::DragInt3("##cuboidStartPos", reinterpret_cast<int*>(&cuboidStartPos), 0.1f, 0, 0, "%.2f");
                 ImGui::SameLine();
                 if (ImGui::Button("CamPos##start")) {
-                    cuboidStartPos = glm::ivec3(camera.transform.position);
+                    cuboidStartPos = glm::ivec3(player->get<Transform>()->position);
                 }
 
                 ImGui::Text("End:");
@@ -409,7 +421,7 @@ void VoxelsApplication::setupUI() {
                 ImGui::DragInt3("##cuboidEndPos", reinterpret_cast<int*>(&cuboidEndPos), 0.1f, 0, 0, "%.2f");
                 ImGui::SameLine();
                 if (ImGui::Button("CamPos##end")) {
-                    cuboidEndPos = glm::ivec3(camera.transform.position);
+                    cuboidEndPos = glm::ivec3(player->get<Transform>()->position);
                 }
                 break;
             }
@@ -437,7 +449,7 @@ void VoxelsApplication::setupUI() {
                 ImGui::DragInt3("##planeStartPos", reinterpret_cast<int*>(&planeStartPos), 0.1f, 0, 0, "%.2f");
                 ImGui::SameLine();
                 if (ImGui::Button("CamPos##start")) {
-                    planeStartPos = glm::ivec3(camera.transform.position);
+                    planeStartPos = glm::ivec3(player->get<Transform>()->position);
                 }
 
                 ImGui::Text("End:");
@@ -445,7 +457,7 @@ void VoxelsApplication::setupUI() {
                 ImGui::DragInt3("##planeEndPos", reinterpret_cast<int*>(&planeEndPos), 0.1f, 0, 0, "%.2f");
                 ImGui::SameLine();
                 if (ImGui::Button("CamPos##end")) {
-                    planeEndPos = glm::ivec3(camera.transform.position);
+                    planeEndPos = glm::ivec3(player->get<Transform>()->position);
                 }
 
                 ImGui::Text("Axis:");
@@ -470,12 +482,12 @@ void VoxelsApplication::setupUI() {
 
                 ImGui::SameLine();
                 if (ImGui::Button("CamPos##origin")) {
-                    origin = camera.transform.position;
+                    origin = player->get<Transform>()->position;
                 }
 
                 ImGui::SameLine();
                 if (ImGui::Button("RayPos")) {
-                    if (const auto result = worldManager.raycast()) {
+                    if (const auto result = worldManager.raycast(player->get<Transform>()->position, getFront(player->get<Transform>()->rotation), 16)) {
                         const int wx = (result->cx << ChunkSizeShift) + result->x;
                         const int wy = result->y;
                         const int wz = (result->cz << ChunkSizeShift) + result->z;
@@ -544,29 +556,31 @@ void VoxelsApplication::update() {
 
     Application::update();
 
-    camera.update();
-
-    while (worldManager.updateFrontierChunks()) {}
+    while (worldManager.updateFrontierChunks(player->get<Transform>()->position)) {}
 
     worldManager.chunkTasksCount = 0;
 
     worldManager.updateVerticesBuffer(verticesBuffer, chunkDataBuffer);
 
-    playerController.update(deltaTime);
+    player->get<PlayerController>()->update(deltaTime);
 
     // TODO: only really need to do this when a palette colour is changed, but it doesn't really matter
     shader.setVec3Array("palette", worldManager.palette.data(), worldManager.palette.size());
 
     uiManager.beginFrame();
 
+    const glm::vec3 playerPosition = player->get<Transform>()->position;
+    const glm::vec3 velocity = player->get<Kinematics>()->velocity;
+    float currentSpeed = std::sqrt(velocity.x * velocity.z);
+
     // std::cout << "Frame time: " << deltaTime << "\t FPS: " << (1.0f / deltaTime) << std::endl;
     const std::string title = "Voxels | FPS: " + std::to_string(static_cast<int>(1.0f / deltaTime)) +
-                        " | X: " + std::to_string(camera.transform.position.x) +
-                        ", Y: " + std::to_string(camera.transform.position.y) +
-                        ", Z: " + std::to_string(camera.transform.position.z) +
-                        " | speed: " + std::to_string(playerController.currentSpeed) +
-                        " | vel: " + glm::to_string(playerController.playerVelocity) +
-                        " | front: " + glm::to_string(camera.front);
+                        " | X: " + std::to_string(playerPosition.x) +
+                        ", Y: " + std::to_string(playerPosition.y) +
+                        ", Z: " + std::to_string(playerPosition.z) +
+                        " | speed: " + std::to_string(currentSpeed) +
+                        " | vel: " + glm::to_string(velocity) +
+                        " | front: " + glm::to_string(getFront(player->get<Transform>()->rotation));
 
     glfwSetWindowTitle(windowHandle, title.c_str());
 }
@@ -582,9 +596,9 @@ void VoxelsApplication::render() {
         firstFrame = false;
     }
 
-    const glm::mat4 projection = glm::perspective(camera.FOV * Pi / 180,
+    const glm::mat4 projection = glm::perspective(camera->get<CameraProperties>()->FOV * Pi / 180,
                                             static_cast<float>(windowWidth) / static_cast<float>(windowHeight), 0.1f, 5000.0f);
-    const glm::mat4 view = camera.calculateViewMatrix();
+    const glm::mat4 view = calculateViewMatrix(player->get<Transform>()->position, player->get<Transform>()->rotation);
 
     glm::mat4 projectionT = glm::transpose(projection * view);
     glm::vec4 frustum[6];

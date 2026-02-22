@@ -1,9 +1,14 @@
 #include "Q1PlayerController.hpp"
 
-#include "../io/Input.hpp"
+#include "../../io/Input.hpp"
+#include "../Entity.hpp"
+#include "CharacterController.hpp"
+#include "Transform.hpp"
+
 #include "GLFW/glfw3.h"
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/rotate_vector.hpp>
+#include <glm/gtx/string_cast.hpp>
 
 namespace QuakeConstants {
     // Quake/QW/server/sv_phys.c
@@ -78,36 +83,40 @@ void Q1PlayerController::load() {
 void Q1PlayerController::update(const float dt) {
     deltaTime = dt;
 
+    Entity* player = getEntity();
+    Transform* transform = player->get<Transform>();
+    CharacterController* character = player->get<CharacterController>();
+    Kinematics* kinematics = player->get<Kinematics>();
+    glm::vec3& playerVelocity = kinematics->velocity;
+
     // Mouse movement
-    yRot += glm::radians(Input::mouseDeltaX * xSensitivity);
-    xRot += glm::radians(Input::mouseDeltaY * ySensitivity);
+    yRot += glm::radians(Input::mouseDeltaX * XSensitivity);  // yaw
+    xRot += glm::radians(Input::mouseDeltaY * YSensitivity);  // pitch
 
-    if (xRot < glm::radians(-90.0f)) {
-        xRot = glm::radians(-90.0f);
-    } else if (xRot > glm::radians(90.0f)) {
-        xRot = glm::radians(90.0f);
-    }
-
-    // The character only rotates on the Y-axis
-    character.transform.rotation = glm::angleAxis(static_cast<float>(-yRot), glm::vec3(0, 1, 0));
-
-    const glm::quat xRotQuat = glm::angleAxis(static_cast<float>(xRot), glm::vec3(1, 0, 0));
-    const glm::quat yRotQuat = glm::angleAxis(static_cast<float>(yRot), glm::vec3(0, 1, 0));
-    camera.transform.rotation = xRotQuat * yRotQuat;
+    xRot = glm::clamp(xRot, glm::radians(-90.0), glm::radians(90.0));
 
     // TODO: Update camera front
     auto camFront = glm::vec3(0, 0, -1);
     camFront = glm::rotateX(camFront, -static_cast<float>(xRot));
     camFront = glm::rotateY(camFront, -static_cast<float>(yRot));
-    camera.front = camFront;
+
+    const glm::quat xRotQuat = glm::angleAxis(static_cast<float>(xRot), glm::vec3(1, 0, 0));
+    const glm::quat yRotQuat = glm::angleAxis(static_cast<float>(yRot), glm::vec3(0, 1, 0));
+    transform->rotation = xRotQuat * yRotQuat;
+
+    std::cout << "transform->front:\t" << glm::to_string(getFront(transform->rotation)) << "\n";
+    std::cout << "camFront:\t\t" << glm::to_string(camFront) << "\n\n";
+
+    // std::cout << "transform->right:\t" << glm::to_string(right) << "\n";
+    // std::cout << "camera right:\t\t" << glm::to_string(camRight) << "\n\n\n\n";
 
     // Check if we should jump BEFORE friction
     bool jumpingThisFrame = false;
-    if (character.isGrounded && jumpQueued) {
+    if (character->isGrounded && jumpQueued) {
         playerVelocity.y = ConvertedQuakeConstants::JumpSpeed;
         if (!autoBunnyHop) jumpQueued = false;  // Consume the jump
         jumpingThisFrame = true;
-        character.isGrounded = false;
+        character->isGrounded = false;
     }
 
     if (!jumpingThisFrame) {
@@ -116,14 +125,16 @@ void Q1PlayerController::update(const float dt) {
 
     airMove();
 
-    character.move(playerVelocity, deltaTime);
-
-    camera.transform.position = character.transform.position + glm::vec3(0, 1.2f, 0);
-
-    currentSpeed = glm::length(glm::vec3(playerVelocity.x, 0, playerVelocity.z));
+    character->move(playerVelocity, deltaTime);
 }
 
 void Q1PlayerController::airMove() {
+    Entity* player = getEntity();
+    // Transform* transform = player->get<Transform>();
+    CharacterController* character = player->get<CharacterController>();
+    Kinematics* kinematics = player->get<Kinematics>();
+    glm::vec3& playerVelocity = kinematics->velocity;
+
     // Get the input and scale by the side and forward speeds
     auto wishvel = glm::vec3(
         moveInput.x * ConvertedQuakeConstants::SideSpeed,
@@ -132,7 +143,9 @@ void Q1PlayerController::airMove() {
     );
 
     // Rotate the vector in the direction the character is facing
-    wishvel = character.transform.transformDirection(wishvel);
+    // wishvel = transform->transformDirection(wishvel);
+    const glm::quat characterRotation = glm::angleAxis(static_cast<float>(-yRot), glm::vec3(0, 1, 0));
+    wishvel = characterRotation * wishvel;
 
     // We don't care about the vertical component
     wishvel.y = 0;
@@ -156,7 +169,7 @@ void Q1PlayerController::airMove() {
 
     // If we are grounded, set our vertical component to zero
     // Then, pass to the appropriate accelerate function
-    if (character.isGrounded) {
+    if (character->isGrounded) {
         playerVelocity.y = 0;
         accelerate(wishdir, wishspeed, ConvertedQuakeConstants::Accelerate);
 
@@ -170,7 +183,12 @@ void Q1PlayerController::airMove() {
     }
 }
 
-void Q1PlayerController::applyFriction() {
+void Q1PlayerController::applyFriction() const {
+    Entity* player = getEntity();
+    const CharacterController* character = player->get<CharacterController>();
+    Kinematics* kinematics = player->get<Kinematics>();
+    glm::vec3& playerVelocity = kinematics->velocity;
+
     // If our speed is less than 1, come to a stop
     const float speed = glm::length(playerVelocity);
     if (speed < 1 * ConvertedQuakeConstants::UnitScale) {
@@ -181,13 +199,13 @@ void Q1PlayerController::applyFriction() {
 
     // Determines if we are about to drop off of a ledge, using a trace
     // If we are about to move near a ledge, double the friction
-    if (character.isGrounded) {}
+    if (character->isGrounded) {}
 
     // Figure out how much to drop our velocity
     // If our speed is less than some minimum stop speed, then we use the stop speed; otherwise,
     // we continue using our speed. Then, the drop value is this result scaled down by friction and deltaTime
     float drop = 0;
-    if (character.isGrounded) {
+    if (character->isGrounded) {
         const float control = std::max(speed, ConvertedQuakeConstants::StopSpeed);
         drop = control * ConvertedQuakeConstants::Friction * deltaTime;
     }
@@ -207,6 +225,10 @@ void Q1PlayerController::applyFriction() {
 }
 
 void Q1PlayerController::accelerate(const glm::vec3 wishdir, const float wishspeed, const float accel) {
+    Entity* player = getEntity();
+    Kinematics* kinematics = player->get<Kinematics>();
+    glm::vec3& playerVelocity = kinematics->velocity;
+
     // Take the magnitude of our current velocity in the direction of wishdir
     const float currentSpeed = glm::dot(playerVelocity, wishdir);
 
@@ -234,6 +256,10 @@ void Q1PlayerController::accelerate(const glm::vec3 wishdir, const float wishspe
 }
 
 void Q1PlayerController::airAccelerate(const glm::vec3 wishdir, float wishspeed, const float accel) {
+    Entity* player = getEntity();
+    Kinematics* kinematics = player->get<Kinematics>();
+    glm::vec3& playerVelocity = kinematics->velocity;
+
     // Same as the regular accelerate function, but clamp wishspeed to 30
     const float original_wishspeed = wishspeed;
 

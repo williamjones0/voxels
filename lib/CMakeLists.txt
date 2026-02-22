@@ -3,21 +3,17 @@ include(FetchContent)
 #----------------------------------------------------------------------
 
 # GLFW
-option(BUILD_SHARED_LIBS "Build shared libraries" OFF)
-option(GLFW_LIBRARY_TYPE "Link glfw static or dynamic" STATIC)
-option(GLFW_BUILD_TESTS "" OFF)
-option(GLFW_BUILD_DOCS "" OFF)
-option(GLFW_INSTALL "" OFF)
-option(GLFW_BUILD_EXAMPLES "" OFF)
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_DOCS OFF CACHE BOOL "" FORCE)
+set(GLFW_INSTALL OFF CACHE BOOL "" FORCE)
+set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 
 FetchContent_Declare(
         glfw
-        GIT_REPOSITORY https://github.com/glfw/glfw
-        GIT_TAG        3.3.8
-        GIT_SHALLOW    TRUE
-        GIT_PROGRESS   TRUE
+        GIT_REPOSITORY https://github.com/dougbinks/glfw
+        GIT_TAG 2229578accf4c53339fcc8386f48d533f28a2b29
 )
-message("Fetching glfw")
 FetchContent_MakeAvailable(glfw)
 
 #----------------------------------------------------------------------

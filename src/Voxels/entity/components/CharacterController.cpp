@@ -1,4 +1,5 @@
 #include "CharacterController.hpp"
+#include "Transform.hpp"
 
 #include <cmath>
 
@@ -14,18 +15,21 @@ void CharacterController::handleCollisions(glm::vec3& velocity, const float dt) 
 }
 
 void CharacterController::collisionDetection(const glm::vec3& velocity, const float dt, std::vector<Contact>& contacts) const {
+    Entity* player = getEntity();
+    const Transform* transform = player->get<Transform>();
+
     const glm::vec3 v = velocity * dt;
 
     const float dx = v.x;
     const float dy = v.y;
     const float dz = v.z;
 
-    const int minX = static_cast<int>(std::floor(transform.position.x - PLAYER_WIDTH + (dx < 0 ? dx : 0)));
-    const int maxX = static_cast<int>(std::floor(transform.position.x + PLAYER_WIDTH + (dx > 0 ? dx : 0)));
-    const int minY = static_cast<int>(std::floor(transform.position.y - PLAYER_EYE_HEIGHT + (dy < 0 ? dy : 0)));
-    const int maxY = static_cast<int>(std::floor(transform.position.y + PLAYER_HEIGHT - PLAYER_EYE_HEIGHT + (dy > 0 ? dy : 0)));
-    const int minZ = static_cast<int>(std::floor(transform.position.z - PLAYER_WIDTH + (dz < 0 ? dz : 0)));
-    const int maxZ = static_cast<int>(std::floor(transform.position.z + PLAYER_WIDTH + (dz > 0 ? dz : 0)));
+    const int minX = static_cast<int>(std::floor(transform->position.x - PLAYER_WIDTH + (dx < 0 ? dx : 0)));
+    const int maxX = static_cast<int>(std::floor(transform->position.x + PLAYER_WIDTH + (dx > 0 ? dx : 0)));
+    const int minY = static_cast<int>(std::floor(transform->position.y - PLAYER_EYE_HEIGHT + (dy < 0 ? dy : 0)));
+    const int maxY = static_cast<int>(std::floor(transform->position.y + PLAYER_HEIGHT - PLAYER_EYE_HEIGHT + (dy > 0 ? dy : 0)));
+    const int minZ = static_cast<int>(std::floor(transform->position.z - PLAYER_WIDTH + (dz < 0 ? dz : 0)));
+    const int maxZ = static_cast<int>(std::floor(transform->position.z + PLAYER_WIDTH + (dz > 0 ? dz : 0)));
 
     // Loop over all voxels that could possibly collide with the player
     for (int y = std::min(ChunkHeight - 1, maxY); y >= 0 && y >= minY; y--) {
@@ -35,7 +39,7 @@ void CharacterController::collisionDetection(const glm::vec3& velocity, const fl
                     continue;
                 }
 
-                intersectSweptAabbAabb(x, y, z, transform.position.x - static_cast<float>(x), transform.position.y - static_cast<float>(y), transform.position.z - static_cast<float>(z), dx, dy, dz, contacts);
+                intersectSweptAabbAabb(x, y, z, transform->position.x - static_cast<float>(x), transform->position.y - static_cast<float>(y), transform->position.z - static_cast<float>(z), dx, dy, dz, contacts);
             }
         }
     }
@@ -74,6 +78,9 @@ void CharacterController::intersectSweptAabbAabb(const int x, const int y, const
 }
 
 void CharacterController::collisionResponse(glm::vec3& velocity, const float dt, std::vector<Contact>& contacts) {
+    Entity* player = getEntity();
+    Transform* transform = player->get<Transform>();
+
     const glm::vec3 v = velocity * dt;
     std::sort(contacts.begin(), contacts.end());
 
@@ -85,7 +92,7 @@ void CharacterController::collisionResponse(glm::vec3& velocity, const float dt,
         if (contact.x <= minX || contact.y <= minY || contact.z <= minZ || contact.x >= maxX || contact.y >= maxY || contact.z >= maxZ)
             continue;
         const float t = contact.t - elapsedTime;
-        transform.position += glm::vec3(dx * t, dy * t, dz * t);
+        transform->position += glm::vec3(dx * t, dy * t, dz * t);
         elapsedTime += t;
         if (contact.nx != 0) {
             minX = dx < 0 ? std::max(minX, contact.x) : minX;
@@ -114,12 +121,12 @@ void CharacterController::collisionResponse(glm::vec3& velocity, const float dt,
         }
     }
     const float trem = 1.0f - elapsedTime;
-    transform.position += glm::vec3(dx * trem, dy * trem, dz * trem);
+    transform->position += glm::vec3(dx * trem, dy * trem, dz * trem);
     if (goUp) {
-        transform.position.y -= PLAYER_EYE_HEIGHT;
-        transform.position.y += 1.0f;
-        transform.position.y = std::floor(transform.position.y) + 0.01f;
-        transform.position.y += PLAYER_EYE_HEIGHT;
+        transform->position.y -= PLAYER_EYE_HEIGHT;
+        transform->position.y += 1.0f;
+        transform->position.y = std::floor(transform->position.y) + 0.01f;
+        transform->position.y += PLAYER_EYE_HEIGHT;
         isGrounded = true;
     }
 }

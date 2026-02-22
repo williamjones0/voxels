@@ -4,7 +4,6 @@
 #include "Mesher.hpp"
 #include "../core/FreeListAllocator.hpp"
 #include "../core/ThreadPool.hpp"
-#include "../core/Camera.hpp"
 #include "VertexFormat.hpp"
 #include "Primitive.hpp"
 
@@ -42,32 +41,31 @@ struct RaycastResult {
 constexpr int InitialVertexBufferSize = 1 << 20;
 constexpr int MaxChunkTasks = 32;
 
-constexpr int MaxRenderDistanceChunks = 32;
+constexpr int MaxRenderDistanceChunks = 8;
 constexpr int MaxRenderDistanceMetres = MaxRenderDistanceChunks << ChunkSizeShift;
 constexpr int MaxChunks = (2 * MaxRenderDistanceChunks + 1) * (2 * MaxRenderDistanceChunks + 1);
 
 class WorldManager {
 public:
-    WorldManager(
-        Camera& camera,
+    explicit WorldManager(
         std::function<size_t(size_t)> outOfCapacityCallback,
         GenerationType generationType = GenerationType::Perlin2D,
         const std::filesystem::path& levelFile = "data/levels/level0.txt"
     );
 
-    bool updateFrontierChunks();
-    void destroyFrontierChunks();
-    bool ensureChunkIfVisible(int cx, int cz);
+    bool updateFrontierChunks(glm::vec3 position);
+    void destroyFrontierChunks(glm::vec3 position);
+    bool ensureChunkIfVisible(glm::vec3 position, int cx, int cz);
     Chunk* ensureChunk(int cx, int cz);
     Chunk* createChunk(int cx, int cz);
     void applyEditsToChunk(Chunk* chunk);
     void addFrontier(Chunk* chunk);
     void updateFrontierNeighbour(Chunk* frontier, int cx, int cz);
-    bool createNewFrontierChunks();
-    int onFrontierChunkRemoved(const Chunk* frontierChunk);
-    int onFrontierChunkRemoved(int cx, int cz, double distance);
-    bool chunkInRenderDistance(int cx, int cz) const;
-    double squaredDistanceToChunk(int cx, int cz) const;
+    bool createNewFrontierChunks(glm::vec3 position);
+    int onFrontierChunkRemoved(glm::vec3 position, const Chunk* frontierChunk);
+    int onFrontierChunkRemoved(glm::vec3 position, int cx, int cz, double distance);
+    bool chunkInRenderDistance(glm::vec3 position, int cx, int cz) const;
+    double squaredDistanceToChunk(glm::vec3 position, int cx, int cz) const;
     static size_t key(int i, int j);
 
     void updateVerticesBuffer(const GLuint& verticesBuffer, const GLuint& chunkDataBuffer);
@@ -80,7 +78,7 @@ public:
 
     int load(int x, int y, int z);
 
-    std::optional<RaycastResult> raycast();
+    std::optional<RaycastResult> raycast(glm::vec3 origin, glm::vec3 direction, int maxSteps);
     void tryStoreVoxel(int cx, int cz, int x, int y, int z, int place, std::unordered_set<Chunk*>& chunksToMesh);
     void updateVoxel(RaycastResult result, bool place);
     void updateVoxels(Primitive::EditMap& edits);
@@ -115,7 +113,5 @@ public:
     ThreadPool threadPool;
 
 private:
-    Camera& camera;
-
     std::function<size_t(size_t)> outOfCapacityCallback;
 };

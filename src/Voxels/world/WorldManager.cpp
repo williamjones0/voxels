@@ -15,7 +15,6 @@
 using json = nlohmann::json;
 
 WorldManager::WorldManager(
-    Camera& camera,
     std::function<size_t(size_t)> outOfCapacityCallback,
     const GenerationType generationType,
     const std::filesystem::path& levelFile)
@@ -26,7 +25,6 @@ WorldManager::WorldManager(
           4096,
           outOfCapacityCallback
       )),
-      camera(camera),
       outOfCapacityCallback(std::move(outOfCapacityCallback))
 {
     chunks.reserve(MaxChunks);
@@ -45,18 +43,18 @@ WorldManager::WorldManager(
     threadPool.start();
 }
 
-bool WorldManager::updateFrontierChunks() {
+bool WorldManager::updateFrontierChunks(glm::vec3 position) {
     ZoneScoped;
 
-    destroyFrontierChunks();
-    return createNewFrontierChunks();
+    destroyFrontierChunks(position);
+    return createNewFrontierChunks(position);
 }
 
-bool WorldManager::createNewFrontierChunks() {
+bool WorldManager::createNewFrontierChunks(glm::vec3 position) {
     ZoneScoped;
 
-    std::ranges::sort(frontierChunks, [this](const Chunk* a, const Chunk* b) {
-        return squaredDistanceToChunk(a->cx, a->cz) < squaredDistanceToChunk(b->cx, b->cz);
+    std::ranges::sort(frontierChunks, [this, &position](const Chunk* a, const Chunk* b) {
+        return squaredDistanceToChunk(position, a->cx, a->cz) < squaredDistanceToChunk(position, b->cx, b->cz);
     });
 
     for (size_t i = 0, s = frontierChunks.size(); i < s; i++) {
@@ -66,10 +64,10 @@ bool WorldManager::createNewFrontierChunks() {
             break;
         }
 
-        if (ensureChunkIfVisible(chunk->cx - 1, chunk->cz) ||
-            ensureChunkIfVisible(chunk->cx + 1, chunk->cz) ||
-            ensureChunkIfVisible(chunk->cx, chunk->cz - 1) ||
-            ensureChunkIfVisible(chunk->cx, chunk->cz + 1)) {
+        if (ensureChunkIfVisible(position, chunk->cx - 1, chunk->cz) ||
+            ensureChunkIfVisible(position, chunk->cx + 1, chunk->cz) ||
+            ensureChunkIfVisible(position, chunk->cx, chunk->cz - 1) ||
+            ensureChunkIfVisible(position, chunk->cx, chunk->cz + 1)) {
             return true;
         }
     }
@@ -77,7 +75,7 @@ bool WorldManager::createNewFrontierChunks() {
     return false;
 }
 
-void WorldManager::destroyFrontierChunks() {
+void WorldManager::destroyFrontierChunks(glm::vec3 position) {
     ZoneScoped;
 
     {
@@ -86,12 +84,12 @@ void WorldManager::destroyFrontierChunks() {
             Chunk* chunk = frontierChunks[i];
             // If the chunk's still being initialised, don't destroy it yet since this will invalidate references
             // It will be destroyed later on anyway
-            if (chunkInRenderDistance(chunk->cx, chunk->cz) || chunk->beingMeshed) {
+            if (chunkInRenderDistance(position, chunk->cx, chunk->cz) || chunk->beingMeshed) {
                 continue;
             }
 
             // Promote neighbours to frontier if necessary and destroy chunk
-            const int numPromoted = onFrontierChunkRemoved(chunk);
+            const int numPromoted = onFrontierChunkRemoved(position, chunk);
             frontierChunks.erase(frontierChunks.begin() + i);
             chunkByCoords.erase(key(chunk->cx, chunk->cz));
 
@@ -110,8 +108,8 @@ void WorldManager::destroyFrontierChunks() {
     }
 }
 
-bool WorldManager::ensureChunkIfVisible(const int cx, const int cz) {
-    if (!chunkInRenderDistance(cx, cz) || (levelChunkBounds.has_value() &&
+bool WorldManager::ensureChunkIfVisible(glm::vec3 position, const int cx, const int cz) {
+    if (!chunkInRenderDistance(position, cx, cz) || (levelChunkBounds.has_value() &&
         (cx < levelChunkBounds->first.x || cx > levelChunkBounds->second.x ||
          cz < levelChunkBounds->first.y || cz > levelChunkBounds->second.y))) {
         return false;
@@ -267,17 +265,17 @@ void WorldManager::updateFrontierNeighbour(Chunk* frontier, const int cx, const 
     }
 }
 
-int WorldManager::onFrontierChunkRemoved(const Chunk* frontierChunk) {
+int WorldManager::onFrontierChunkRemoved(glm::vec3 position, const Chunk* frontierChunk) {
     const int cx = frontierChunk->cx;
     const int cz = frontierChunk->cz;
-    const double d = squaredDistanceToChunk(cx, cz);
-    return onFrontierChunkRemoved(cx - 1, cz, d) +
-           onFrontierChunkRemoved(cx + 1, cz, d) +
-           onFrontierChunkRemoved(cx, cz - 1, d) +
-           onFrontierChunkRemoved(cx, cz + 1, d);
+    const double d = squaredDistanceToChunk(position, cx, cz);
+    return onFrontierChunkRemoved(position, cx - 1, cz, d) +
+           onFrontierChunkRemoved(position, cx + 1, cz, d) +
+           onFrontierChunkRemoved(position, cx, cz - 1, d) +
+           onFrontierChunkRemoved(position, cx, cz + 1, d);
 }
 
-int WorldManager::onFrontierChunkRemoved(const int cx, const int cz, const double distance) {
+int WorldManager::onFrontierChunkRemoved(glm::vec3 position, const int cx, const int cz, const double distance) {
     if (!chunkByCoords.contains(key(cx, cz))) {
         return 0;
     }
@@ -285,21 +283,21 @@ int WorldManager::onFrontierChunkRemoved(const int cx, const int cz, const doubl
     Chunk* chunk = chunkByCoords[key(cx, cz)];
     chunk->neighbours--;
     if (std::ranges::find(frontierChunks, chunk) == frontierChunks.end() &&
-        (chunkInRenderDistance(cx, cz) ||
-         squaredDistanceToChunk(cx, cz) < distance)) {
+        (chunkInRenderDistance(position, cx, cz) ||
+         squaredDistanceToChunk(position, cx, cz) < distance)) {
         frontierChunks.push_back(chunk);
         return 1;
     }
     return 0;
 }
 
-bool WorldManager::chunkInRenderDistance(const int cx, const int cz) const {
-    return squaredDistanceToChunk(cx, cz) < MaxRenderDistanceMetres * MaxRenderDistanceMetres;
+bool WorldManager::chunkInRenderDistance(glm::vec3 position, const int cx, const int cz) const {
+    return squaredDistanceToChunk(position, cx, cz) < MaxRenderDistanceMetres * MaxRenderDistanceMetres;
 }
 
-double WorldManager::squaredDistanceToChunk(const int cx, const int cz) const {
-    const double dx = camera.transform.position.x - (cx + 0.5) * ChunkSize;
-    const double dz = camera.transform.position.z - (cz + 0.5) * ChunkSize;
+double WorldManager::squaredDistanceToChunk(glm::vec3 position, const int cx, const int cz) const {
+    const double dx = position.x - (cx + 0.5) * ChunkSize;
+    const double dz = position.z - (cz + 0.5) * ChunkSize;
     return dx * dx + dz * dz;
 }
 
@@ -638,16 +636,16 @@ int WorldManager::load(const int x, const int y, const int z) {
     return chunk->load(lx, y, lz);
 }
 
-std::optional<RaycastResult> WorldManager::raycast() {
+std::optional<RaycastResult> WorldManager::raycast(glm::vec3 origin, glm::vec3 direction, int maxSteps) {
     constexpr float big = 1e30f;
 
-    const float ox = camera.transform.position.x;
-    const float oy = camera.transform.position.y;
-    const float oz = camera.transform.position.z;
+    const float ox = origin.x;
+    const float oy = origin.y;
+    const float oz = origin.z;
 
-    const float dx = camera.front.x;
-    const float dy = camera.front.y;
-    const float dz = camera.front.z;
+    const float dx = direction.x;
+    const float dy = direction.y;
+    const float dz = direction.z;
 
     int px = static_cast<int>(std::floor(ox));
     int py = static_cast<int>(std::floor(oy));
@@ -668,8 +666,6 @@ std::optional<RaycastResult> WorldManager::raycast() {
     float tx = abs((px + std::max(sx, 0) - ox) * dxi);
     float ty = abs((py + std::max(sy, 0) - oy) * dyi);
     float tz = abs((pz + std::max(sz, 0) - oz) * dzi);
-
-    constexpr int maxSteps = 16;
 
     int cmpx = 0, cmpy = 0, cmpz = 0;
 

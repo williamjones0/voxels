@@ -1,20 +1,17 @@
 #pragma once
 
-#include "../core/Camera.hpp"
-#include "CharacterController.hpp"
+#include <glm/glm.hpp>
 
-class Q3PlayerController {
+#include "PlayerController.hpp"
+
+class Q3PlayerController : public PlayerController {
 public:
-    Q3PlayerController(Camera& camera, CharacterController& character)
-        : camera(camera), character(character) {
+    Q3PlayerController() {
         load();
     }
 
     void load();
-    void update(float dt);
-
-    float currSpeed = 0;
-    glm::vec3 playerVelocity{};
+    void update(float dt) override;
 
 private:
     class MovementSettings {
@@ -27,8 +24,6 @@ private:
             : maxSpeed(maxSpeed), acceleration(acceleration), deceleration(deceleration) {}
     };
 
-    Camera& camera;
-
     float deltaTime = 0;
 
     float friction = 6;
@@ -40,7 +35,6 @@ private:
     MovementSettings airSettings = MovementSettings(7, 2, 2);
     MovementSettings strafeSettings = MovementSettings(1, 50, 50);
 
-    CharacterController& character;
     glm::vec3 moveDirectionNorm{};
 
     bool jumpQueued = false;
@@ -49,15 +43,10 @@ private:
 
     glm::vec3 moveInput{};
 
-    double xRot = 0.0f;
-    double yRot = 0.0f;
-    float xSensitivity = 0.02f;
-    float ySensitivity = 0.02f;
-
     void queueJump();
     void airMove();
     void airControl(glm::vec3 targetDir, float targetSpeed);
     void groundMove();
     void applyFriction(float t);
-    void accelerate(glm::vec3 targetDir, float targetSpeed, float accel);
+    void accelerate(glm::vec3 targetDir, float targetSpeed, float accel) const;
 };

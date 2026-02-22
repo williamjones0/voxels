@@ -38,6 +38,9 @@ enum class ActionStateType {
     None  // For actions without state (e.g., Break, Place)
 };
 
+constexpr float XSensitivity = 0.016f;
+constexpr float YSensitivity = 0.016f;
+
 struct Action {
     ActionType type;
     ActionStateType stateType;
