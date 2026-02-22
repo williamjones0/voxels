@@ -90,25 +90,10 @@ void Q1PlayerController::update(const float dt) {
     glm::vec3& playerVelocity = kinematics->velocity;
 
     // Mouse movement
-    yRot += glm::radians(Input::mouseDeltaX * XSensitivity);  // yaw
-    xRot += glm::radians(Input::mouseDeltaY * YSensitivity);  // pitch
+    transform->angles.y += glm::radians(Input::mouseDeltaX * XSensitivity);  // yaw
+    transform->angles.x += glm::radians(Input::mouseDeltaY * YSensitivity);  // pitch
 
-    xRot = glm::clamp(xRot, glm::radians(-90.0), glm::radians(90.0));
-
-    // TODO: Update camera front
-    auto camFront = glm::vec3(0, 0, -1);
-    camFront = glm::rotateX(camFront, -static_cast<float>(xRot));
-    camFront = glm::rotateY(camFront, -static_cast<float>(yRot));
-
-    const glm::quat xRotQuat = glm::angleAxis(static_cast<float>(xRot), glm::vec3(1, 0, 0));
-    const glm::quat yRotQuat = glm::angleAxis(static_cast<float>(yRot), glm::vec3(0, 1, 0));
-    transform->rotation = xRotQuat * yRotQuat;
-
-    std::cout << "transform->front:\t" << glm::to_string(getFront(transform->rotation)) << "\n";
-    std::cout << "camFront:\t\t" << glm::to_string(camFront) << "\n\n";
-
-    // std::cout << "transform->right:\t" << glm::to_string(right) << "\n";
-    // std::cout << "camera right:\t\t" << glm::to_string(camRight) << "\n\n\n\n";
+    transform->angles.x = glm::clamp(transform->angles.x, glm::radians(-90.0f), glm::radians(90.0f));
 
     // Check if we should jump BEFORE friction
     bool jumpingThisFrame = false;
@@ -130,7 +115,7 @@ void Q1PlayerController::update(const float dt) {
 
 void Q1PlayerController::airMove() {
     Entity* player = getEntity();
-    // Transform* transform = player->get<Transform>();
+    Transform* transform = player->get<Transform>();
     CharacterController* character = player->get<CharacterController>();
     Kinematics* kinematics = player->get<Kinematics>();
     glm::vec3& playerVelocity = kinematics->velocity;
@@ -143,9 +128,7 @@ void Q1PlayerController::airMove() {
     );
 
     // Rotate the vector in the direction the character is facing
-    // wishvel = transform->transformDirection(wishvel);
-    const glm::quat characterRotation = glm::angleAxis(static_cast<float>(-yRot), glm::vec3(0, 1, 0));
-    wishvel = characterRotation * wishvel;
+    wishvel = transformDirection(wishvel, {0, transform->angles.y, 0});
 
     // We don't care about the vertical component
     wishvel.y = 0;

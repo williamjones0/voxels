@@ -6,10 +6,7 @@
 
 #include "GLFW/glfw3.h"
 #define GLM_ENABLE_EXPERIMENTAL
-#include <glm/gtx/rotate_vector.hpp>
 #include <glm/gtx/string_cast.hpp>
-
-#include <iostream>
 
 void FlyPlayerController::load() {
     Input::bindings.insert({{GLFW_KEY_W, GLFW_PRESS}, {ActionType::MoveForward, ActionStateType::Start}});
@@ -53,22 +50,9 @@ void FlyPlayerController::load() {
 void FlyPlayerController::update(float deltaTime) {
     Entity* player = getEntity();
     Transform* transform = player->get<Transform>();
-    glm::vec3 front = getFront(transform->rotation);
-    glm::vec3 right = getRight(transform->rotation);
+    glm::vec3 front = getFront(transform->angles);
+    glm::vec3 right = getRight(transform->angles);
     constexpr glm::vec3 WorldUp(0, 1, 0);
-
-    // TODO: Calculate camera front for movement direction
-    auto camFront = glm::vec3(0, 0, -1);
-    camFront = glm::rotateX(camFront, -static_cast<float>(xRot));
-    camFront = glm::rotateY(camFront, -static_cast<float>(yRot));
-
-    glm::vec3 camRight = glm::normalize(glm::cross(camFront, WorldUp));
-
-    // std::cout << "transform->front:\t" << glm::to_string(front) << "\n";
-    // std::cout << "camera front:\t\t" << glm::to_string(camFront) << "\n\n";
-    //
-    // std::cout << "transform->right:\t" << glm::to_string(right) << "\n";
-    // std::cout << "camera right:\t\t" << glm::to_string(camRight) << "\n\n\n\n";
 
     // Keyboard
     float vel = movementSpeed * deltaTime;
@@ -78,16 +62,16 @@ void FlyPlayerController::update(float deltaTime) {
     for (auto movement : movements) {
         switch (movement) {
             case Forward:
-                positionDelta += camFront;
+                positionDelta += front;
                 break;
             case Backward:
-                positionDelta -= camFront;
+                positionDelta -= front;
                 break;
             case Left:
-                positionDelta -= camRight;
+                positionDelta -= right;
                 break;
             case Right:
-                positionDelta += camRight;
+                positionDelta += right;
                 break;
             case Up:
                 positionDelta += WorldUp;
@@ -101,13 +85,8 @@ void FlyPlayerController::update(float deltaTime) {
     transform->position += positionDelta * vel;
 
     // Mouse movement
-    yRot += glm::radians(Input::mouseDeltaX * XSensitivity);
-    xRot += glm::radians(Input::mouseDeltaY * YSensitivity);
+    transform->angles.y += glm::radians(Input::mouseDeltaX * XSensitivity);
+    transform->angles.x += glm::radians(Input::mouseDeltaY * YSensitivity);
 
-    xRot = glm::clamp(xRot, glm::radians(-89.9), glm::radians(89.9));
-
-    glm::quat yawQuat   = glm::angleAxis(static_cast<float>(yRot), glm::vec3(0, 1, 0));
-    glm::quat pitchQuat = glm::angleAxis(static_cast<float>(xRot), glm::vec3(1, 0, 0));
-
-    transform->rotation = pitchQuat * yawQuat;
+    transform->angles.x = glm::clamp(transform->angles.x, glm::radians(-89.9f), glm::radians(89.9f));
 }

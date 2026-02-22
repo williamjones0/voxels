@@ -55,18 +55,10 @@ void Q3PlayerController::update(const float dt) {
     }
 
     // Mouse movement
-    yRot += glm::radians(Input::mouseDeltaX * XSensitivity);
-    xRot += glm::radians(Input::mouseDeltaY * YSensitivity);
+    transform->angles.y += glm::radians(Input::mouseDeltaX * XSensitivity);
+    transform->angles.x += glm::radians(Input::mouseDeltaY * YSensitivity);
 
-    if (xRot < glm::radians(-90.0f)) {
-        xRot = glm::radians(-90.0f);
-    } else if (xRot > glm::radians(90.0f)) {
-        xRot = glm::radians(90.0f);
-    }
-
-    const glm::quat xRotQuat = glm::angleAxis(static_cast<float>(xRot), glm::vec3(1, 0, 0));
-    const glm::quat yRotQuat = glm::angleAxis(static_cast<float>(yRot), glm::vec3(0, 1, 0));
-    transform->rotation = xRotQuat * yRotQuat;
+    transform->angles.x = glm::clamp(transform->angles.x, glm::radians(-90.0f), glm::radians(90.0f));
 
     character->move(playerVelocity, deltaTime);
 }
@@ -80,16 +72,14 @@ void Q3PlayerController::queueJump() {
 
 void Q3PlayerController::airMove() {
     Entity* player = getEntity();
-    // Transform* transform = player->get<Transform>();
+    Transform* transform = player->get<Transform>();
     Kinematics* kinematics = player->get<Kinematics>();
     glm::vec3& playerVelocity = kinematics->velocity;
 
     float accel;
 
     auto wishdir = glm::vec3(moveInput.x, 0, moveInput.z);
-    // wishdir = transform->transformDirection(wishdir);
-    const glm::quat characterRotation = glm::angleAxis(static_cast<float>(-yRot), glm::vec3(0, 1, 0));
-    wishdir = characterRotation * wishdir;
+    wishdir = transformDirection(wishdir, {0, transform->angles.y, 0});
 
     float wishspeed = glm::length(wishdir);
     wishspeed *= airSettings.maxSpeed;
@@ -165,7 +155,7 @@ void Q3PlayerController::airControl(const glm::vec3 targetDir, const float targe
 
 void Q3PlayerController::groundMove() {
     Entity* player = getEntity();
-    // Transform* transform = player->get<Transform>();
+    Transform* transform = player->get<Transform>();
     Kinematics* kinematics = player->get<Kinematics>();
     glm::vec3& playerVelocity = kinematics->velocity;
 
@@ -177,9 +167,8 @@ void Q3PlayerController::groundMove() {
     }
 
     auto wishdir = glm::vec3(moveInput.x, 0, moveInput.z);
-    // wishdir = transform->transformDirection(wishdir);
-    const glm::quat characterRotation = glm::angleAxis(static_cast<float>(-yRot), glm::vec3(0, 1, 0));
-    wishdir = characterRotation * wishdir;
+    wishdir = transformDirection(wishdir, {0, transform->angles.y, 0});
+
     if (glm::length(wishdir) > 0) {
         wishdir = glm::normalize(wishdir);
     }

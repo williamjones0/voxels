@@ -149,13 +149,13 @@ void VoxelsApplication::setupInput() {
 
     // Register action callbacks
     Input::registerCallback({ActionType::Break, ActionStateType::None}, [this] {
-        if (const auto result = worldManager.raycast(player->get<Transform>()->position, getFront(player->get<Transform>()->rotation), 16)) {
+        if (const auto result = worldManager.raycast(player->get<Transform>()->position, getFront(player->get<Transform>()->angles), 16)) {
             worldManager.updateVoxel(*result, false);
         }
     });
 
     Input::registerCallback({ActionType::Place, ActionStateType::None}, [this] {
-        if (const auto result = worldManager.raycast(player->get<Transform>()->position, getFront(player->get<Transform>()->rotation), 16)) {
+        if (const auto result = worldManager.raycast(player->get<Transform>()->position, getFront(player->get<Transform>()->angles), 16)) {
             worldManager.updateVoxel(*result, true);
         }
     });
@@ -487,7 +487,7 @@ void VoxelsApplication::setupUI() {
 
                 ImGui::SameLine();
                 if (ImGui::Button("RayPos")) {
-                    if (const auto result = worldManager.raycast(player->get<Transform>()->position, getFront(player->get<Transform>()->rotation), 16)) {
+                    if (const auto result = worldManager.raycast(player->get<Transform>()->position, getFront(player->get<Transform>()->angles), 16)) {
                         const int wx = (result->cx << ChunkSizeShift) + result->x;
                         const int wy = result->y;
                         const int wz = (result->cz << ChunkSizeShift) + result->z;
@@ -580,7 +580,7 @@ void VoxelsApplication::update() {
                         ", Z: " + std::to_string(playerPosition.z) +
                         " | speed: " + std::to_string(currentSpeed) +
                         " | vel: " + glm::to_string(velocity) +
-                        " | front: " + glm::to_string(getFront(player->get<Transform>()->rotation));
+                        " | front: " + glm::to_string(getFront(player->get<Transform>()->angles));
 
     glfwSetWindowTitle(windowHandle, title.c_str());
 }
@@ -598,7 +598,7 @@ void VoxelsApplication::render() {
 
     const glm::mat4 projection = glm::perspective(camera->get<CameraProperties>()->FOV * Pi / 180,
                                             static_cast<float>(windowWidth) / static_cast<float>(windowHeight), 0.1f, 5000.0f);
-    const glm::mat4 view = calculateViewMatrix(player->get<Transform>()->position, player->get<Transform>()->rotation);
+    const glm::mat4 view = calculateViewMatrix(player->get<Transform>()->position, player->get<Transform>()->angles);
 
     glm::mat4 projectionT = glm::transpose(projection * view);
     glm::vec4 frustum[6];
