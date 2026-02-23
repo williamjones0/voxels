@@ -28,6 +28,7 @@ enum class ActionType {
     LoadLevel,
 
     ToggleUIMode,
+    ToggleNoclip,
 
     SelectPaletteIndex,
 };
@@ -103,10 +104,12 @@ public:
 
     // For handling entering/exiting UI mode
     static std::unordered_set<ActionType> currentActions;  // Actions that have been started but not yet stopped
-    static std::vector<Action> actionsToBeCleared;
+    static std::vector<Action> nextUpdateActions;
+    static void requeueCurrentActions();
     static void clearCurrentActions();
 
     static void registerCallback(Action action, ActionCallback callback);
+    static void eraseCallback(Action action);
 
     static int uiToggleKey;
     static bool uiMode;

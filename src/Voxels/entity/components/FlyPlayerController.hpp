@@ -6,12 +6,11 @@
 
 class FlyPlayerController : public PlayerController {
 public:
-    explicit FlyPlayerController() {
-        load();
-    }
+    FlyPlayerController();
 
-    void load();
     void update(float deltaTime) override;
+
+    ~FlyPlayerController() override;
 
 private:
     enum Movement {

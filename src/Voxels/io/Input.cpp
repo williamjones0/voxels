@@ -18,7 +18,7 @@ std::unordered_map<BoundKey, Action, BoundKeyHash> Input::bindings{};
 std::unordered_map<Action, ActionCallback, ActionHash> Input::actionCallbacks{};
 std::vector<Action> Input::actionQueue{};
 std::unordered_set<ActionType> Input::currentActions{};
-std::vector<Action> Input::actionsToBeCleared{};
+std::vector<Action> Input::nextUpdateActions{};
 
 std::unordered_set<int> Input::keys{};
 
@@ -78,10 +78,10 @@ void Input::scroll_callback(const double xoffset, const double yoffset) {
 }
 
 void Input::update() {
-    for (const auto& action : actionsToBeCleared) {
+    for (const auto& action : nextUpdateActions) {
         actionQueue.push_back(action);
     }
-    actionsToBeCleared.clear();
+    nextUpdateActions.clear();
 
     for (const auto& action : actionQueue) {
         if (actionCallbacks.contains(action)) {
@@ -114,14 +114,24 @@ void Input::update() {
     lastMouseY = mouseY;
 }
 
+void Input::requeueCurrentActions() {
+    for (const auto actionType : currentActions) {
+        nextUpdateActions.push_back({actionType, ActionStateType::Start});
+    }
+}
+
 void Input::clearCurrentActions() {
     for (const auto actionType : currentActions) {
-        actionsToBeCleared.push_back({actionType, ActionStateType::Stop});
+        nextUpdateActions.push_back({actionType, ActionStateType::Stop});
     }
 }
 
 void Input::registerCallback(const Action action, ActionCallback callback) {
     actionCallbacks[action] = std::move(callback);
+}
+
+void Input::eraseCallback(const Action action) {
+    actionCallbacks.erase(action);
 }
 
 bool Input::isKeyDown(const int key) {

@@ -8,13 +8,14 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/string_cast.hpp>
 
-void FlyPlayerController::load() {
+FlyPlayerController::FlyPlayerController() {
     Input::bindings.insert({{GLFW_KEY_W, GLFW_PRESS}, {ActionType::MoveForward, ActionStateType::Start}});
     Input::bindings.insert({{GLFW_KEY_S, GLFW_PRESS}, {ActionType::MoveBackward, ActionStateType::Start}});
     Input::bindings.insert({{GLFW_KEY_A, GLFW_PRESS}, {ActionType::MoveLeft, ActionStateType::Start}});
     Input::bindings.insert({{GLFW_KEY_D, GLFW_PRESS}, {ActionType::MoveRight, ActionStateType::Start}});
     Input::bindings.insert({{GLFW_KEY_SPACE, GLFW_PRESS}, {ActionType::MoveUp, ActionStateType::Start}});
     Input::bindings.insert({{GLFW_KEY_LEFT_SHIFT, GLFW_PRESS}, {ActionType::MoveDown, ActionStateType::Start}});
+    Input::bindings.insert({{GLFW_KEY_LEFT_CONTROL, GLFW_PRESS}, {ActionType::FastMovement, ActionStateType::Start}});
 
     Input::bindings.insert({{GLFW_KEY_W, GLFW_RELEASE}, {ActionType::MoveForward, ActionStateType::Stop}});
     Input::bindings.insert({{GLFW_KEY_S, GLFW_RELEASE}, {ActionType::MoveBackward, ActionStateType::Stop}});
@@ -22,12 +23,7 @@ void FlyPlayerController::load() {
     Input::bindings.insert({{GLFW_KEY_D, GLFW_RELEASE}, {ActionType::MoveRight, ActionStateType::Stop}});
     Input::bindings.insert({{GLFW_KEY_SPACE, GLFW_RELEASE}, {ActionType::MoveUp, ActionStateType::Stop}});
     Input::bindings.insert({{GLFW_KEY_LEFT_SHIFT, GLFW_RELEASE}, {ActionType::MoveDown, ActionStateType::Stop}});
-
-    Input::bindings.insert({{GLFW_KEY_LEFT_CONTROL, GLFW_PRESS}, {ActionType::FastMovement, ActionStateType::Start}});
-    Input::bindings.insert({{GLFW_MOUSE_BUTTON_4, GLFW_PRESS, true}, {ActionType::FastMovement, ActionStateType::Start}});
-
     Input::bindings.insert({{GLFW_KEY_LEFT_CONTROL, GLFW_RELEASE}, {ActionType::FastMovement, ActionStateType::Stop}});
-    Input::bindings.insert({{GLFW_MOUSE_BUTTON_4, GLFW_RELEASE, true}, {ActionType::FastMovement, ActionStateType::Stop}});
 
     Input::registerCallback({ActionType::MoveForward, ActionStateType::Start}, [this] { movements.insert(Forward); });
     Input::registerCallback({ActionType::MoveBackward, ActionStateType::Start}, [this] { movements.insert(Backward); });
@@ -43,8 +39,10 @@ void FlyPlayerController::load() {
     Input::registerCallback({ActionType::MoveUp, ActionStateType::Stop}, [this] { movements.erase(Up); });
     Input::registerCallback({ActionType::MoveDown, ActionStateType::Stop}, [this] { movements.erase(Down); });
 
-    Input::registerCallback({ActionType::FastMovement, ActionStateType::Start}, [this] { movementSpeed = 1000.0f; });
+    Input::registerCallback({ActionType::FastMovement, ActionStateType::Start}, [this] { movementSpeed = 100.0f; });
     Input::registerCallback({ActionType::FastMovement, ActionStateType::Stop}, [this] { movementSpeed = 10.0f; });
+
+    Input::requeueCurrentActions();
 }
 
 void FlyPlayerController::update(float deltaTime) {
@@ -82,6 +80,8 @@ void FlyPlayerController::update(float deltaTime) {
         }
     }
 
+    player->get<Kinematics>()->velocity = positionDelta * movementSpeed;
+
     transform->position += positionDelta * vel;
 
     // Mouse movement
@@ -89,4 +89,40 @@ void FlyPlayerController::update(float deltaTime) {
     transform->angles.x += glm::radians(Input::mouseDeltaY * YSensitivity);
 
     transform->angles.x = glm::clamp(transform->angles.x, glm::radians(-89.9f), glm::radians(89.9f));
+}
+
+FlyPlayerController::~FlyPlayerController() {
+    Input::bindings.erase({GLFW_KEY_W, GLFW_PRESS});
+    Input::bindings.erase({GLFW_KEY_S, GLFW_PRESS});
+    Input::bindings.erase({GLFW_KEY_A, GLFW_PRESS});
+    Input::bindings.erase({GLFW_KEY_D, GLFW_PRESS});
+    Input::bindings.erase({GLFW_KEY_SPACE, GLFW_PRESS});
+    Input::bindings.erase({GLFW_KEY_LEFT_SHIFT, GLFW_PRESS});
+
+    Input::bindings.erase({GLFW_KEY_W, GLFW_RELEASE});
+    Input::bindings.erase({GLFW_KEY_S, GLFW_RELEASE});
+    Input::bindings.erase({GLFW_KEY_A, GLFW_RELEASE});
+    Input::bindings.erase({GLFW_KEY_D, GLFW_RELEASE});
+    Input::bindings.erase({GLFW_KEY_SPACE, GLFW_RELEASE});
+    Input::bindings.erase({GLFW_KEY_LEFT_SHIFT, GLFW_RELEASE});
+
+    Input::bindings.erase({GLFW_KEY_LEFT_CONTROL, GLFW_PRESS});
+    Input::bindings.erase({GLFW_KEY_LEFT_CONTROL, GLFW_RELEASE});
+
+    Input::eraseCallback({ActionType::MoveForward, ActionStateType::Start});
+    Input::eraseCallback({ActionType::MoveBackward, ActionStateType::Start});
+    Input::eraseCallback({ActionType::MoveLeft, ActionStateType::Start});
+    Input::eraseCallback({ActionType::MoveRight, ActionStateType::Start});
+    Input::eraseCallback({ActionType::MoveUp, ActionStateType::Start});
+    Input::eraseCallback({ActionType::MoveDown, ActionStateType::Start});
+
+    Input::eraseCallback({ActionType::MoveForward, ActionStateType::Stop});
+    Input::eraseCallback({ActionType::MoveBackward, ActionStateType::Stop});
+    Input::eraseCallback({ActionType::MoveLeft, ActionStateType::Stop});
+    Input::eraseCallback({ActionType::MoveRight, ActionStateType::Stop});
+    Input::eraseCallback({ActionType::MoveUp, ActionStateType::Stop});
+    Input::eraseCallback({ActionType::MoveDown, ActionStateType::Stop});
+
+    Input::eraseCallback({ActionType::FastMovement, ActionStateType::Start});
+    Input::eraseCallback({ActionType::FastMovement, ActionStateType::Stop});
 }

@@ -6,12 +6,11 @@
 
 class Q3PlayerController : public PlayerController {
 public:
-    Q3PlayerController() {
-        load();
-    }
+    Q3PlayerController();
 
-    void load();
     void update(float dt) override;
+
+    ~Q3PlayerController() override;
 
 private:
     class MovementSettings {

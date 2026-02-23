@@ -9,32 +9,32 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/rotate_vector.hpp>
 
-void Q3PlayerController::load() {
+Q3PlayerController::Q3PlayerController() {
     Input::bindings.insert({{GLFW_KEY_W, GLFW_PRESS}, {ActionType::MoveForward, ActionStateType::Start}});
     Input::bindings.insert({{GLFW_KEY_S, GLFW_PRESS}, {ActionType::MoveBackward, ActionStateType::Start}});
     Input::bindings.insert({{GLFW_KEY_A, GLFW_PRESS}, {ActionType::MoveLeft, ActionStateType::Start}});
     Input::bindings.insert({{GLFW_KEY_D, GLFW_PRESS}, {ActionType::MoveRight, ActionStateType::Start}});
+    Input::bindings.insert({{GLFW_KEY_SPACE, GLFW_PRESS}, {ActionType::MoveUp, ActionStateType::Start}});
 
     Input::bindings.insert({{GLFW_KEY_W, GLFW_RELEASE}, {ActionType::MoveForward, ActionStateType::Stop}});
     Input::bindings.insert({{GLFW_KEY_S, GLFW_RELEASE}, {ActionType::MoveBackward, ActionStateType::Stop}});
     Input::bindings.insert({{GLFW_KEY_A, GLFW_RELEASE}, {ActionType::MoveLeft, ActionStateType::Stop}});
     Input::bindings.insert({{GLFW_KEY_D, GLFW_RELEASE}, {ActionType::MoveRight, ActionStateType::Stop}});
-
-    Input::bindings.insert({{GLFW_KEY_SPACE, GLFW_PRESS}, {ActionType::Jump, ActionStateType::Start}});
-    Input::bindings.insert({{GLFW_KEY_SPACE, GLFW_RELEASE}, {ActionType::Jump, ActionStateType::Stop}});
+    Input::bindings.insert({{GLFW_KEY_SPACE, GLFW_RELEASE}, {ActionType::MoveUp, ActionStateType::Stop}});
 
     Input::registerCallback({ActionType::MoveForward, ActionStateType::Start}, [this] { --moveInput.z; });
     Input::registerCallback({ActionType::MoveBackward, ActionStateType::Start}, [this] { ++moveInput.z; });
     Input::registerCallback({ActionType::MoveLeft, ActionStateType::Start}, [this] { --moveInput.x; });
     Input::registerCallback({ActionType::MoveRight, ActionStateType::Start}, [this] { ++moveInput.x; });
+    Input::registerCallback({ActionType::MoveUp, ActionStateType::Start}, [this] { jumpQueued = true; });
 
     Input::registerCallback({ActionType::MoveForward, ActionStateType::Stop}, [this] { ++moveInput.z; });
     Input::registerCallback({ActionType::MoveBackward, ActionStateType::Stop}, [this] { --moveInput.z; });
     Input::registerCallback({ActionType::MoveLeft, ActionStateType::Stop}, [this] { ++moveInput.x; });
     Input::registerCallback({ActionType::MoveRight, ActionStateType::Stop}, [this] { --moveInput.x; });
+    Input::registerCallback({ActionType::MoveUp, ActionStateType::Stop}, [this] { jumpQueued = false; });
 
-    Input::registerCallback({ActionType::Jump, ActionStateType::Start}, [this] { jumpQueued = true; });
-    Input::registerCallback({ActionType::Jump, ActionStateType::Stop}, [this] { jumpQueued = false; });
+    Input::requeueCurrentActions();
 }
 
 void Q3PlayerController::update(const float dt) {
@@ -238,4 +238,32 @@ void Q3PlayerController::accelerate(const glm::vec3 targetDir, const float targe
 
     playerVelocity.x += accelSpeed * targetDir.x;
     playerVelocity.z += accelSpeed * targetDir.z;
+}
+
+Q3PlayerController::~Q3PlayerController() {
+    Input::bindings.erase({GLFW_KEY_W, GLFW_PRESS});
+    Input::bindings.erase({GLFW_KEY_S, GLFW_PRESS});
+    Input::bindings.erase({GLFW_KEY_A, GLFW_PRESS});
+    Input::bindings.erase({GLFW_KEY_D, GLFW_PRESS});
+
+    Input::bindings.erase({GLFW_KEY_W, GLFW_RELEASE});
+    Input::bindings.erase({GLFW_KEY_S, GLFW_RELEASE});
+    Input::bindings.erase({GLFW_KEY_A, GLFW_RELEASE});
+    Input::bindings.erase({GLFW_KEY_D, GLFW_RELEASE});
+
+    Input::bindings.erase({GLFW_KEY_SPACE, GLFW_PRESS});
+    Input::bindings.erase({GLFW_KEY_SPACE, GLFW_RELEASE});
+
+    Input::eraseCallback({ActionType::MoveForward, ActionStateType::Start});
+    Input::eraseCallback({ActionType::MoveBackward, ActionStateType::Start});
+    Input::eraseCallback({ActionType::MoveLeft, ActionStateType::Start});
+    Input::eraseCallback({ActionType::MoveRight, ActionStateType::Start});
+
+    Input::eraseCallback({ActionType::MoveForward, ActionStateType::Stop});
+    Input::eraseCallback({ActionType::MoveBackward, ActionStateType::Stop});
+    Input::eraseCallback({ActionType::MoveLeft, ActionStateType::Stop});
+    Input::eraseCallback({ActionType::MoveRight, ActionStateType::Stop});
+
+    Input::eraseCallback({ActionType::MoveUp, ActionStateType::Start});
+    Input::eraseCallback({ActionType::MoveUp, ActionStateType::Stop});
 }

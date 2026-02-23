@@ -35,6 +35,7 @@ private:
     std::unique_ptr<Entity> camera;
 
     bool wireframe = false;
+    bool noclip = true;
 
     Shader shader{};
     Shader drawCommandProgram{};

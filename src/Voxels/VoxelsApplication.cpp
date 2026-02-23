@@ -51,8 +51,12 @@ bool VoxelsApplication::load() {
     player = std::make_unique<Entity>();
     player->add<Transform>(glm::vec3(8.0f, 80.0f, 8.0f));
     player->add<Kinematics>();
-    player->add<Q1PlayerController>();
-    player->add<CharacterController>(worldManager);
+    if (noclip) {
+        player->add<FlyPlayerController>();
+    } else {
+        player->add<Q1PlayerController>();
+        player->add<CharacterController>(worldManager);
+    }
 
     camera = std::make_unique<Entity>();
     camera->add<CameraProperties>();
@@ -142,6 +146,7 @@ void VoxelsApplication::setupInput() {
     Input::bindings.insert({{GLFW_KEY_LEFT_BRACKET, GLFW_PRESS}, {ActionType::LoadLevel, ActionStateType::None}});
 
     Input::bindings.insert({{Input::uiToggleKey, GLFW_PRESS}, {ActionType::ToggleUIMode, ActionStateType::None}});
+    Input::bindings.insert({{GLFW_MOUSE_BUTTON_4, GLFW_PRESS, true}, {ActionType::ToggleNoclip, ActionStateType::None}});
 
     for (int i = 0; i < worldManager.palette.size(); ++i) {
         Input::bindings.insert({{GLFW_KEY_1 + i, GLFW_PRESS}, {ActionType::SelectPaletteIndex, ActionStateType::None, i}});
@@ -198,6 +203,20 @@ void VoxelsApplication::setupInput() {
             glfwSetInputMode(windowHandle, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
         } else {
             glfwSetInputMode(windowHandle, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+        }
+    });
+
+    Input::registerCallback({ActionType::ToggleNoclip, ActionStateType::None}, [this] {
+        noclip = !noclip;
+
+        if (noclip) {
+            player->remove<Q1PlayerController>();
+            player->remove<CharacterController>();
+            player->add<FlyPlayerController>();
+        } else {
+            player->remove<FlyPlayerController>();
+            player->add<Q1PlayerController>();
+            player->add<CharacterController>(worldManager);
         }
     });
 
@@ -571,7 +590,7 @@ void VoxelsApplication::update() {
 
     const glm::vec3 playerPosition = player->get<Transform>()->position;
     const glm::vec3 velocity = player->get<Kinematics>()->velocity;
-    float currentSpeed = std::sqrt(velocity.x * velocity.z);
+    const float currentSpeed = glm::length(glm::vec3{velocity.x, 0, velocity.z});
 
     // std::cout << "Frame time: " << deltaTime << "\t FPS: " << (1.0f / deltaTime) << std::endl;
     const std::string title = "Voxels | FPS: " + std::to_string(static_cast<int>(1.0f / deltaTime)) +
