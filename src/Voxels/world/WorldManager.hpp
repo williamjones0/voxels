@@ -41,7 +41,7 @@ struct RaycastResult {
 constexpr int InitialVertexBufferSize = 1 << 20;
 constexpr int MaxChunkTasks = 32;
 
-constexpr int MaxRenderDistanceChunks = 8;
+constexpr int MaxRenderDistanceChunks = 16;
 constexpr int MaxRenderDistanceMetres = MaxRenderDistanceChunks << ChunkSizeShift;
 constexpr int MaxChunks = (2 * MaxRenderDistanceChunks + 1) * (2 * MaxRenderDistanceChunks + 1);
 
@@ -50,28 +50,30 @@ public:
     explicit WorldManager(
         std::function<size_t(size_t)> outOfCapacityCallback,
         GenerationType generationType = GenerationType::Perlin2D,
-        const std::filesystem::path& levelFile = "data/levels/level0.txt"
+        std::filesystem::path levelFile = "data/levels/level0.txt"
     );
 
     bool updateFrontierChunks(glm::vec3 position);
     void destroyFrontierChunks(glm::vec3 position);
     bool ensureChunkIfVisible(glm::vec3 position, int cx, int cz);
-    Chunk* ensureChunk(int cx, int cz);
-    Chunk* createChunk(int cx, int cz);
-    void applyEditsToChunk(Chunk* chunk);
-    void addFrontier(Chunk* chunk);
-    void updateFrontierNeighbour(Chunk* frontier, int cx, int cz);
+    std::shared_ptr<Chunk> ensureChunk(int cx, int cz);
+    std::shared_ptr<Chunk> createChunk(int cx, int cz);
+    void applyEditsToChunk(const std::shared_ptr<Chunk>& chunk);
+    void addFrontier(const std::shared_ptr<Chunk>& chunk);
+    void updateFrontierNeighbour(const std::shared_ptr<Chunk>& frontier, int cx, int cz);
     bool createNewFrontierChunks(glm::vec3 position);
-    int onFrontierChunkRemoved(glm::vec3 position, const Chunk* frontierChunk);
+    int onFrontierChunkRemoved(glm::vec3 position, const std::shared_ptr<Chunk>& frontierChunk);
     int onFrontierChunkRemoved(glm::vec3 position, int cx, int cz, double distance);
     bool chunkInRenderDistance(glm::vec3 position, int cx, int cz) const;
     double squaredDistanceToChunk(glm::vec3 position, int cx, int cz) const;
     static size_t key(int i, int j);
 
+    void updateGeneratedChunks();
     void updateVerticesBuffer(const GLuint& verticesBuffer, const GLuint& chunkDataBuffer);
-    Chunk* getChunk(int cx, int cz);
+    std::shared_ptr<Chunk> getChunk(int cx, int cz);
 
-    void queueMeshChunk(Chunk* chunk);
+    void queueGenerateChunk(std::shared_ptr<Chunk> chunk);
+    void queueMeshChunk(std::shared_ptr<Chunk> chunk);
 
     void saveLevel();
     void loadLevel();
@@ -79,7 +81,7 @@ public:
     int load(int x, int y, int z);
 
     std::optional<RaycastResult> raycast(glm::vec3 origin, glm::vec3 direction, int maxSteps);
-    void tryStoreVoxel(int cx, int cz, int x, int y, int z, int place, std::unordered_set<Chunk*>& chunksToMesh);
+    void tryStoreVoxel(int cx, int cz, int x, int y, int z, int place, std::unordered_set<std::shared_ptr<Chunk>>& chunksToMesh);
     void updateVoxel(RaycastResult result, bool place);
     void updateVoxels(Primitive::EditMap& edits);
     void addPrimitive(std::unique_ptr<Primitive> primitive);
@@ -99,14 +101,17 @@ public:
     std::vector<std::unique_ptr<Primitive>> primitives;
     Primitive::UserEditMap userEdits;  // global pos -> voxelType
 
-    std::vector<Chunk*> chunks;
-    std::vector<Chunk*> frontierChunks;
-    std::vector<Mesher::MeshResult> pendingMeshResults;
-    std::unordered_map<size_t, Chunk*> chunkByCoords;
+    std::vector<std::shared_ptr<Chunk>> chunks;
+    std::vector<std::shared_ptr<Chunk>> frontierChunks;
+    std::unordered_map<size_t, std::shared_ptr<Chunk>> chunkByCoords;
     std::vector<ChunkData> chunkData;
+
+    std::vector<Chunk::GenerationResult> pendingGenerationResults;
+    std::vector<Mesher::MeshResult> pendingMeshResults;
 
     std::atomic<int> chunkTasksCount = 0;
 
+    std::mutex pendingGenerationResultsMutex;
     std::mutex pendingMeshResultsMutex;
 
     FreeListAllocator allocator;

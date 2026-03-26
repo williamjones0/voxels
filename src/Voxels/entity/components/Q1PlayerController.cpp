@@ -32,7 +32,7 @@ namespace QuakeConstants {
 }
 
 namespace ConvertedQuakeConstants {
-    constexpr float UnitScale = 8.0f / 320.0f;
+    constexpr float UnitScale = 12.0f / 320.0f;
 
     constexpr float MaxVelocity = QuakeConstants::sv_maxvelocity * UnitScale;
 
@@ -77,6 +77,9 @@ Q1PlayerController::Q1PlayerController() {
     Input::registerCallback({ActionType::MoveRight, ActionStateType::Stop}, [this] { --moveInput.x; });
     Input::registerCallback({ActionType::MoveUp, ActionStateType::Stop}, [this] { jumpQueued = false; });
 
+    // Need to do this to handle the case where we hold a movement key while switching to this controller
+    // If we don't requeue, then it will be as if we don't have the key pressed when in reality we do
+    // So when we release the stop action will play without the corresponding start action having played
     Input::requeueCurrentActions();
 }
 

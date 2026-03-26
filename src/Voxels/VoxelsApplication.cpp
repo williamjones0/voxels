@@ -577,6 +577,9 @@ void VoxelsApplication::update() {
 
     while (worldManager.updateFrontierChunks(player->get<Transform>()->position)) {}
 
+    // If any chunks have finished generating, update their voxel field
+    worldManager.updateGeneratedChunks();
+
     worldManager.chunkTasksCount = 0;
 
     worldManager.updateVerticesBuffer(verticesBuffer, chunkDataBuffer);

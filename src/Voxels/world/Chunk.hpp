@@ -22,6 +22,13 @@ constexpr int EmptyVoxel = 0;
 
 class Chunk {
 public:
+    struct GenerationResult {
+        std::shared_ptr<Chunk> chunk;
+        std::vector<int> voxelField = std::vector(VoxelsSize, 0);
+        int minY{};
+        int maxY{};
+    };
+
     Chunk(int cx, int cz);
 
     Chunk(const Chunk& chunk) = delete;                // Copy constructor
@@ -43,18 +50,17 @@ public:
 
     std::atomic_bool bufferRegionAllocated = false;
     std::atomic_bool destroyed = false;
-    std::atomic_bool beingMeshed = false;
     int debug = 0;
-    std::mutex mutex;
 
     std::vector<int> voxels{};
     void store(int x, int y, int z, int v);
     int load(int x, int y, int z) const;
-    void init();
-    void generate(GenerationType type);
-    void generateFlat();
-    void generateVoxels2D();
-    void generateVoxels3D();
+
+    static void storeInto(std::vector<int>& field, int& minY, int& maxY, int x, int y, int z, int v);  // TODO: maybe a better way to do this
+
+    static GenerationResult generateFlat();
+    static GenerationResult generateVoxels2D(int cx, int cz);
+    static GenerationResult generateVoxels3D(int cx, int cz);
 
     static size_t getVoxelIndex(size_t x, size_t y, size_t z);
 };

@@ -39,7 +39,7 @@ FlyPlayerController::FlyPlayerController() {
     Input::registerCallback({ActionType::MoveUp, ActionStateType::Stop}, [this] { movements.erase(Up); });
     Input::registerCallback({ActionType::MoveDown, ActionStateType::Stop}, [this] { movements.erase(Down); });
 
-    Input::registerCallback({ActionType::FastMovement, ActionStateType::Start}, [this] { movementSpeed = 100.0f; });
+    Input::registerCallback({ActionType::FastMovement, ActionStateType::Start}, [this] { movementSpeed = 1000.0f; });
     Input::registerCallback({ActionType::FastMovement, ActionStateType::Stop}, [this] { movementSpeed = 10.0f; });
 
     Input::requeueCurrentActions();

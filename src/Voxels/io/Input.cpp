@@ -100,6 +100,10 @@ void Input::update() {
             }
 
             actionCallbacks[action]();
+        } else {
+            // Remove it anyway, otherwise it will persist until the correct player controller comes back
+            // This will cause problems with the flycam's movement speed keybind
+            currentActions.erase(action.type);
         }
     }
     actionQueue.clear();

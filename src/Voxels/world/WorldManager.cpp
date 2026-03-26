@@ -5,6 +5,7 @@
 #include <fstream>
 #include <iostream>
 #include <ranges>
+#include <utility>
 
 #include <nlohmann/json.hpp>
 
@@ -17,9 +18,9 @@ using json = nlohmann::json;
 WorldManager::WorldManager(
     std::function<size_t(size_t)> outOfCapacityCallback,
     const GenerationType generationType,
-    const std::filesystem::path& levelFile)
+    std::filesystem::path levelFile)
     : generationType(generationType),
-      levelFile(levelFile),
+      levelFile(std::move(levelFile)),
       allocator(FreeListAllocator(
           InitialVertexBufferSize,
           4096,
@@ -53,12 +54,12 @@ bool WorldManager::updateFrontierChunks(glm::vec3 position) {
 bool WorldManager::createNewFrontierChunks(glm::vec3 position) {
     ZoneScoped;
 
-    std::ranges::sort(frontierChunks, [this, &position](const Chunk* a, const Chunk* b) {
+    std::ranges::sort(frontierChunks, [this, &position](const std::shared_ptr<Chunk> &a, const std::shared_ptr<Chunk>& b) {
         return squaredDistanceToChunk(position, a->cx, a->cz) < squaredDistanceToChunk(position, b->cx, b->cz);
     });
 
     for (size_t i = 0, s = frontierChunks.size(); i < s; i++) {
-        const Chunk* chunk = frontierChunks[i];
+        const std::shared_ptr<Chunk> chunk = frontierChunks[i];
 
         if (chunkTasksCount >= MaxChunkTasks) {
             break;
@@ -81,10 +82,10 @@ void WorldManager::destroyFrontierChunks(glm::vec3 position) {
     {
         ZoneScopedN("Iterate over frontier chunks");
         for (size_t i = 0, s = frontierChunks.size(); i < s; i++) {
-            Chunk* chunk = frontierChunks[i];
+            std::shared_ptr<Chunk> chunk = frontierChunks[i];
             // If the chunk's still being initialised, don't destroy it yet since this will invalidate references
             // It will be destroyed later on anyway
-            if (chunkInRenderDistance(position, chunk->cx, chunk->cz) || chunk->beingMeshed) {
+            if (chunkInRenderDistance(position, chunk->cx, chunk->cz)) {
                 continue;
             }
 
@@ -118,7 +119,7 @@ bool WorldManager::ensureChunkIfVisible(glm::vec3 position, const int cx, const 
     return ensureChunk(cx, cz) != nullptr;
 }
 
-Chunk* WorldManager::ensureChunk(const int cx, const int cz) {
+std::shared_ptr<Chunk> WorldManager::ensureChunk(const int cx, const int cz) {
     if (chunkByCoords.contains(key(cx, cz))) {
         return nullptr;
     }
@@ -126,19 +127,18 @@ Chunk* WorldManager::ensureChunk(const int cx, const int cz) {
     return createChunk(cx, cz);
 }
 
-Chunk* WorldManager::createChunk(const int cx, const int cz) {
+std::shared_ptr<Chunk> WorldManager::createChunk(const int cx, const int cz) {
     ZoneScoped;
 
-    // Find the first free slot in the chunks vector
+    // Find the first free slot in the chunks vector TODO: use find_if instead
     size_t index = 0;
     while (index < chunks.size() && !chunks[index]->destroyed) {
         ++index;
     }
 
-    auto* chunk = new Chunk(cx, cz);
+    auto chunk = std::make_shared<Chunk>(cx, cz);
 
     if (index < chunks.size()) {
-        delete chunks[index];
         chunks[index] = chunk;
     } else {
         chunks.emplace_back(chunk);
@@ -148,28 +148,24 @@ Chunk* WorldManager::createChunk(const int cx, const int cz) {
     chunkByCoords[key(cx, cz)] = chunk;
     addFrontier(chunk);
     chunkData[index] = {
-            .cx = cx,
-            .cz = cz,
-            .minY = ChunkHeight,
-            .maxY = 0,
-            .numVertices = 0,
-            .firstIndex = 0,
-            ._pad0 = 0,
-            ._pad1 = 0,
+        .cx = cx,
+        .cz = cz,
+        .minY = ChunkHeight,
+        .maxY = 0,
+        .numVertices = 0,
+        .firstIndex = 0,
+        ._pad0 = 0,
+        ._pad1 = 0,
     };
 
     ++chunkTasksCount;
 
-    chunk->init();
-    chunk->generate(generationType);
-    applyEditsToChunk(chunk);
-
-    queueMeshChunk(chunk);
+    queueGenerateChunk(chunk);
 
     return chunk;
 }
 
-void WorldManager::applyEditsToChunk(Chunk* chunk) {
+void WorldManager::applyEditsToChunk(const std::shared_ptr<Chunk>& chunk) {
     const int chunkMinX = chunk->cx * ChunkSize - 1;
     const int chunkMinZ = chunk->cz * ChunkSize - 1;
     const int chunkMaxX = (chunk->cx + 1) * ChunkSize;
@@ -241,7 +237,7 @@ void WorldManager::applyEditsToChunk(Chunk* chunk) {
     }
 }
 
-void WorldManager::addFrontier(Chunk* chunk) {
+void WorldManager::addFrontier(const std::shared_ptr<Chunk>& chunk) {
     frontierChunks.push_back(chunk);
     const int cx = chunk->cx;
     const int cz = chunk->cz;
@@ -252,12 +248,12 @@ void WorldManager::addFrontier(Chunk* chunk) {
     updateFrontierNeighbour(chunk, cx, cz + 1);
 }
 
-void WorldManager::updateFrontierNeighbour(Chunk* frontier, const int cx, const int cz) {
+void WorldManager::updateFrontierNeighbour(const std::shared_ptr<Chunk>& frontier, const int cx, const int cz) {
     if (!chunkByCoords.contains(key(cx, cz))) {
         return;
     }
 
-    Chunk* neighbour = chunkByCoords[key(cx, cz)];
+    std::shared_ptr<Chunk> neighbour = chunkByCoords[key(cx, cz)];
     ++neighbour->neighbours;
     ++frontier->neighbours;
     if (neighbour->neighbours == 4) {
@@ -265,7 +261,7 @@ void WorldManager::updateFrontierNeighbour(Chunk* frontier, const int cx, const 
     }
 }
 
-int WorldManager::onFrontierChunkRemoved(glm::vec3 position, const Chunk* frontierChunk) {
+int WorldManager::onFrontierChunkRemoved(glm::vec3 position, const std::shared_ptr<Chunk>& frontierChunk) {
     const int cx = frontierChunk->cx;
     const int cz = frontierChunk->cz;
     const double d = squaredDistanceToChunk(position, cx, cz);
@@ -280,7 +276,7 @@ int WorldManager::onFrontierChunkRemoved(glm::vec3 position, const int cx, const
         return 0;
     }
 
-    Chunk* chunk = chunkByCoords[key(cx, cz)];
+    std::shared_ptr<Chunk> chunk = chunkByCoords[key(cx, cz)];
     chunk->neighbours--;
     if (std::ranges::find(frontierChunks, chunk) == frontierChunks.end() &&
         (chunkInRenderDistance(position, cx, cz) ||
@@ -305,6 +301,30 @@ size_t WorldManager::key(const int i, const int j) {
     return static_cast<size_t>(i) << 32 | static_cast<unsigned int>(j);
 }
 
+void WorldManager::updateGeneratedChunks() {
+    ZoneScoped;
+
+    std::scoped_lock lock(pendingGenerationResultsMutex);
+
+    {
+        ZoneScoped;
+
+        for (auto& [chunk, voxelField, minY, maxY] : pendingGenerationResults) {
+            chunk->voxels = std::move(voxelField);
+            chunk->minY = minY;
+            chunk->maxY = maxY;
+
+            // Only once the generation has finished, can we call this function
+            {
+                ZoneScoped;
+                queueMeshChunk(chunk);
+            }
+        }
+
+        pendingGenerationResults.clear();
+    }
+}
+
 void WorldManager::updateVerticesBuffer(const GLuint& verticesBuffer, const GLuint& chunkDataBuffer) {
     ZoneScoped;
 
@@ -312,7 +332,7 @@ void WorldManager::updateVerticesBuffer(const GLuint& verticesBuffer, const GLui
         std::scoped_lock lock(pendingMeshResultsMutex);
 
         for (const Mesher::MeshResult& meshResult : pendingMeshResults) {
-            Chunk* chunk = meshResult.chunk;
+            std::shared_ptr<Chunk> chunk = meshResult.chunk;
             const std::vector<uint32_t>& vertices = meshResult.vertices;
 
             // If the chunk was already destroyed in destroyFrontierChunks, we don't want to allocate, so just skip it
@@ -372,20 +392,67 @@ void WorldManager::updateVerticesBuffer(const GLuint& verticesBuffer, const GLui
     }
 }
 
-Chunk* WorldManager::getChunk(const int cx, const int cz) {
+std::shared_ptr<Chunk> WorldManager::getChunk(const int cx, const int cz) {
     if (const auto it = chunkByCoords.find(key(cx, cz)); it != chunkByCoords.end()) {
         return it->second;
     }
     return nullptr;
 }
 
-void WorldManager::queueMeshChunk(Chunk* chunk) {
+void WorldManager::queueGenerateChunk(std::shared_ptr<Chunk> chunk) {
+    const int cx = chunk->cx;
+    const int cz = chunk->cz;
+
+    threadPool.queueTask([cx, cz, chunk, this] {
+        if (chunk->destroyed) return;
+
+        Chunk::GenerationResult result;
+
+        switch (generationType) {
+            case GenerationType::None:
+                break;
+            case GenerationType::Flat:
+                result = Chunk::generateFlat();
+                break;
+            case GenerationType::Perlin2D:
+                result = Chunk::generateVoxels2D(cx, cz);
+                break;
+            case GenerationType::Perlin3D:
+                result = Chunk::generateVoxels3D(cx, cz);
+                break;
+        }
+
+        result.chunk = chunk;
+
+        // Handle primitives
+        applyEditsToChunk(chunk);  // TODO: wrong, since chunk->voxels is not yet populated
+
+        // Update the chunk itself on the main thread
+        {
+            std::scoped_lock lock(pendingGenerationResultsMutex);
+            pendingGenerationResults.push_back(result);
+        }
+
+        // TODO: queueMeshChunk here maybe but using result->voxelField? Guess it doesn't matter too much
+    });
+}
+
+void WorldManager::queueMeshChunk(std::shared_ptr<Chunk> chunk) {
+    ZoneScoped;
+
     // Need the voxels vector, the minY and maxY
-    const std::vector<int>& voxels = chunk->voxels;
+    // const std::vector<int>& voxels = chunk->voxels;
+    std::vector<int> voxels;
+    {
+        ZoneScoped;
+        voxels = chunk->voxels;  // have to copy: we can't move because otherwise we will try to read while chunk->voxels is in unspecified state (with player controllers upon editing)
+    }
     const int minY = chunk->minY;
     const int maxY = chunk->maxY;
 
     threadPool.queueTask([chunk, voxels, minY, maxY, this] {
+        if (chunk->destroyed) return;
+
         Mesher::MeshResult meshResult = Mesher::meshChunk(chunk, voxels, minY, maxY);
         // If newMeshResults is currently being iterated through, we need to wait
         {
@@ -628,7 +695,7 @@ int WorldManager::load(const int x, const int y, const int z) {
     if (it == chunkByCoords.end() || !it->second || !it->second->bufferRegionAllocated) {
         return 0;
     }
-    const Chunk* chunk = it->second;
+    const std::shared_ptr<Chunk> chunk = it->second;
 
     const int lx = x - (cx << ChunkSizeShift);
     const int lz = z - (cz << ChunkSizeShift);
@@ -683,7 +750,7 @@ std::optional<RaycastResult> WorldManager::raycast(glm::vec3 origin, glm::vec3 d
             const int localX = (px % ChunkSize + ChunkSize) % ChunkSize;
             const int localZ = (pz % ChunkSize + ChunkSize) % ChunkSize;
 
-            const Chunk* chunk = getChunk(cx, cz);
+            const std::shared_ptr<Chunk> chunk = getChunk(cx, cz);
             if (!chunk || chunk->debug == 0) {
                 std::cout << "Chunk not found at (" << cx << ", " << cz << ")" << std::endl;
                 return std::nullopt;
@@ -727,8 +794,8 @@ std::optional<RaycastResult> WorldManager::raycast(glm::vec3 origin, glm::vec3 d
     return std::nullopt;
 }
 
-void WorldManager::tryStoreVoxel(const int cx, const int cz, const int x, const int y, const int z, const int voxelType, std::unordered_set<Chunk*>& chunksToMesh) {
-    Chunk* chunk = getChunk(cx, cz);
+void WorldManager::tryStoreVoxel(const int cx, const int cz, const int x, const int y, const int z, const int voxelType, std::unordered_set<std::shared_ptr<Chunk>>& chunksToMesh) {
+    std::shared_ptr<Chunk> chunk = getChunk(cx, cz);
     if (!chunk) {
         return;
     }
@@ -804,7 +871,7 @@ void WorldManager::updateVoxel(RaycastResult result, const bool place) {
 }
 
 void WorldManager::updateVoxels(Primitive::EditMap& edits) {
-    std::unordered_set<Chunk*> chunksToMeshSet;
+    std::unordered_set<std::shared_ptr<Chunk>> chunksToMeshSet;
 
     for (auto& [pos, editOpt] : edits) {
         if (!editOpt.has_value()) continue;
@@ -821,7 +888,7 @@ void WorldManager::updateVoxels(Primitive::EditMap& edits) {
             continue;
         }
 
-        Chunk* chunk = getChunk(cx, cz);
+        std::shared_ptr<Chunk> chunk = getChunk(cx, cz);
         if (!chunk) {
             continue;
         }
@@ -854,7 +921,7 @@ void WorldManager::updateVoxels(Primitive::EditMap& edits) {
         }
     }
 
-    for (Chunk* chunk : chunksToMeshSet) {
+    for (std::shared_ptr<Chunk> chunk : chunksToMeshSet) {
         queueMeshChunk(chunk);
     }
 }
@@ -916,7 +983,7 @@ void WorldManager::removePrimitive(const size_t index) {
             if (!editOpt.has_value()) continue;
 
             int currentVoxelType = 0;
-            Chunk* chunk = getChunk(pos.x >> ChunkSizeShift, pos.z >> ChunkSizeShift);
+            std::shared_ptr<Chunk> chunk = getChunk(pos.x >> ChunkSizeShift, pos.z >> ChunkSizeShift);
             if (!chunk) {
                 continue;
             }
@@ -1061,7 +1128,7 @@ void WorldManager::movePrimitive(const size_t index, const glm::ivec3& newOrigin
             if (!editOpt.has_value()) continue;
 
             int currentVoxelType = 0;
-            Chunk* chunk = getChunk(pos.x >> ChunkSizeShift, pos.z >> ChunkSizeShift);
+            std::shared_ptr<Chunk> chunk = getChunk(pos.x >> ChunkSizeShift, pos.z >> ChunkSizeShift);
             if (!chunk) {
                 continue;
             }

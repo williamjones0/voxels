@@ -13,50 +13,38 @@ Chunk::Chunk(const int cx, const int cz)
 {}
 
 void Chunk::store(const int x, const int y, const int z, const int v) {
-    voxels[getVoxelIndex(x + 1, y, z + 1)] = v;
-    minY = std::min(minY, y);
-    maxY = std::max(maxY, y + 2);
+    storeInto(voxels, minY, maxY, x, y, z, v);
 }
 
 int Chunk::load(const int x, const int y, const int z) const {
     return voxels[getVoxelIndex(x + 1, y, z + 1)];
 }
 
-void Chunk::init() {
-    voxels = std::vector(VoxelsSize, 0);
+void Chunk::storeInto(std::vector<int>& field, int& minY, int& maxY, const int x, const int y, const int z, const int v) {
+    field[getVoxelIndex(x + 1, y, z + 1)] = v;
+    minY = std::min(minY, y);
+    maxY = std::max(maxY, y + 2);
 }
 
-void Chunk::generate(const GenerationType type) {
-    switch (type) {
-        case GenerationType::None:
-            break;
-        case GenerationType::Flat:
-            generateFlat();
-            break;
-        case GenerationType::Perlin2D:
-            generateVoxels2D();
-            break;
-        case GenerationType::Perlin3D:
-            generateVoxels3D();
-            break;
-    }
-}
+auto Chunk::generateFlat() -> GenerationResult {
+    GenerationResult result;
 
-void Chunk::generateFlat() {
     for (int y = 0; y < ChunkHeight; ++y) {
         for (int z = -1; z < ChunkSize + 1; ++z) {
             for (int x = -1; x < ChunkSize + 1; ++x) {
                 if (y == ChunkHeight / 2) {
-                    store(x, y, z, 1);
+                    storeInto(result.voxelField, result.minY, result.maxY, x, y, z, 1);
                 } else if (y < ChunkHeight / 2) {
-                    store(x, y, z, 2);
+                    storeInto(result.voxelField, result.minY, result.maxY, x, y, z, 2);
                 }
             }
         }
     }
 
-    minY = 0;
-    maxY = ChunkHeight / 2 + 2;
+    result.minY = 0;
+    result.maxY = ChunkHeight / 2 + 2;
+
+    return result;
 }
 
 double terrainNoise(const int x, const int z) {
@@ -67,7 +55,9 @@ double terrainNoise(const int x, const int z) {
     return clamp(perlin.octave2D_01(x * 0.01, z * 0.01, 1), 0.0, 1.0 - Epsilon);
 }
 
-void Chunk::generateVoxels2D() {
+auto Chunk::generateVoxels2D(const int cx, const int cz) -> GenerationResult {
+    GenerationResult result;
+
     int heightMap[ChunkSize + 2][ChunkSize + 2];
     heightMap[0][0] = static_cast<int>(terrainNoise(cx * ChunkSize, cz * ChunkSize) * ChunkHeight);
 
@@ -90,8 +80,8 @@ void Chunk::generateVoxels2D() {
             int y = heightMap[x + 1][z + 1];
             y = std::min(std::max(0, y), ChunkHeight - 1);
 
-            minY = std::min(y, minY);
-            maxY = std::max(y, maxY);
+            result.minY = std::min(y, result.minY);
+            result.maxY = std::max(y, result.maxY);
 
             // Lowest visible height is the minimum of the current height and the adjacent heights
             int lowestVisibleHeight = y;
@@ -117,16 +107,20 @@ void Chunk::generateVoxels2D() {
                 } else {
                     voxelType = 2;
                 }
-                store(x, y0, z, voxelType);
+                storeInto(result.voxelField, result.minY, result.maxY, x, y0, z, voxelType);
             }
         }
     }
 
-    minY = std::max(0, minY - 1);
-    maxY = std::min(ChunkHeight, maxY + 1);
+    result.minY = std::max(0, result.minY - 1);
+    result.maxY = std::min(ChunkHeight, result.maxY + 1);
+
+    return result;
 }
 
-void Chunk::generateVoxels3D() {
+auto Chunk::generateVoxels3D(const int cx, const int cz) -> GenerationResult {
+    GenerationResult result;
+
     for (int y = -1; y < ChunkHeight + 1; ++y) {
         for (int z = -1; z < ChunkSize + 1; ++z) {
             for (int x = -1; x < ChunkSize + 1; ++x) {
@@ -135,16 +129,18 @@ void Chunk::generateVoxels3D() {
                 const auto noise_z = static_cast<float>(cz * ChunkSize + z + 1);
 
                 if (const double noise = perlin.octave3D_01(noise_x * 0.01, noise_y * 0.01, noise_z * 0.01, 4); noise > 0.5) {
-                    store(x, y, z, 1);
-                    minY = std::min(y, minY);
-                    maxY = std::max(y, maxY);
+                    storeInto(result.voxelField, result.minY, result.maxY, x, y, z, 1);
+                    result.minY = std::min(y, result.minY);
+                    result.maxY = std::max(y, result.maxY);
                 }
             }
         }
     }
 
-    minY = std::max(0, minY - 1);
-    maxY = std::min(ChunkHeight, maxY + 2);
+    result.minY = std::max(0, result.minY - 1);
+    result.maxY = std::min(ChunkHeight, result.maxY + 2);
+
+    return result;
 }
 
 size_t Chunk::getVoxelIndex(const size_t x, const size_t y, const size_t z) {
