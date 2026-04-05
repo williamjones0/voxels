@@ -165,11 +165,11 @@ std::shared_ptr<Chunk> WorldManager::createChunk(const int cx, const int cz) {
     return chunk;
 }
 
-void WorldManager::applyEditsToChunk(const std::shared_ptr<Chunk>& chunk) {
-    const int chunkMinX = chunk->cx * ChunkSize - 1;
-    const int chunkMinZ = chunk->cz * ChunkSize - 1;
-    const int chunkMaxX = (chunk->cx + 1) * ChunkSize;
-    const int chunkMaxZ = (chunk->cz + 1) * ChunkSize;
+void WorldManager::applyEdits(const int cx, const int cz, Chunk::GenerationResult& result) {
+    const int chunkMinX = cx * ChunkSize - 1;
+    const int chunkMinZ = cz * ChunkSize - 1;
+    const int chunkMaxX = (cx + 1) * ChunkSize;
+    const int chunkMaxZ = (cz + 1) * ChunkSize;
 
     // User edits
     for (const auto& [pos, voxelType] : userEdits) {
@@ -179,13 +179,13 @@ void WorldManager::applyEditsToChunk(const std::shared_ptr<Chunk>& chunk) {
             continue;
         }
 
-        const int lx = pos.x - (chunk->cx << ChunkSizeShift);
-        const int lz = pos.z - (chunk->cz << ChunkSizeShift);
+        const int lx = pos.x - (cx << ChunkSizeShift);
+        const int lz = pos.z - (cz << ChunkSizeShift);
 
         if (voxelType == 0) {
-            chunk->store(lx, pos.y, lz, EmptyVoxel);
+            Chunk::storeInto(result.voxelField, result.minY, result.maxY, lx, pos.y, lz, EmptyVoxel);
         } else {
-            chunk->store(lx, pos.y, lz, voxelType);
+            Chunk::storeInto(result.voxelField, result.minY, result.maxY, lx, pos.y, lz, voxelType);
         }
     }
 
@@ -222,13 +222,13 @@ void WorldManager::applyEditsToChunk(const std::shared_ptr<Chunk>& chunk) {
                     if (it != primitive->edits.end()) {
                         const std::optional<Edit>& editOpt = it->second;
 
-                        const int lx = x - (chunk->cx << ChunkSizeShift);
-                        const int lz = z - (chunk->cz << ChunkSizeShift);
+                        const int lx = x - (cx << ChunkSizeShift);
+                        const int lz = z - (cz << ChunkSizeShift);
 
                         if (editOpt.has_value()) {
-                            chunk->store(lx, y, lz, editOpt->voxelType);
+                            Chunk::storeInto(result.voxelField, result.minY, result.maxY, lx, y, lz, editOpt->voxelType);
                         } else {
-                            chunk->store(lx, y, lz, EmptyVoxel);
+                            Chunk::storeInto(result.voxelField, result.minY, result.maxY, lx, y, lz, EmptyVoxel);
                         }
                     }
                 }
@@ -425,7 +425,7 @@ void WorldManager::queueGenerateChunk(std::shared_ptr<Chunk> chunk) {
         result.chunk = chunk;
 
         // Handle primitives
-        applyEditsToChunk(chunk);  // TODO: wrong, since chunk->voxels is not yet populated
+        applyEdits(cx, cz, result);
 
         // Update the chunk itself on the main thread
         {

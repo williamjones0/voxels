@@ -58,7 +58,7 @@ public:
     bool ensureChunkIfVisible(glm::vec3 position, int cx, int cz);
     std::shared_ptr<Chunk> ensureChunk(int cx, int cz);
     std::shared_ptr<Chunk> createChunk(int cx, int cz);
-    void applyEditsToChunk(const std::shared_ptr<Chunk>& chunk);
+    void applyEdits(int cx, int cz, Chunk::GenerationResult& result);
     void addFrontier(const std::shared_ptr<Chunk>& chunk);
     void updateFrontierNeighbour(const std::shared_ptr<Chunk>& frontier, int cx, int cz);
     bool createNewFrontierChunks(glm::vec3 position);
