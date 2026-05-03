@@ -28,6 +28,9 @@ protected:
 private:
     void setupInput();
     void setupUI();
+    void drawPaletteEntryEditor(PaletteEntry& entry);
+
+    void uploadPaletteToGPU();
 
     size_t enlargeVerticesBuffer(size_t currentCapacity);
 
@@ -44,8 +47,8 @@ private:
         [this](const size_t size) {
             return enlargeVerticesBuffer(size);
         },
-        GenerationType::Perlin2D,
-        std::filesystem::path(PROJECT_SOURCE_DIR) / "data/levels/new_level2.json"
+        GenerationType::None,
+        std::filesystem::path(PROJECT_SOURCE_DIR) / "data/levels/small.json"
     );
 
     UIManager uiManager;
@@ -55,6 +58,7 @@ private:
     GLuint chunkDataBuffer = 0;
     GLuint commandCountBuffer = 0;
     GLuint verticesBuffer = 0;
+    GLuint paletteBuffer = 0;
 
     bool background = false;
     bool firstFrame = true;

@@ -24,7 +24,7 @@ target_sources(VoxelsLib PRIVATE ${VOXELS_SOURCES})
 target_include_directories(VoxelsLib PUBLIC include)
 
 target_link_libraries(VoxelsLib
-    PUBLIC glad glfw imgui glm cgltf stb_image spdlog TracyClient nlohmann_json::nlohmann_json
+    PUBLIC glad glfw imgui glm cgltf stb_image spdlog TracyClient nlohmann_json::nlohmann_json nfd
 )
 
 add_executable(Voxels main.cpp)

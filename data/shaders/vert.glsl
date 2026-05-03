@@ -23,6 +23,9 @@ out vec3 ourColor;
 flat out int normal;
 out float fragAO;
 
+out vec2 vTexCoord;
+flat out int vColourIndex;
+
 uniform mat4 view;
 uniform mat4 projection;
 
@@ -50,9 +53,6 @@ uniform uint colourMask;
 uniform uint normalMask;
 uniform uint aoMask;
 
-// Colour palette
-uniform vec3 palette[16];
-
 layout (binding = 0) readonly buffer DrawCommands {
     ChunkDrawCommand drawCommands[];
 };
@@ -73,8 +73,7 @@ void main() {
     float x = float(vertex & xMask);
     float y = float((vertex >> yShift) & yMask);
     float z = float((vertex >> zShift) & zMask);
-    uint colourIndex = (vertex >> colourShift) & colourMask;
-    ourColor = palette[colourIndex];
+    vColourIndex = int((vertex >> colourShift) & colourMask);
     normal = int((vertex >> normalShift) & normalMask);
     float ao = float((vertex >> aoShift) & aoMask);
 
@@ -83,8 +82,25 @@ void main() {
                       0.0, 0.0, 1.0, 0.0,
                       float(chunk.cx << chunkSizeShift), 0, float(chunk.cz << chunkSizeShift), 1.0);
 
-    gl_Position = projection * view * model * vec4(x, y, z, 1.0);
-    // ourColor = get_color(uint(aColor));
-    // ourColor = vec3(gl_DrawID / 4.0f, gl_DrawID / 4.0f, gl_DrawID / 4.0f);
+    vec4 worldPos = model * vec4(x, y, z, 1.0);
+
+    // Per-face UVs
+    //  - X faces  -> (z, y)
+    //  - Y faces  -> (x, z)
+    //  - Z faces  -> (x, y)
+    vec2 uv;
+    int n = normal;
+    if (n == 2 || n == 3) {         // X faces
+        uv = vec2(z, y);
+    } else if (n == 4 || n == 5) {  // Y faces
+        uv = vec2(x, z);
+    } else {                        // Z faces
+        uv = vec2(x, y);
+    }
+
+    const float tileScale = 1;
+    vTexCoord = uv * tileScale;
+
+    gl_Position = projection * view * worldPos;
     fragAO = clamp(float(ao) / 3.0, 0.5, 1.0);
 }

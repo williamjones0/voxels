@@ -4,6 +4,7 @@
 #include <glm/gtx/string_cast.hpp>
 
 #include <imgui.h>
+#include <nfd.hpp>
 #include <tracy/Tracy.hpp>
 #include <tracy/TracyOpenGL.hpp>
 
@@ -125,8 +126,6 @@ bool VoxelsApplication::load() {
     shader.setUInt("normalMask", VertexFormat::NormalMask);
     shader.setUInt("aoMask", VertexFormat::AOMask);
 
-    shader.setVec3Array("palette", worldManager.palette.data(), worldManager.palette.size());
-
     setupInput();
 
     uiManager.load(windowHandle);
@@ -134,6 +133,41 @@ bool VoxelsApplication::load() {
     setupUI();
 
     return true;
+}
+
+void VoxelsApplication::uploadPaletteToGPU() {
+    // Create palette SSBO
+    std::vector<GPUPaletteEntry> gpuPalette(worldManager.palette.size());
+    for (size_t i = 0; i < worldManager.palette.size(); i++) {
+        const auto& [colour, texturePath, useTexture, uvOffset, uvScale] = worldManager.palette[i];
+
+        gpuPalette[i] = {
+            glm::vec4(colour, 1.0f),
+            glm::vec4(uvOffset, uvScale),
+            useTexture
+        };
+    }
+
+    // Create buffer if needed
+    if (paletteBuffer == 0) {
+        glCreateBuffers(1, &paletteBuffer);
+    }
+
+    // Upload TODO: glNamedBufferSubData
+    glNamedBufferData(
+        paletteBuffer,
+        gpuPalette.size() * sizeof(GPUPaletteEntry),
+        gpuPalette.data(),
+        GL_DYNAMIC_DRAW
+    );
+
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, paletteBuffer);
+
+    // Bind atlas texture
+    glBindTextureUnit(0, worldManager.atlas.textureID);
+
+    shader.use();
+    shader.setInt("atlas", 0);
 }
 
 void VoxelsApplication::setupInput() {
@@ -184,8 +218,7 @@ void VoxelsApplication::setupInput() {
 
     Input::registerCallback({ActionType::LoadLevel, ActionStateType::None}, [this] {
         worldManager.loadLevel();
-        shader.use();
-        shader.setVec3Array("palette", worldManager.palette.data(), worldManager.palette.size());
+        uploadPaletteToGPU();
     });
 
     Input::registerCallback({ActionType::ToggleUIMode, ActionStateType::None}, [this] {
@@ -383,12 +416,52 @@ void VoxelsApplication::setupUI() {
         ImGui::Begin("Palette", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
 
         for (size_t i = 0; i < worldManager.palette.size(); ++i) {
+            auto& entry = worldManager.palette[i];
+
+            constexpr int rowHeight = 20;
+            constexpr int previewWidth = 20;
+
+            ImGui::PushID(static_cast<int>(i));
+
             ImGui::Text("%i", static_cast<int>(i));
             ImGui::SameLine();
 
-            ImGui::ColorEdit3(("##paletteColor" + std::to_string(i)).c_str(),
-                              reinterpret_cast<float*>(&worldManager.palette[i]),
-                              ImGuiColorEditFlags_NoInputs | ImGuiColorEditFlags_NoLabel);
+            if (ImGui::Button("Edit", ImVec2(50, rowHeight))) {
+                ImGui::OpenPopup("PaletteEntryPopup");
+            }
+
+            ImGui::SameLine();
+
+            // Colour preview
+            ImGui::ColorButton("##colorPreview",
+                ImVec4(entry.colour.r, entry.colour.g, entry.colour.b, 1.0f),
+                ImGuiColorEditFlags_NoTooltip,
+                ImVec2(previewWidth, rowHeight)
+            );
+
+            ImGui::SameLine();
+
+            ImVec2 size(previewWidth, rowHeight);
+
+            // Texture preview
+            if (entry.useTexture) {
+                ImGui::Image(
+                    reinterpret_cast<ImTextureID>(static_cast<intptr_t>(worldManager.atlas.textureID)),
+                    size,
+                    ImVec2(entry.uvOffset.x, entry.uvOffset.y),
+                    ImVec2(entry.uvOffset.x + entry.uvScale.x,
+                           entry.uvOffset.y + entry.uvScale.y)
+                );
+            } else {
+                ImGui::Dummy(size);
+            }
+
+            if (ImGui::BeginPopup("PaletteEntryPopup")) {
+                drawPaletteEntryEditor(entry);
+                ImGui::EndPopup();
+            }
+
+            ImGui::PopID();
         }
 
         ImGui::End();
@@ -570,6 +643,58 @@ void VoxelsApplication::setupUI() {
     });
 }
 
+void VoxelsApplication::drawPaletteEntryEditor(PaletteEntry& entry) {
+    if (ImGui::Checkbox("Use Texture", &entry.useTexture)) {
+        // Just need to update useTexture on the GPU side
+        uploadPaletteToGPU();
+    }
+
+    if (ImGui::ColorEdit3("Colour", &entry.colour.x)) {
+        uploadPaletteToGPU();
+    }
+
+    ImGui::Text("Texture:");
+
+    // Preview
+    const ImVec2 previewSize(64, 64);
+    if (entry.useTexture) {
+        ImGui::Image(
+            reinterpret_cast<ImTextureID>(static_cast<intptr_t>(worldManager.atlas.textureID)),
+            previewSize,
+            ImVec2(entry.uvOffset.x, entry.uvOffset.y),
+            ImVec2(entry.uvOffset.x + entry.uvScale.x,
+                   entry.uvOffset.y + entry.uvScale.y)
+        );
+    } else {
+        ImGui::Dummy(previewSize);
+    }
+
+    if (ImGui::Button("Browse...")) {
+        NFD::UniquePathU8 path;
+
+        const std::filesystem::path base = std::filesystem::path(PROJECT_SOURCE_DIR) / "data/textures";
+
+        constexpr nfdu8filteritem_t filters[] = {
+            { "Image Files", "png,jpg,jpeg" }
+        };
+
+        if (NFD::OpenDialog(path, filters, 1, base.string().c_str()) == NFD_OKAY) {
+            const std::filesystem::path selectedPath = path.get();
+
+            if (selectedPath.string().starts_with(base.string())) {
+                entry.texturePath = std::filesystem::relative(selectedPath, base).string();
+            } else {
+                return;
+            }
+
+            entry.useTexture = true;
+
+            worldManager.rebuildAtlas();
+            uploadPaletteToGPU();
+        }
+    }
+}
+
 void VoxelsApplication::update() {
     ZoneScoped;
 
@@ -585,9 +710,6 @@ void VoxelsApplication::update() {
     worldManager.updateVerticesBuffer(verticesBuffer, chunkDataBuffer);
 
     player->get<PlayerController>()->update(deltaTime);
-
-    // TODO: only really need to do this when a palette colour is changed, but it doesn't really matter
-    shader.setVec3Array("palette", worldManager.palette.data(), worldManager.palette.size());
 
     uiManager.beginFrame();
 

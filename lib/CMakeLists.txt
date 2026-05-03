@@ -167,3 +167,17 @@ FetchContent_Declare(
 )
 message("Fetching nlohmann_json")
 FetchContent_MakeAvailable(nlohmann_json)
+
+#----------------------------------------------------------------------
+
+# NFD-EXTENDED (Native File Dialog)
+FetchContent_Declare(
+        nfd
+        GIT_REPOSITORY https://github.com/btzy/nativefiledialog-extended.git
+        GIT_TAG        master
+        GIT_SHALLOW    TRUE
+        GIT_PROGRESS   TRUE
+)
+
+message("Fetching nfd-extended")
+FetchContent_MakeAvailable(nfd)

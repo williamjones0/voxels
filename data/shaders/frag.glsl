@@ -1,12 +1,25 @@
 #version 460 core
+
 out vec4 FragColor;
 
-in vec3 ourColor;
-flat in int normal;
 in float fragAO;
+in vec2 vTexCoord;
+flat in int vColourIndex;
+flat in int normal;
 
+uniform sampler2D atlas;
 uniform int windowWidth;
 uniform int windowHeight;
+
+struct PaletteEntry {
+    vec4 colour;
+    vec4 uv;
+    int hasTexture;
+};
+
+layout(std430, binding = 4) buffer PaletteBuffer {
+    PaletteEntry palette[];
+};
 
 float get_shade(int type) {
     switch (type) {
@@ -22,10 +35,24 @@ float get_shade(int type) {
 }
 
 void main() {
-    vec3 color = ourColor * get_shade(normal);
+    float shade = get_shade(normal);
     float ao = clamp(fragAO, 0.0, 1.0);
+
+    PaletteEntry entry = palette[vColourIndex];
+
+    vec3 color;
+    if (entry.hasTexture == 1) {
+        vec2 tiledUV = fract(vTexCoord);
+        vec2 uv = entry.uv.xy + tiledUV * entry.uv.zw;
+        color = texture(atlas, uv).rgb;
+    } else {
+        color = entry.colour.rgb;
+    }
+
+    color *= shade;
     color *= smoothstep(0.0, 1.0, ao);
 
+    // Crosshair
     if (distance(gl_FragCoord.xy, vec2(windowWidth / 2, windowHeight / 2)) < 5) {
         FragColor = vec4(1.0, 0.0, 0.0, 1.0);
     } else {

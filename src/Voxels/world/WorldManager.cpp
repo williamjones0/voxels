@@ -5,7 +5,11 @@
 #include <fstream>
 #include <iostream>
 #include <ranges>
+#include <string>
 #include <utility>
+
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
 
 #include <nlohmann/json.hpp>
 
@@ -14,6 +18,87 @@
 #include "tracy/Tracy.hpp"
 
 using json = nlohmann::json;
+
+size_t TextureAtlas::addTexture(const std::string& path) {
+    int w, h, c;
+    unsigned char* data = stbi_load(path.c_str(), &w, &h, &c, 4);
+
+    textures.push_back({
+        path,
+        w,
+        h,
+        std::vector<unsigned char>(data, data + w * h * 4)
+    });
+
+    stbi_image_free(data);
+
+    return textures.size() - 1;
+}
+
+void TextureAtlas::upload() {
+    if (textures.empty()) return;
+
+    const int tileSize = textures[0].width;  // assume square + same size
+    const int count = static_cast<int>(textures.size());
+    const int atlasDim = static_cast<int>(std::ceil(std::sqrt(count)));
+
+    const int atlasWidth = atlasDim * tileSize;
+    const int atlasHeight = atlasDim * tileSize;
+
+    std::vector<unsigned char> atlasData(atlasWidth * atlasHeight * 4, 0);
+
+    regions.resize(count);
+
+    for (int i = 0; i < count; i++) {
+        const int tileX = i % atlasDim;
+        const int tileY = i / atlasDim;
+
+        const int x = tileX * tileSize;
+        const int y = tileY * tileSize;
+
+        const auto& tex = textures[i];
+
+        // Copy pixels
+        for (int row = 0; row < tileSize; row++) {
+            memcpy(
+                &atlasData[((y + row) * atlasWidth + x) * 4],
+                &tex.data[row * tileSize * 4],
+                tileSize * 4
+            );
+        }
+
+        // Compute UVs
+        regions[i].offset = glm::vec2(
+            static_cast<float>(x) / atlasWidth,
+            static_cast<float>(y) / atlasHeight
+        );
+
+        regions[i].scale = glm::vec2(
+            static_cast<float>(tileSize) / atlasWidth,
+            static_cast<float>(tileSize) / atlasHeight
+        );
+    }
+
+    // Delete old texture if it exists
+    if (textureID) {
+        glDeleteTextures(1, &textureID);
+        textureID = 0;
+    }
+
+    // Create new texture
+    glCreateTextures(GL_TEXTURE_2D, 1, &textureID);
+
+    glTextureStorage2D(textureID, 1, GL_RGBA8, atlasWidth, atlasHeight);
+    glTextureSubImage2D(textureID, 0, 0, 0, atlasWidth, atlasHeight,
+                        GL_RGBA, GL_UNSIGNED_BYTE, atlasData.data());
+
+    glTextureParameteri(textureID, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTextureParameteri(textureID, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+}
+
+void TextureAtlas::clear() {
+    textures.clear();
+}
 
 WorldManager::WorldManager(
     std::function<size_t(size_t)> outOfCapacityCallback,
@@ -31,17 +116,43 @@ WorldManager::WorldManager(
     chunks.reserve(MaxChunks);
     chunkData.resize(MaxChunks);
 
-    std::ranges::fill(palette, glm::vec3());
-    palette[0] = glm::vec3(0.278, 0.600, 0.141);
-    palette[1] = glm::vec3(0.600, 0.100, 0.100);
-    palette[2] = glm::vec3(212.0/255.0, 138.0/255.0, 0);
-    palette[3] = glm::vec3(212.0/255.0, 212.0/255.0, 0);
-    palette[4] = glm::vec3(99.0/255.0, 212.0/255.0, 0);
-    palette[5] = glm::vec3(0.0, 212.0/255.0, 212.0/255.0);
-    palette[6] = glm::vec3(0.0, 99.0/255.0, 212.0/255.0);
-    palette[7] = glm::vec3(138.0/255.0, 0.0, 212.0/255.0);
-
     threadPool.start();
+}
+
+void WorldManager::rebuildAtlas() {
+    atlas.clear();
+
+    // First pass: add textures
+    std::unordered_map<std::string, size_t> indices;
+
+    for (auto& entry : palette) {
+        if (!entry.useTexture) continue;
+
+        if (!std::filesystem::exists(entry.texturePath)) {
+            std::cerr << "Texture file not found: " << entry.texturePath << std::endl;
+            entry.useTexture = false;
+            continue;
+        }
+
+        // Avoid duplicates
+        if (!indices.contains(entry.texturePath)) {
+            indices[entry.texturePath] = atlas.addTexture(entry.texturePath);
+        }
+    }
+
+    // Upload atlas to GPU
+    atlas.upload();
+
+    // Second pass: assign UVs
+    for (auto& entry : palette) {
+        if (!entry.useTexture) continue;
+
+        const size_t index = indices.at(entry.texturePath);
+        const auto& [offset, scale] = atlas.getRegion(index);
+
+        entry.uvOffset = offset;
+        entry.uvScale  = scale;
+    }
 }
 
 bool WorldManager::updateFrontierChunks(glm::vec3 position) {
@@ -483,8 +594,12 @@ void WorldManager::saveLevel() {
 
     // Palette
     json paletteJson = json::array();
-    for (const auto& color : palette) {
-        paletteJson.push_back({color.r, color.g, color.b});
+    for (const auto& entry : palette) {
+        json entryJson;
+        entryJson["colour"] = {entry.colour.r, entry.colour.g, entry.colour.b};
+        entryJson["texturePath"] = entry.texturePath;
+        entryJson["useTexture"] = entry.useTexture;
+        paletteJson.push_back(entryJson);
     }
     levelJson["palette"] = paletteJson;
 
@@ -599,14 +714,17 @@ void WorldManager::loadLevel() {
     }
 
     // Palette
-    palette.fill(glm::vec3());
+    palette.fill(PaletteEntry());
     json paletteJson = levelJson.value("palette", json::array());
     for (size_t i = 0; i < paletteJson.size() && i < palette.size(); ++i) {
-        const auto& colorArray = paletteJson[i];
-        if (colorArray.is_array() && colorArray.size() == 3) {
-            palette[i] = glm::vec3(colorArray[0], colorArray[1], colorArray[2]);
-        }
+        const auto& entryJson = paletteJson[i];
+        const auto colorArray = entryJson.value("colour", json::array({0, 0, 0}));
+        const std::string texturePath = entryJson.value("texturePath", "");
+        palette[i].colour = glm::vec3(colorArray[0], colorArray[1], colorArray[2]);
+        palette[i].texturePath = texturePath;
+        palette[i].useTexture = entryJson.value("useTexture", false);
     }
+    rebuildAtlas();
 
     // Primitives
     primitives.clear();

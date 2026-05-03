@@ -17,6 +17,9 @@ void Chunk::store(const int x, const int y, const int z, const int v) {
 }
 
 int Chunk::load(const int x, const int y, const int z) const {
+    if (x < -1 || x > ChunkSize || y < 0 || y > ChunkHeight - 1 || z < -1 || z > ChunkSize) {
+        return EmptyVoxel;
+    }
     return voxels[getVoxelIndex(x + 1, y, z + 1)];
 }
 

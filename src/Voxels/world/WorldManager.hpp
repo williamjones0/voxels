@@ -38,6 +38,52 @@ struct RaycastResult {
     int face;
 };
 
+struct PaletteEntry {
+    glm::vec3 colour = glm::vec3(0.0f);
+
+    std::string texturePath;
+    bool useTexture = false;
+
+    glm::vec2 uvOffset = glm::vec2(0.0f);
+    glm::vec2 uvScale  = glm::vec2(1.0f);
+};
+
+struct GPUPaletteEntry {
+    glm::vec4 colour;
+    glm::vec4 uv;  // xy = offset, zw = scale
+    int hasTexture;
+    int _pad[3];
+};
+
+class TextureAtlas {
+public:
+    struct Region {
+        glm::vec2 offset;
+        glm::vec2 scale;
+    };
+
+    size_t addTexture(const std::string& path);
+    [[nodiscard]] const Region& getRegion(const size_t index) const {
+        return regions[index];
+    }
+
+    void upload();
+    void clear();
+
+    GLuint textureID = 0;
+
+private:
+    struct PendingTexture {
+        std::string path;
+        int width;
+        int height;
+        std::vector<unsigned char> data;
+    };
+
+    std::vector<Region> regions;
+    std::vector<PendingTexture> textures;
+};
+
 constexpr int InitialVertexBufferSize = 1 << 20;
 constexpr int MaxChunkTasks = 32;
 
@@ -52,6 +98,8 @@ public:
         GenerationType generationType = GenerationType::Perlin2D,
         std::filesystem::path levelFile = "data/levels/level0.txt"
     );
+
+    void rebuildAtlas();
 
     bool updateFrontierChunks(glm::vec3 position);
     void destroyFrontierChunks(glm::vec3 position);
@@ -95,7 +143,8 @@ public:
     const std::filesystem::path levelFile;
     std::optional<std::pair<glm::ivec2, glm::ivec2>> levelChunkBounds;
 
-    std::array<glm::vec3, 1 << VertexFormat::ColourBits> palette{};
+    TextureAtlas atlas;
+    std::array<PaletteEntry, 1 << VertexFormat::ColourBits> palette{};
     size_t paletteIndex = 0;
 
     std::vector<std::unique_ptr<Primitive>> primitives;
