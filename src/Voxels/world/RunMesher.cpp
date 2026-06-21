@@ -12,8 +12,8 @@ constexpr int TopNormal = 5;
 RunMesher::MeshResult RunMesher::meshChunk() {
     // Y-axis - start from the bottom and search up
     for (size_t j = chunk->minY; j < chunk->maxY; ++j) {  // y
-        for (size_t k = 1; k < ChunkSize + 1; ++k) {      // z
-            for (size_t i = 1; i < ChunkSize + 1; ++i) {  // x
+        for (size_t k = 0; k < ChunkSize; ++k) {      // z
+            for (size_t i = 0; i < ChunkSize; ++i) {  // x
                 const size_t access = Chunk::getVoxelIndex(i, j, k);
                 const int voxel = chunk->voxels[access];
 

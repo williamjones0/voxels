@@ -12,7 +12,7 @@ public:
         std::vector<uint32_t> vertices;
     };
 
-    [[nodiscard]] static MeshResult meshChunk(const std::shared_ptr<Chunk>& chunk, const std::vector<int>& voxels, int minY, int maxY);
+    [[nodiscard]] static MeshResult meshChunk(const std::shared_ptr<Chunk>& chunk, const std::vector<int>& voxels, const std::vector<uint8_t>& lightMap, int minY, int maxY);
 
 private:
     static inline int vertexAO(uint8_t side1, uint8_t side2, uint8_t corner);
@@ -22,4 +22,7 @@ private:
     static int dirToIndex(int i, int j, int k);
 
     static bool shouldMeshFace(int x, int y, int z, int i, int j, int k, const std::vector<int>& voxels);
+
+    static int getSunlight(int x, int y, int z, const std::vector<uint8_t>& lightMap);
+    static int getTorchlight(int x, int y, int z, const std::vector<uint8_t>& lightMap);
 };

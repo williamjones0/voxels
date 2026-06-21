@@ -6,6 +6,7 @@ in float fragAO;
 in vec2 vTexCoord;
 flat in int vColourIndex;
 flat in int normal;
+in float fragLight;
 
 uniform sampler2D atlas;
 uniform int windowWidth;
@@ -37,6 +38,7 @@ float get_shade(int type) {
 void main() {
     float shade = get_shade(normal);
     float ao = clamp(fragAO, 0.0, 1.0);
+    float light = clamp(fragLight, 0.0, 1.0);
 
     PaletteEntry entry = palette[vColourIndex];
 
@@ -51,6 +53,7 @@ void main() {
 
     color *= shade;
     color *= smoothstep(0.0, 1.0, ao);
+    color *= light;
 
     // Crosshair
     if (distance(gl_FragCoord.xy, vec2(windowWidth / 2, windowHeight / 2)) < 5) {

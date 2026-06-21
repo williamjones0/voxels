@@ -22,6 +22,7 @@ struct ChunkDrawCommand {
 out vec3 ourColor;
 flat out int normal;
 out float fragAO;
+out float fragLight;
 
 out vec2 vTexCoord;
 flat out int vColourIndex;
@@ -38,6 +39,7 @@ uniform uint zBits;
 uniform uint colourBits;
 uniform uint normalBits;
 uniform uint aoBits;
+uniform uint lightBits;
 
 uniform uint xShift;
 uniform uint yShift;
@@ -45,6 +47,7 @@ uniform uint zShift;
 uniform uint colourShift;
 uniform uint normalShift;
 uniform uint aoShift;
+uniform uint lightShift;
 
 uniform uint xMask;
 uniform uint yMask;
@@ -52,6 +55,7 @@ uniform uint zMask;
 uniform uint colourMask;
 uniform uint normalMask;
 uniform uint aoMask;
+uniform uint lightMask;
 
 layout (binding = 0) readonly buffer DrawCommands {
     ChunkDrawCommand drawCommands[];
@@ -76,6 +80,9 @@ void main() {
     vColourIndex = int((vertex >> colourShift) & colourMask);
     normal = int((vertex >> normalShift) & normalMask);
     float ao = float((vertex >> aoShift) & aoMask);
+
+    float light = float((vertex >> lightShift) & lightMask);
+    fragLight = light / 15.0;
 
     mat4 model = mat4(1.0, 0.0, 0.0, 0.0,
                       0.0, 1.0, 0.0, 0.0,

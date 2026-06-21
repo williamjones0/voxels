@@ -129,26 +129,25 @@ inline int Mesher::vertexAO(const uint8_t side1, const uint8_t side2, uint8_t co
 }
 
 bool Mesher::inBounds(const int x, const int y, const int z) {
-    constexpr int size = ChunkSize + 2;
-    constexpr int height = ChunkHeight;
-    return 0 <= x && x < size
-        && 0 <= y && y < height
-        && 0 <= z && z < size;
+    return -1 <= x && x <= ChunkSize
+        &&  0 <= y && y < ChunkHeight
+        && -1 <= z && z <= ChunkSize;
 }
 
 int Mesher::dirToIndex(const int i, const int j, const int k) {
     return (i + 1) * 9 + (j + 1) * 3 + k + 1;
 }
 
-auto Mesher::meshChunk(const std::shared_ptr<Chunk>& chunk, const std::vector<int>& voxels, const int minY, const int maxY) -> MeshResult {
+auto Mesher::meshChunk(const std::shared_ptr<Chunk>& chunk, const std::vector<int>& voxels, const std::vector<uint8_t>& lightMap, const int minY, const int maxY) -> MeshResult {
     std::vector<int> positions;
     std::vector<int> colours;
     std::vector<int> normals;
     std::vector<int> ao;
+    std::vector<int> lights;
 
     for (int y = minY; y < maxY; ++y) {
-        for (int z = 1; z < ChunkSize + 1; ++z) {
-            for (int x = 1; x < ChunkSize + 1; ++x) {
+        for (int z = 0; z < ChunkSize; ++z) {
+            for (int x = 0; x < ChunkSize; ++x) {
                 const int voxel = voxels[Chunk::getVoxelIndex(x, y, z)];
                 if (voxel == EmptyVoxel) {
                     continue;
@@ -348,16 +347,16 @@ auto Mesher::meshChunk(const std::shared_ptr<Chunk>& chunk, const std::vector<in
                 // Add vertices
                 int translated_vertices[VerticesLength];
                 for (int k = 0; k < 36; ++k) {
-                    translated_vertices[3 * k] = cubeVertices[3 * k] + x - 1;
+                    translated_vertices[3 * k] = cubeVertices[3 * k] + x;
                     translated_vertices[3 * k + 1] = cubeVertices[3 * k + 1] + y;
-                    translated_vertices[3 * k + 2] = cubeVertices[3 * k + 2] + z - 1;
+                    translated_vertices[3 * k + 2] = cubeVertices[3 * k + 2] + z;
                 }
 
                 int translated_flipped_vertices[VerticesLength];
                 for (int k = 0; k < 36; ++k) {
-                    translated_flipped_vertices[3 * k] = flippedCubeVertices[3 * k] + x - 1;
+                    translated_flipped_vertices[3 * k] = flippedCubeVertices[3 * k] + x;
                     translated_flipped_vertices[3 * k + 1] = flippedCubeVertices[3 * k + 1] + y;
-                    translated_flipped_vertices[3 * k + 2] = flippedCubeVertices[3 * k + 2] + z - 1;
+                    translated_flipped_vertices[3 * k + 2] = flippedCubeVertices[3 * k + 2] + z;
                 }
 
                 // Top face
@@ -375,6 +374,14 @@ auto Mesher::meshChunk(const std::shared_ptr<Chunk>& chunk, const std::vector<in
 
                     // Subtract 1 because empty voxel is 0, so we don't need a palette slot for it
                     colours.push_back(voxel - 1);
+
+                    int light = std::max(
+                        getSunlight(x, y + 1, z, lightMap),
+                        getTorchlight(x, y + 1, z, lightMap)
+                    );
+                    for (int i = 0; i < 6; ++i) {
+                        lights.push_back(light);
+                    }
                 }
 
                 // Bottom
@@ -390,6 +397,14 @@ auto Mesher::meshChunk(const std::shared_ptr<Chunk>& chunk, const std::vector<in
                         normals.push_back(BottomNormal);
                     }
                     colours.push_back(voxel - 1);
+
+                    int light = std::max(
+                        getSunlight(x, y - 1, z, lightMap),
+                        getTorchlight(x, y - 1, z, lightMap)
+                    );
+                    for (int i = 0; i < 6; ++i) {
+                        lights.push_back(light);
+                    }
                 }
 
                 // Left
@@ -405,6 +420,14 @@ auto Mesher::meshChunk(const std::shared_ptr<Chunk>& chunk, const std::vector<in
                         normals.push_back(LeftNormal);
                     }
                     colours.push_back(voxel - 1);
+
+                    int light = std::max(
+                        getSunlight(x - 1, y, z, lightMap),
+                        getTorchlight(x - 1, y, z, lightMap)
+                    );
+                    for (int i = 0; i < 6; ++i) {
+                        lights.push_back(light);
+                    }
                 }
 
                 // Right
@@ -420,6 +443,14 @@ auto Mesher::meshChunk(const std::shared_ptr<Chunk>& chunk, const std::vector<in
                         normals.push_back(RightNormal);
                     }
                     colours.push_back(voxel - 1);
+
+                    int light = std::max(
+                        getSunlight(x + 1, y, z, lightMap),
+                        getTorchlight(x + 1, y, z, lightMap)
+                    );
+                    for (int i = 0; i < 6; ++i) {
+                        lights.push_back(light);
+                    }
                 }
 
                 // Front
@@ -435,6 +466,14 @@ auto Mesher::meshChunk(const std::shared_ptr<Chunk>& chunk, const std::vector<in
                         normals.push_back(FrontNormal);
                     }
                     colours.push_back(voxel - 1);
+
+                    int light = std::max(
+                        getSunlight(x, y, z - 1, lightMap),
+                        getTorchlight(x, y, z - 1, lightMap)
+                    );
+                    for (int i = 0; i < 6; ++i) {
+                        lights.push_back(light);
+                    }
                 }
 
                 // Back
@@ -450,6 +489,14 @@ auto Mesher::meshChunk(const std::shared_ptr<Chunk>& chunk, const std::vector<in
                         normals.push_back(BackNormal);
                     }
                     colours.push_back(voxel - 1);
+
+                    int light = std::max(
+                        getSunlight(x, y, z + 1, lightMap),
+                        getTorchlight(x, y, z + 1, lightMap)
+                    );
+                    for (int i = 0; i < 6; ++i) {
+                        lights.push_back(light);
+                    }
                 }
             }
         }
@@ -464,7 +511,8 @@ auto Mesher::meshChunk(const std::shared_ptr<Chunk>& chunk, const std::vector<in
                 static_cast<uint32_t>(positions[3 * i + 2]) << VertexFormat::ZShift |
                 static_cast<uint32_t>(colours[i / 6]) << VertexFormat::ColourShift |
                 static_cast<uint32_t>(normals[i]) << VertexFormat::NormalShift |
-                static_cast<uint32_t>(ao[i]) << VertexFormat::AOShift;
+                static_cast<uint32_t>(ao[i]) << VertexFormat::AOShift |
+                static_cast<uint32_t>(lights[i]) << VertexFormat::LightShift;
 
         vertices[i] = vertex;
     }
@@ -484,4 +532,22 @@ bool Mesher::shouldMeshFace(const int x, const int y, const int z, const int i, 
     }
 
     return adjInBounds && isAdjVoxelEmpty;
+}
+
+int Mesher::getSunlight(int x, int y, int z, const std::vector<uint8_t>& lightMap) {
+    if (!inBounds(x, y, z)) {
+        return 0;
+    }
+
+    int idx = Chunk::getVoxelIndex(x, y, z);
+    return (lightMap[idx] >> 4) & 0xF;
+}
+
+int Mesher::getTorchlight(int x, int y, int z, const std::vector<uint8_t>& lightMap) {
+    if (!inBounds(x, y, z)) {
+        return 0;
+    }
+
+    int idx = Chunk::getVoxelIndex(x, y, z);
+    return lightMap[idx] & 0xF;
 }

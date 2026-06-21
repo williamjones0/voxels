@@ -1,5 +1,7 @@
 #include "Chunk.hpp"
 
+#include <queue>
+
 #include "../util/PerlinNoise.hpp"
 
 constexpr float Epsilon = 0.000001;
@@ -20,11 +22,11 @@ int Chunk::load(const int x, const int y, const int z) const {
     if (x < -1 || x > ChunkSize || y < 0 || y > ChunkHeight - 1 || z < -1 || z > ChunkSize) {
         return EmptyVoxel;
     }
-    return voxels[getVoxelIndex(x + 1, y, z + 1)];
+    return voxels[getVoxelIndex(x, y, z)];
 }
 
 void Chunk::storeInto(std::vector<int>& field, int& minY, int& maxY, const int x, const int y, const int z, const int v) {
-    field[getVoxelIndex(x + 1, y, z + 1)] = v;
+    field[getVoxelIndex(x, y, z)] = v;
     minY = std::min(minY, y);
     maxY = std::max(maxY, y + 2);
 }
@@ -46,6 +48,8 @@ auto Chunk::generateFlat() -> GenerationResult {
 
     result.minY = 0;
     result.maxY = ChunkHeight / 2 + 2;
+
+    result.lightMap = generateLightMapSun(result);
 
     return result;
 }
@@ -118,6 +122,8 @@ auto Chunk::generateVoxels2D(const int cx, const int cz) -> GenerationResult {
     result.minY = std::max(0, result.minY - 1);
     result.maxY = std::min(ChunkHeight, result.maxY + 1);
 
+    result.lightMap = generateLightMapSun(result);
+
     return result;
 }
 
@@ -143,9 +149,46 @@ auto Chunk::generateVoxels3D(const int cx, const int cz) -> GenerationResult {
     result.minY = std::max(0, result.minY - 1);
     result.maxY = std::min(ChunkHeight, result.maxY + 2);
 
+    result.lightMap = generateLightMapSun(result);
+
     return result;
 }
 
+std::vector<uint8_t> Chunk::generateLightMapSun(const GenerationResult& result) {
+    std::vector<uint8_t> lightMap(VoxelsSize, 0);
+
+    for (int z = -1; z < ChunkSize + 1; ++z) {
+        for (int x = -1; x < ChunkSize + 1; ++x) {
+            for (int y = result.maxY - 1; y >= result.minY; --y) {
+                if (result.voxelField[getVoxelIndex(x, y, z)] == 0) {
+                    lightMap[getVoxelIndex(x, y, z)] = 0xF;
+                } else {
+                    break;
+                }
+            }
+        }
+    }
+
+    return lightMap;
+}
+
+int Chunk::getSunlight(int x, int y, int z) const {
+    return (lightMap[getVoxelIndex(x, y, z)] >> 4) & 0xF;
+}
+
+void Chunk::setSunlight(int x, int y, int z, int val) {
+    lightMap[getVoxelIndex(x, y, z)] = (lightMap[getVoxelIndex(x, y, z)] & 0xF) | ((val & 0xF) << 4);
+}
+
+int Chunk::getTorchlight(int x, int y, int z) const {
+    return lightMap[getVoxelIndex(x, y, z)] & 0xF;
+}
+
+void Chunk::setTorchlight(int x, int y, int z, int val) {
+    lightMap[getVoxelIndex(x, y, z)] = (lightMap[getVoxelIndex(x, y, z)] & 0xF0) | (val & 0xF);
+}
+
 size_t Chunk::getVoxelIndex(const size_t x, const size_t y, const size_t z) {
-    return y * (ChunkSize + 2) * (ChunkSize + 2) + z * (ChunkSize + 2) + x;
+    // Add 1 to x and z to account for the extra space allocated for neighbouring voxels
+    return y * (ChunkSize + 2) * (ChunkSize + 2) + (z + 1) * (ChunkSize + 2) + (x + 1);
 }

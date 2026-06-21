@@ -111,6 +111,7 @@ bool VoxelsApplication::load() {
     shader.setUInt("colourBits", VertexFormat::ColourBits);
     shader.setUInt("normalBits", VertexFormat::NormalBits);
     shader.setUInt("aoBits", VertexFormat::AOBits);
+    shader.setUInt("lightBits", VertexFormat::LightBits);
 
     shader.setUInt("xShift", VertexFormat::XShift);
     shader.setUInt("yShift", VertexFormat::YShift);
@@ -118,6 +119,7 @@ bool VoxelsApplication::load() {
     shader.setUInt("colourShift", VertexFormat::ColourShift);
     shader.setUInt("normalShift", VertexFormat::NormalShift);
     shader.setUInt("aoShift", VertexFormat::AOShift);
+    shader.setUInt("lightShift", VertexFormat::LightShift);
 
     shader.setUInt("xMask", VertexFormat::XMask);
     shader.setUInt("yMask", VertexFormat::YMask);
@@ -125,6 +127,7 @@ bool VoxelsApplication::load() {
     shader.setUInt("colourMask", VertexFormat::ColourMask);
     shader.setUInt("normalMask", VertexFormat::NormalMask);
     shader.setUInt("aoMask", VertexFormat::AOMask);
+    shader.setUInt("lightMask", VertexFormat::LightMask);
 
     setupInput();
 
@@ -189,7 +192,8 @@ void VoxelsApplication::setupInput() {
     // Register action callbacks
     Input::registerCallback({ActionType::Break, ActionStateType::None}, [this] {
         if (const auto result = worldManager.raycast(player->get<Transform>()->position, getFront(player->get<Transform>()->angles), 16)) {
-            worldManager.updateVoxel(*result, false);
+            worldManager.propagateTorchLight((result->cx << ChunkSizeShift) + result->x, result->y, (result->cz << ChunkSizeShift) + result->z, 15);
+            // worldManager.updateVoxel(*result, false);
         }
     });
 
@@ -646,6 +650,77 @@ void VoxelsApplication::setupUI() {
                 worldManager.removePrimitive(i);
                 --i;  // Adjust index since we removed an element
             }
+        }
+
+        ImGui::End();
+    });
+
+    uiManager.registerWindow("LookAt", [this] {
+        ImGui::Begin("LookAt", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+
+        if (const auto result = worldManager.raycast(player->get<Transform>()->position, getFront(player->get<Transform>()->angles), 32)) {
+            const int wx = (result->cx << ChunkSizeShift) + result->x;
+            const int wy = result->y;
+            const int wz = (result->cz << ChunkSizeShift) + result->z;
+
+            ImGui::Text("World pos: %d, %d, %d", wx, wy, wz);
+            ImGui::Text("Chunk: cx=%d cz=%d local=(%d,%d,%d)", result->cx, result->cz, result->x, result->y, result->z);
+
+            // Current voxel
+            {
+                const auto info = worldManager.getVoxelInfoAtWorld(wx, wy, wz);
+                if (info.valid) {
+                    ImGui::Separator();
+                    ImGui::Text("Looked voxel:");
+                    ImGui::Text("  Type: %d", info.type);
+                    ImGui::Text("  Light: %d", info.light);
+                    if (info.type > 0 && info.type <= static_cast<int>(worldManager.palette.size())) {
+                        const auto& entry = worldManager.palette[info.type - 1];
+                        ImGui::SameLine();
+                        ImGui::ColorButton("##lookat_color", ImVec4(entry.colour.r, entry.colour.g, entry.colour.b, 1.0f), ImGuiColorEditFlags_NoTooltip, ImVec2(24,24));
+                    }
+                } else {
+                    ImGui::TextColored(ImVec4(1,0.8f,0.2f,1), "Voxel info unavailable (not loaded)");
+                }
+            }
+
+            // Adjacent voxels
+            {
+                ImGui::Separator();
+                ImGui::Text("Adjacent voxels:");
+
+                struct Dir { const char* name; int dx, dy, dz; };
+                const Dir dirs[] = {
+                    {"+X",  1,  0,  0},
+                    {"-X", -1,  0,  0},
+                    {"+Y",  0,  1,  0},
+                    {"-Y",  0, -1,  0},
+                    {"+Z",  0,  0,  1},
+                    {"-Z",  0,  0, -1},
+                };
+
+                for (const auto& d : dirs) {
+                    const int nx = wx + d.dx;
+                    const int ny = wy + d.dy;
+                    const int nz = wz + d.dz;
+
+                    const auto ninfo = worldManager.getVoxelInfoAtWorld(nx, ny, nz);
+                    if (ninfo.valid) {
+                        ImGui::Text("%s (%d,%d,%d): type=%d light=%d", d.name, nx, ny, nz, ninfo.type, ninfo.light);
+                        if (ninfo.type > 0 && ninfo.type <= static_cast<int>(worldManager.palette.size())) {
+                            const auto& entry = worldManager.palette[ninfo.type - 1];
+                            ImGui::SameLine();
+                            ImGui::ColorButton((std::string("##lookat_neighbor_") + d.name).c_str(),
+                                               ImVec4(entry.colour.r, entry.colour.g, entry.colour.b, 1.0f),
+                                               ImGuiColorEditFlags_NoTooltip, ImVec2(18,18));
+                        }
+                    } else {
+                        ImGui::TextColored(ImVec4(0.9f,0.6f,0.1f,1), "%s: unavailable", d.name);
+                    }
+                }
+            }
+        } else {
+            ImGui::Text("Not looking at any voxel within range.");
         }
 
         ImGui::End();

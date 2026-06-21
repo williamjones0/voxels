@@ -84,6 +84,12 @@ private:
     std::vector<PendingTexture> textures;
 };
 
+struct VoxelInfo {
+    bool valid;   // true when data is available for this world coordinate
+    int type;     // voxel / palette index (0 = empty / air)
+    uint8_t light; // lightmap value (0..255 or your project's range)
+};
+
 constexpr int InitialVertexBufferSize = 1 << 20;
 constexpr int MaxChunkTasks = 32;
 
@@ -119,6 +125,7 @@ public:
     void updateGeneratedChunks();
     void updateVerticesBuffer(const GLuint& verticesBuffer, const GLuint& chunkDataBuffer);
     std::shared_ptr<Chunk> getChunk(int cx, int cz);
+    std::shared_ptr<Chunk> getChunkFromWorld(int x, int z);
 
     void queueGenerateChunk(std::shared_ptr<Chunk> chunk);
     void queueMeshChunk(std::shared_ptr<Chunk> chunk);
@@ -136,6 +143,12 @@ public:
     void placePrimitive(Primitive& primitive);
     void removePrimitive(size_t index);
     void movePrimitive(size_t index, const glm::ivec3& newOrigin);
+
+    int getTorchlight(int x, int y, int z);
+    void setTorchlight(int x, int y, int z, int val);
+    void propagateTorchLight(int x, int y, int z, int lightLevel);
+
+    VoxelInfo getVoxelInfoAtWorld(int worldX, int worldY, int worldZ) const;
 
     void cleanup();
 

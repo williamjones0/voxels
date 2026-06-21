@@ -10,9 +10,10 @@ namespace VertexFormat {
     constexpr uint32_t ColourBits = 3;
     constexpr uint32_t NormalBits = 3;
     constexpr uint32_t AOBits = 2;
+    constexpr uint32_t LightBits = 4;
 
     constexpr uint32_t TotalBits =
-        XBits + YBits + ZBits + ColourBits + NormalBits + AOBits;
+        XBits + YBits + ZBits + ColourBits + NormalBits + AOBits + LightBits;
 
     static_assert(
         TotalBits <= 32,
@@ -26,6 +27,7 @@ namespace VertexFormat {
     constexpr uint32_t ColourShift = ZShift + ZBits;
     constexpr uint32_t NormalShift = ColourShift + ColourBits;
     constexpr uint32_t AOShift = NormalShift + NormalBits;
+    constexpr uint32_t LightShift = AOShift + AOBits;
 
     // Masks for each field
     constexpr uint32_t XMask = (1u << XBits) - 1;
@@ -34,4 +36,5 @@ namespace VertexFormat {
     constexpr uint32_t ColourMask = (1u << ColourBits) - 1;
     constexpr uint32_t NormalMask = (1u << NormalBits) - 1;
     constexpr uint32_t AOMask = (1u << AOBits) - 1;
+    constexpr uint32_t LightMask = (1u << LightBits) - 1;
 }
