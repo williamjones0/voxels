@@ -48,7 +48,7 @@ private:
             return enlargeVerticesBuffer(size);
         },
         GenerationType::None,
-        std::filesystem::path(PROJECT_SOURCE_DIR) / "data/levels/small.json"
+        std::filesystem::path(PROJECT_SOURCE_DIR) / "data/levels/ztndm4.json"
     );
 
     UIManager uiManager;

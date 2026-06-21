@@ -56,7 +56,7 @@ bool VoxelsApplication::load() {
         player->add<FlyPlayerController>();
     } else {
         player->add<Q1PlayerController>();
-        player->add<CharacterController>(worldManager);
+        player->add<CharacterController>(worldManager, true);
     }
 
     camera = std::make_unique<Entity>();
@@ -408,6 +408,15 @@ void VoxelsApplication::setupUI() {
     //     ImGui::End();
     // });
 
+    uiManager.registerWindow("Camera", [this] {
+        // FOV slider
+        ImGui::Begin("Camera", nullptr, ImGuiWindowFlags_AlwaysAutoResize);
+        float FOV = camera->get<CameraProperties>()->FOV;
+        ImGui::SliderFloat("FOV", &FOV, 30.0f, 120.0f);
+        camera->get<CameraProperties>()->FOV = FOV;
+        ImGui::End();
+    });
+
     uiManager.registerWindow("Demo", [] {
         ImGui::ShowDemoWindow();
     });
@@ -678,11 +687,15 @@ void VoxelsApplication::drawPaletteEntryEditor(PaletteEntry& entry) {
             { "Image Files", "png,jpg,jpeg" }
         };
 
-        if (NFD::OpenDialog(path, filters, 1, base.string().c_str()) == NFD_OKAY) {
+        const auto result = NFD::OpenDialog(path, filters, 1, base.string().c_str());
+
+        if (result == NFD_OKAY) {
             const std::filesystem::path selectedPath = path.get();
 
-            if (selectedPath.string().starts_with(base.string())) {
-                entry.texturePath = std::filesystem::relative(selectedPath, base).string();
+            const auto rel = std::filesystem::relative(selectedPath, base);
+
+            if (!rel.empty() && rel.native()[0] != '.')  {
+                entry.texturePath = selectedPath.string();
             } else {
                 return;
             }

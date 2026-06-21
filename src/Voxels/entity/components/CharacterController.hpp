@@ -7,7 +7,7 @@
 
 class CharacterController : public Component {
 public:
-    explicit CharacterController(WorldManager& worldManager) : worldManager(worldManager) {}
+    explicit CharacterController(WorldManager& worldManager, const bool stepUp = false) : worldManager(worldManager), stepUp(stepUp) {}
 
     bool isGrounded = false;
 
@@ -33,9 +33,11 @@ private:
 
     WorldManager& worldManager;
 
-    float PLAYER_WIDTH = 0.8f;
-    float PLAYER_EYE_HEIGHT = 1.2f;
-    float PLAYER_HEIGHT = 1.4f;
+    float PLAYER_WIDTH = 0.6f;
+    float PLAYER_EYE_HEIGHT = 1.62f;
+    float PLAYER_HEIGHT = 1.8f;
+
+    bool stepUp;
 
     void handleCollisions(glm::vec3& velocity, float dt);
     void collisionDetection(const glm::vec3& velocity, float dt, std::vector<Contact>& contacts) const;
