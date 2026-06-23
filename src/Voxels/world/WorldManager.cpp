@@ -8,9 +8,6 @@
 #include <string>
 #include <utility>
 
-#define STB_IMAGE_IMPLEMENTATION
-#include <stb_image.h>
-
 #include <nlohmann/json.hpp>
 
 #include "Mesher.hpp"
@@ -18,87 +15,6 @@
 #include "tracy/Tracy.hpp"
 
 using json = nlohmann::json;
-
-size_t TextureAtlas::addTexture(const std::string& path) {
-    int w, h, c;
-    unsigned char* data = stbi_load(path.c_str(), &w, &h, &c, 4);
-
-    textures.push_back({
-        path,
-        w,
-        h,
-        std::vector<unsigned char>(data, data + w * h * 4)
-    });
-
-    stbi_image_free(data);
-
-    return textures.size() - 1;
-}
-
-void TextureAtlas::upload() {
-    if (textures.empty()) return;
-
-    const int tileSize = textures[0].width;  // assume square + same size
-    const int count = static_cast<int>(textures.size());
-    const int atlasDim = static_cast<int>(std::ceil(std::sqrt(count)));
-
-    const int atlasWidth = atlasDim * tileSize;
-    const int atlasHeight = atlasDim * tileSize;
-
-    std::vector<unsigned char> atlasData(atlasWidth * atlasHeight * 4, 0);
-
-    regions.resize(count);
-
-    for (int i = 0; i < count; i++) {
-        const int tileX = i % atlasDim;
-        const int tileY = i / atlasDim;
-
-        const int x = tileX * tileSize;
-        const int y = tileY * tileSize;
-
-        const auto& tex = textures[i];
-
-        // Copy pixels
-        for (int row = 0; row < tileSize; row++) {
-            memcpy(
-                &atlasData[((y + row) * atlasWidth + x) * 4],
-                &tex.data[row * tileSize * 4],
-                tileSize * 4
-            );
-        }
-
-        // Compute UVs
-        regions[i].offset = glm::vec2(
-            static_cast<float>(x) / atlasWidth,
-            static_cast<float>(y) / atlasHeight
-        );
-
-        regions[i].scale = glm::vec2(
-            static_cast<float>(tileSize) / atlasWidth,
-            static_cast<float>(tileSize) / atlasHeight
-        );
-    }
-
-    // Delete old texture if it exists
-    if (textureID) {
-        glDeleteTextures(1, &textureID);
-        textureID = 0;
-    }
-
-    // Create new texture
-    glCreateTextures(GL_TEXTURE_2D, 1, &textureID);
-
-    glTextureStorage2D(textureID, 1, GL_RGBA8, atlasWidth, atlasHeight);
-    glTextureSubImage2D(textureID, 0, 0, 0, atlasWidth, atlasHeight,
-                        GL_RGBA, GL_UNSIGNED_BYTE, atlasData.data());
-
-    glTextureParameteri(textureID, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTextureParameteri(textureID, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-}
-
-void TextureAtlas::clear() {
-    textures.clear();
-}
 
 WorldManager::WorldManager(
     std::function<size_t(size_t)> outOfCapacityCallback,
@@ -117,42 +33,6 @@ WorldManager::WorldManager(
     chunkData.resize(MaxChunks);
 
     threadPool.start();
-}
-
-void WorldManager::rebuildAtlas() {
-    atlas.clear();
-
-    // First pass: add textures
-    std::unordered_map<std::string, size_t> indices;
-
-    for (auto& entry : palette) {
-        if (!entry.useTexture) continue;
-
-        if (!std::filesystem::exists(entry.texturePath)) {
-            std::cerr << "Texture file not found: " << entry.texturePath << std::endl;
-            entry.useTexture = false;
-            continue;
-        }
-
-        // Avoid duplicates
-        if (!indices.contains(entry.texturePath)) {
-            indices[entry.texturePath] = atlas.addTexture(entry.texturePath);
-        }
-    }
-
-    // Upload atlas to GPU
-    atlas.upload();
-
-    // Second pass: assign UVs
-    for (auto& entry : palette) {
-        if (!entry.useTexture) continue;
-
-        const size_t index = indices.at(entry.texturePath);
-        const auto& [offset, scale] = atlas.getRegion(index);
-
-        entry.uvOffset = offset;
-        entry.uvScale  = scale;
-    }
 }
 
 bool WorldManager::updateFrontierChunks(glm::vec3 position) {
@@ -603,7 +483,7 @@ void WorldManager::saveLevel() {
 
     // Palette
     json paletteJson = json::array();
-    for (const auto& entry : palette) {
+    for (const auto& entry : palette.entries) {
         json entryJson;
         entryJson["colour"] = {entry.colour.r, entry.colour.g, entry.colour.b};
         entryJson["texturePath"] = entry.texturePath;
@@ -723,17 +603,17 @@ void WorldManager::loadLevel() {
     }
 
     // Palette
-    palette.fill(PaletteEntry());
+    palette.entries.fill(PaletteEntry());
     json paletteJson = levelJson.value("palette", json::array());
     for (size_t i = 0; i < paletteJson.size() && i < palette.size(); ++i) {
         const auto& entryJson = paletteJson[i];
         const auto colorArray = entryJson.value("colour", json::array({0, 0, 0}));
         const std::string texturePath = entryJson.value("texturePath", "");
-        palette[i].colour = glm::vec3(colorArray[0], colorArray[1], colorArray[2]);
-        palette[i].texturePath = texturePath;
-        palette[i].useTexture = entryJson.value("useTexture", false);
+        palette.entries[i].colour = glm::vec3(colorArray[0], colorArray[1], colorArray[2]);
+        palette.entries[i].texturePath = texturePath;
+        palette.entries[i].useTexture = entryJson.value("useTexture", false);
     }
-    rebuildAtlas();
+    palette.rebuildAtlas();
 
     // Primitives
     primitives.clear();
@@ -982,18 +862,18 @@ void WorldManager::updateVoxel(RaycastResult result, const bool place) {
                     // No edit at this position
                     // We know that we are placing here, because if we were removing, there would be an edit there
                     assert(place);
-                    editOpt = {static_cast<int>(paletteIndex + 1), 0};
-                    primitive->userEdits[localPos] = static_cast<int>(paletteIndex + 1);
+                    editOpt = {static_cast<int>(palette.index + 1), 0};
+                    primitive->userEdits[localPos] = static_cast<int>(palette.index + 1);
                     break;
                 }
             }
         }
     }
 
-    userEdits[{(cx << ChunkSizeShift) + x, y, (cz << ChunkSizeShift) + z}] = place ? static_cast<int>(paletteIndex + 1) : 0;
+    userEdits[{(cx << ChunkSizeShift) + x, y, (cz << ChunkSizeShift) + z}] = place ? static_cast<int>(palette.index + 1) : 0;
 
     Primitive::EditMap edits;
-    edits[{(cx << ChunkSizeShift) + x, y, (cz << ChunkSizeShift) + z}] = {place ? static_cast<int>(paletteIndex + 1) : 0, 0};
+    edits[{(cx << ChunkSizeShift) + x, y, (cz << ChunkSizeShift) + z}] = {place ? static_cast<int>(palette.index + 1) : 0, 0};
     updateVoxels(edits);
 }
 

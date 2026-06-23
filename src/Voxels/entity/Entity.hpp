@@ -40,8 +40,8 @@ public:
     }
 
     template <std::derived_from<Component> T>
-    T* get() {
-        for (auto& c : components) {
+    T* get(this auto& self) {
+        for (auto& c : self.components) {
             if (auto* ptr = dynamic_cast<T*>(c.get())) {
                 return ptr;
             }

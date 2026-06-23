@@ -28,9 +28,6 @@ protected:
 private:
     void setupInput();
     void setupUI();
-    void drawPaletteEntryEditor(PaletteEntry& entry);
-
-    void uploadPaletteToGPU();
 
     size_t enlargeVerticesBuffer(size_t currentCapacity);
 
