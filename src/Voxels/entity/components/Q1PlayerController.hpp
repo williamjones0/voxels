@@ -6,7 +6,7 @@
 
 class Q1PlayerController : public PlayerController {
 public:
-    Q1PlayerController();
+    explicit Q1PlayerController(Entity& owner);
 
     void update(float dt) override;
 

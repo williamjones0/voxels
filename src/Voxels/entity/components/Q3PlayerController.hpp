@@ -6,7 +6,7 @@
 
 class Q3PlayerController : public PlayerController {
 public:
-    Q3PlayerController();
+    explicit Q3PlayerController(Entity& owner);
 
     void update(float dt) override;
 

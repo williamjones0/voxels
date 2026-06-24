@@ -8,10 +8,11 @@
 
 struct Transform : Component {
     explicit Transform(
+        Entity& owner,
         const glm::vec3 position = glm::vec3(),
         const glm::vec3 angles = glm::vec3(),
         const glm::vec3 scale = glm::vec3(1.0f)
-    ) : position(position), angles(angles), scale(scale) {}
+    ) : Component(owner), position(position), angles(angles), scale(scale) {}
 
     glm::vec3 position;
     glm::vec3 angles;  // {pitch, yaw, roll}
@@ -46,6 +47,8 @@ inline glm::mat4 calculateViewMatrix(const glm::vec3 position, const glm::vec3 a
 }
 
 struct Kinematics : Component {
+    explicit Kinematics(Entity& owner) : Component(owner) {}
+
     glm::vec3 velocity{};
     // float acceleration;
 };

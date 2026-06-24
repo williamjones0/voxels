@@ -8,7 +8,7 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/string_cast.hpp>
 
-FlyPlayerController::FlyPlayerController() {
+FlyPlayerController::FlyPlayerController(Entity& owner) : PlayerController(owner) {
     Input::bindings.insert({{GLFW_KEY_W, GLFW_PRESS}, {ActionType::MoveForward, ActionStateType::Start}});
     Input::bindings.insert({{GLFW_KEY_S, GLFW_PRESS}, {ActionType::MoveBackward, ActionStateType::Start}});
     Input::bindings.insert({{GLFW_KEY_A, GLFW_PRESS}, {ActionType::MoveLeft, ActionStateType::Start}});
@@ -46,8 +46,8 @@ FlyPlayerController::FlyPlayerController() {
 }
 
 void FlyPlayerController::update(float deltaTime) {
-    Entity* player = getEntity();
-    Transform* transform = player->get<Transform>();
+    Entity& player = getEntity();
+    Transform* transform = player.get<Transform>();
     glm::vec3 front = getFront(transform->angles);
     glm::vec3 right = getRight(transform->angles);
     constexpr glm::vec3 WorldUp(0, 1, 0);
@@ -80,7 +80,7 @@ void FlyPlayerController::update(float deltaTime) {
         }
     }
 
-    player->get<Kinematics>()->velocity = positionDelta * movementSpeed;
+    player.get<Kinematics>()->velocity = positionDelta * movementSpeed;
 
     transform->position += positionDelta * vel;
 

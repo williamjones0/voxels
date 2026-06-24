@@ -21,7 +21,7 @@ public:
 
     void registerStats(const WorldManager& worldManager, const Entity& player, float deltaTime);
     void registerController(const Entity& player);
-    void registerCamera(const Entity& camera);
+    void registerCamera(Entity& camera);
     void registerDemo();
     void registerPalette(Palette& palette);
     void registerPrimitives(WorldManager& worldManager, const Entity& player);

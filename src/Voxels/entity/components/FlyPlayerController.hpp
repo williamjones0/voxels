@@ -6,7 +6,7 @@
 
 class FlyPlayerController : public PlayerController {
 public:
-    FlyPlayerController();
+    explicit FlyPlayerController(Entity& owner);
 
     void update(float deltaTime) override;
 

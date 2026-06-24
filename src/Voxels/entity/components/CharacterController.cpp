@@ -15,8 +15,8 @@ void CharacterController::handleCollisions(glm::vec3& velocity, const float dt) 
 }
 
 void CharacterController::collisionDetection(const glm::vec3& velocity, const float dt, std::vector<Contact>& contacts) const {
-    Entity* player = getEntity();
-    const Transform* transform = player->get<Transform>();
+    const Entity& player = getEntity();
+    const Transform* transform = player.get<Transform>();
 
     const glm::vec3 v = velocity * dt;
 
@@ -78,8 +78,8 @@ void CharacterController::intersectSweptAabbAabb(const int x, const int y, const
 }
 
 void CharacterController::collisionResponse(glm::vec3& velocity, const float dt, std::vector<Contact>& contacts) {
-    Entity* player = getEntity();
-    Transform* transform = player->get<Transform>();
+    Entity& player = getEntity();
+    Transform* transform = player.get<Transform>();
 
     const glm::vec3 v = velocity * dt;
     std::sort(contacts.begin(), contacts.end());

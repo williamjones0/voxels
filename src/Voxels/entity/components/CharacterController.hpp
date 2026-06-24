@@ -7,7 +7,7 @@
 
 class CharacterController : public Component {
 public:
-    explicit CharacterController(WorldManager& worldManager, const bool stepUp = false) : worldManager(worldManager), stepUp(stepUp) {}
+    explicit CharacterController(Entity& owner, WorldManager& worldManager, const bool stepUp = false) : Component(owner), worldManager(worldManager), stepUp(stepUp) {}
 
     bool isGrounded = false;
 

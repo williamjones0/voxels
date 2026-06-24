@@ -21,8 +21,8 @@ private:
     void setupInput();
     void setupUI();
 
-    std::unique_ptr<Entity> player;
-    std::unique_ptr<Entity> camera;
+    Entity player;
+    Entity camera;
 
     bool wireframe = false;
     bool noclip = true;

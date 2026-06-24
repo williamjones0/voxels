@@ -9,7 +9,7 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/rotate_vector.hpp>
 
-Q3PlayerController::Q3PlayerController() {
+Q3PlayerController::Q3PlayerController(Entity& owner) : PlayerController(owner) {
     Input::bindings.insert({{GLFW_KEY_W, GLFW_PRESS}, {ActionType::MoveForward, ActionStateType::Start}});
     Input::bindings.insert({{GLFW_KEY_S, GLFW_PRESS}, {ActionType::MoveBackward, ActionStateType::Start}});
     Input::bindings.insert({{GLFW_KEY_A, GLFW_PRESS}, {ActionType::MoveLeft, ActionStateType::Start}});
@@ -40,10 +40,10 @@ Q3PlayerController::Q3PlayerController() {
 void Q3PlayerController::update(const float dt) {
     deltaTime = dt;
 
-    Entity* player = getEntity();
-    Transform* transform = player->get<Transform>();
-    CharacterController* character = player->get<CharacterController>();
-    Kinematics* kinematics = player->get<Kinematics>();
+    Entity& player = getEntity();
+    Transform* transform = player.get<Transform>();
+    CharacterController* character = player.get<CharacterController>();
+    Kinematics* kinematics = player.get<Kinematics>();
     glm::vec3& playerVelocity = kinematics->velocity;
 
     queueJump();
@@ -71,9 +71,9 @@ void Q3PlayerController::queueJump() {
 }
 
 void Q3PlayerController::airMove() {
-    Entity* player = getEntity();
-    Transform* transform = player->get<Transform>();
-    Kinematics* kinematics = player->get<Kinematics>();
+    Entity& player = getEntity();
+    Transform* transform = player.get<Transform>();
+    Kinematics* kinematics = player.get<Kinematics>();
     glm::vec3& playerVelocity = kinematics->velocity;
 
     float accel;
@@ -116,8 +116,8 @@ void Q3PlayerController::airMove() {
 }
 
 void Q3PlayerController::airControl(const glm::vec3 targetDir, const float targetSpeed) {
-    Entity* player = getEntity();
-    Kinematics* kinematics = player->get<Kinematics>();
+    Entity& player = getEntity();
+    Kinematics* kinematics = player.get<Kinematics>();
     glm::vec3& playerVelocity = kinematics->velocity;
 
     // Only control air movement when moving forward or backward
@@ -154,9 +154,9 @@ void Q3PlayerController::airControl(const glm::vec3 targetDir, const float targe
 }
 
 void Q3PlayerController::groundMove() {
-    Entity* player = getEntity();
-    Transform* transform = player->get<Transform>();
-    Kinematics* kinematics = player->get<Kinematics>();
+    Entity& player = getEntity();
+    Transform* transform = player.get<Transform>();
+    Kinematics* kinematics = player.get<Kinematics>();
     glm::vec3& playerVelocity = kinematics->velocity;
 
     // Do not apply friction if the player is queueing up the next jump
@@ -189,9 +189,9 @@ void Q3PlayerController::groundMove() {
 }
 
 void Q3PlayerController::applyFriction(const float t) {
-    Entity* player = getEntity();
-    CharacterController* character = player->get<CharacterController>();
-    Kinematics* kinematics = player->get<Kinematics>();
+    Entity& player = getEntity();
+    CharacterController* character = player.get<CharacterController>();
+    Kinematics* kinematics = player.get<Kinematics>();
     glm::vec3& playerVelocity = kinematics->velocity;
 
     glm::vec3 vec = playerVelocity;
@@ -220,8 +220,8 @@ void Q3PlayerController::applyFriction(const float t) {
 }
 
 void Q3PlayerController::accelerate(const glm::vec3 targetDir, const float targetSpeed, const float accel) const {
-    Entity* player = getEntity();
-    Kinematics* kinematics = player->get<Kinematics>();
+    Entity& player = getEntity();
+    Kinematics* kinematics = player.get<Kinematics>();
     glm::vec3& playerVelocity = kinematics->velocity;
 
     const float currentSpeed = glm::dot(playerVelocity, targetDir);

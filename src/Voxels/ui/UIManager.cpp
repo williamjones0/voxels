@@ -219,7 +219,7 @@ void UIManager::registerController(const Entity& player) {
     });
 }
 
-void UIManager::registerCamera(const Entity& camera) {
+void UIManager::registerCamera(Entity& camera) {
     registerWindow("Camera", [&camera] {
         // FOV slider
         ImGui::Begin("Camera", nullptr, ImGuiWindowFlags_AlwaysAutoResize);

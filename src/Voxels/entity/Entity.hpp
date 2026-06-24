@@ -7,13 +7,11 @@ class Entity;
 
 class Component {
 public:
-    friend class Entity;
-
-    [[nodiscard]] Entity* getEntity() const {
+    [[nodiscard]] Entity& getEntity() const {
         return entity;
     }
 
-    Component() = default;
+    explicit Component(Entity& owner) : entity{owner} {}
     Component(const Component&) = delete;
     Component(Component&&) = delete;
     Component& operator=(const Component&) = delete;
@@ -21,32 +19,30 @@ public:
     virtual ~Component() = default;
 
 private:
-    void setEntity(Entity* entity) {
-        this->entity = entity;
-    }
-    Entity* entity{};
+    Entity& entity;
 };
 
 
 class Entity {
 public:
     template <typename T, typename... Args>
-      requires std::derived_from<T, Component> && std::constructible_from<T, Args...>
+      requires std::derived_from<T, Component> && std::constructible_from<T, Entity&, Args...>
     T* add(Args&& ... args) {
-        auto ptr = std::make_unique<T>(args...);
-        ptr->setEntity(this);
+        auto ptr = std::make_unique<T>(*this, std::forward<Args>(args)...);
         components.push_back(std::move(ptr));
         return static_cast<T*>(components.back().get());
     }
 
-    template <std::derived_from<Component> T>
-    T* get(this auto& self) {
+    template <std::derived_from<Component> T, typename Self>
+    auto* get(this Self&& self) {
+        using Ret = std::conditional_t<
+            std::is_const_v<std::remove_reference_t<Self>>, const T, T>;
         for (auto& c : self.components) {
-            if (auto* ptr = dynamic_cast<T*>(c.get())) {
+            if (auto* ptr = dynamic_cast<Ret*>(c.get())) {
                 return ptr;
             }
         }
-        return nullptr;
+        return static_cast<Ret*>(nullptr);
     }
 
     template <std::derived_from<Component> T>

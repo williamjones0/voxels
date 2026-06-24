@@ -52,7 +52,7 @@ namespace ConvertedQuakeConstants {
     constexpr float AirAccelerateWishSpeedMax = 30 * UnitScale;
 }
 
-Q1PlayerController::Q1PlayerController() {
+Q1PlayerController::Q1PlayerController(Entity& owner) : PlayerController(owner) {
     Input::bindings.insert({{GLFW_KEY_W, GLFW_PRESS}, {ActionType::MoveForward, ActionStateType::Start}});
     Input::bindings.insert({{GLFW_KEY_S, GLFW_PRESS}, {ActionType::MoveBackward, ActionStateType::Start}});
     Input::bindings.insert({{GLFW_KEY_A, GLFW_PRESS}, {ActionType::MoveLeft, ActionStateType::Start}});
@@ -86,10 +86,10 @@ Q1PlayerController::Q1PlayerController() {
 void Q1PlayerController::update(const float dt) {
     deltaTime = dt;
 
-    Entity* player = getEntity();
-    Transform* transform = player->get<Transform>();
-    CharacterController* character = player->get<CharacterController>();
-    Kinematics* kinematics = player->get<Kinematics>();
+    Entity& player = getEntity();
+    Transform* transform = player.get<Transform>();
+    CharacterController* character = player.get<CharacterController>();
+    Kinematics* kinematics = player.get<Kinematics>();
     glm::vec3& playerVelocity = kinematics->velocity;
 
     // Mouse movement
@@ -117,10 +117,10 @@ void Q1PlayerController::update(const float dt) {
 }
 
 void Q1PlayerController::airMove() {
-    Entity* player = getEntity();
-    Transform* transform = player->get<Transform>();
-    CharacterController* character = player->get<CharacterController>();
-    Kinematics* kinematics = player->get<Kinematics>();
+    Entity& player = getEntity();
+    Transform* transform = player.get<Transform>();
+    CharacterController* character = player.get<CharacterController>();
+    Kinematics* kinematics = player.get<Kinematics>();
     glm::vec3& playerVelocity = kinematics->velocity;
 
     // Get the input and scale by the side and forward speeds
@@ -170,9 +170,9 @@ void Q1PlayerController::airMove() {
 }
 
 void Q1PlayerController::applyFriction() const {
-    Entity* player = getEntity();
-    const CharacterController* character = player->get<CharacterController>();
-    Kinematics* kinematics = player->get<Kinematics>();
+    Entity& player = getEntity();
+    const CharacterController* character = player.get<CharacterController>();
+    Kinematics* kinematics = player.get<Kinematics>();
     glm::vec3& playerVelocity = kinematics->velocity;
 
     // If our speed is less than 1, come to a stop
@@ -211,8 +211,8 @@ void Q1PlayerController::applyFriction() const {
 }
 
 void Q1PlayerController::accelerate(const glm::vec3 wishdir, const float wishspeed, const float accel) {
-    Entity* player = getEntity();
-    Kinematics* kinematics = player->get<Kinematics>();
+    Entity& player = getEntity();
+    Kinematics* kinematics = player.get<Kinematics>();
     glm::vec3& playerVelocity = kinematics->velocity;
 
     // Take the magnitude of our current velocity in the direction of wishdir
@@ -242,8 +242,8 @@ void Q1PlayerController::accelerate(const glm::vec3 wishdir, const float wishspe
 }
 
 void Q1PlayerController::airAccelerate(const glm::vec3 wishdir, float wishspeed, const float accel) {
-    Entity* player = getEntity();
-    Kinematics* kinematics = player->get<Kinematics>();
+    Entity& player = getEntity();
+    Kinematics* kinematics = player.get<Kinematics>();
     glm::vec3& playerVelocity = kinematics->velocity;
 
     // Same as the regular accelerate function, but clamp wishspeed to 30

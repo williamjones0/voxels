@@ -42,18 +42,18 @@ bool VoxelsApplication::load() {
         return false;
     }
 
-    player = std::make_unique<Entity>();
-    player->add<Transform>(glm::vec3(8.0f, 80.0f, 8.0f));
-    player->add<Kinematics>();
+    player = Entity();
+    player.add<Transform>(glm::vec3(8.0f, 80.0f, 8.0f));
+    player.add<Kinematics>();
     if (noclip) {
-        player->add<FlyPlayerController>();
+        player.add<FlyPlayerController>();
     } else {
-        player->add<Q1PlayerController>();
-        player->add<CharacterController>(worldManager, true);
+        player.add<Q1PlayerController>();
+        player.add<CharacterController>(worldManager, true);
     }
 
-    camera = std::make_unique<Entity>();
-    camera->add<CameraProperties>();
+    camera = Entity();
+    camera.add<CameraProperties>();
 
     worldManager.createChunk(0, 0);
 
@@ -88,14 +88,14 @@ void VoxelsApplication::setupInput() {
 
     // Register action callbacks
     Input::registerCallback({ActionType::Break, ActionStateType::None}, [this] {
-        if (const auto result = worldManager.raycast(player->get<Transform>()->position, getFront(player->get<Transform>()->angles), 16)) {
+        if (const auto result = worldManager.raycast(player.get<Transform>()->position, getFront(player.get<Transform>()->angles), 16)) {
             worldManager.propagateTorchLight((result->cx << ChunkSizeShift) + result->x, result->y, (result->cz << ChunkSizeShift) + result->z, 15);
             // worldManager.updateVoxel(*result, false);
         }
     });
 
     Input::registerCallback({ActionType::Place, ActionStateType::None}, [this] {
-        if (const auto result = worldManager.raycast(player->get<Transform>()->position, getFront(player->get<Transform>()->angles), 16)) {
+        if (const auto result = worldManager.raycast(player.get<Transform>()->position, getFront(player.get<Transform>()->angles), 16)) {
             worldManager.updateVoxel(*result, true);
         }
     });
@@ -144,13 +144,13 @@ void VoxelsApplication::setupInput() {
         noclip = !noclip;
 
         if (noclip) {
-            player->remove<Q1PlayerController>();
-            player->remove<CharacterController>();
-            player->add<FlyPlayerController>();
+            player.remove<Q1PlayerController>();
+            player.remove<CharacterController>();
+            player.add<FlyPlayerController>();
         } else {
-            player->remove<FlyPlayerController>();
-            player->add<Q1PlayerController>();
-            player->add<CharacterController>(worldManager);
+            player.remove<FlyPlayerController>();
+            player.add<Q1PlayerController>();
+            player.add<CharacterController>(worldManager);
         }
     });
 
@@ -162,13 +162,13 @@ void VoxelsApplication::setupInput() {
 }
 
 void VoxelsApplication::setupUI() {
-    uiManager.registerStats(worldManager, *player, deltaTime);
-    uiManager.registerController(*player);
-    uiManager.registerCamera(*camera);
+    uiManager.registerStats(worldManager, player, deltaTime);
+    uiManager.registerController(player);
+    uiManager.registerCamera(camera);
     uiManager.registerDemo();
     uiManager.registerPalette(worldManager.palette);
-    uiManager.registerPrimitives(worldManager, *player);
-    uiManager.registerLookAt(worldManager, *player);
+    uiManager.registerPrimitives(worldManager, player);
+    uiManager.registerLookAt(worldManager, player);
 }
 
 void VoxelsApplication::update() {
@@ -176,7 +176,7 @@ void VoxelsApplication::update() {
 
     Application::update();
 
-    while (worldManager.updateFrontierChunks(player->get<Transform>()->position)) {}
+    while (worldManager.updateFrontierChunks(player.get<Transform>()->position)) {}
 
     // If any chunks have finished generating, update their voxel field
     worldManager.updateGeneratedChunks();
@@ -185,10 +185,10 @@ void VoxelsApplication::update() {
 
     worldManager.updateVerticesBuffer(renderer.verticesBuffer, renderer.chunkDataBuffer);
 
-    player->get<PlayerController>()->update(deltaTime);
+    player.get<PlayerController>()->update(deltaTime);
 
-    const glm::vec3 playerPosition = player->get<Transform>()->position;
-    const glm::vec3 velocity = player->get<Kinematics>()->velocity;
+    const glm::vec3 playerPosition = player.get<Transform>()->position;
+    const glm::vec3 velocity = player.get<Kinematics>()->velocity;
     const float currentSpeed = glm::length(glm::vec3{velocity.x, 0, velocity.z});
 
     // std::cout << "Frame time: " << deltaTime << "\t FPS: " << (1.0f / deltaTime) << std::endl;
@@ -198,7 +198,7 @@ void VoxelsApplication::update() {
                         ", Z: " + std::to_string(playerPosition.z) +
                         " | speed: " + std::to_string(currentSpeed) +
                         " | vel: " + glm::to_string(velocity) +
-                        " | front: " + glm::to_string(getFront(player->get<Transform>()->angles));
+                        " | front: " + glm::to_string(getFront(player.get<Transform>()->angles));
 
     glfwSetWindowTitle(windowHandle, title.c_str());
 }
@@ -215,7 +215,7 @@ void VoxelsApplication::render() {
         firstFrame = false;
     }
 
-    renderer.render(*camera, *player);
+    renderer.render(camera, player);
     uiManager.render();
 }
 
