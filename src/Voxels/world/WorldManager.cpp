@@ -317,7 +317,7 @@ void WorldManager::updateGeneratedChunks() {
     }
 }
 
-void WorldManager::updateVerticesBuffer(const GLuint& verticesBuffer, const GLuint& chunkDataBuffer) {
+void WorldManager::updateVerticesBuffer(GLuint verticesBuffer, GLuint chunkDataBuffer) {
     ZoneScoped;
 
     {

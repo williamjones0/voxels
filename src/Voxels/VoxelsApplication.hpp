@@ -2,19 +2,11 @@
 
 #include "Application.hpp"
 
-#include "opengl/Shader.h"
+#include "entity/Entity.hpp"
+#include "opengl/Renderer.hpp"
+#include "ui/UIManager.hpp"
 #include "world/Chunk.hpp"
 #include "world/WorldManager.hpp"
-#include "entity/Entity.hpp"
-#include "ui/UIManager.hpp"
-
-struct ChunkDrawCommand {
-    unsigned int count;
-    unsigned int instanceCount;
-    unsigned int firstIndex;
-    unsigned int baseInstance;
-    unsigned int chunkIndex;
-};
 
 class VoxelsApplication final : public Application {
 protected:
@@ -29,20 +21,15 @@ private:
     void setupInput();
     void setupUI();
 
-    size_t enlargeVerticesBuffer(size_t currentCapacity);
-
     std::unique_ptr<Entity> player;
     std::unique_ptr<Entity> camera;
 
     bool wireframe = false;
     bool noclip = true;
 
-    Shader shader{};
-    Shader drawCommandProgram{};
-
     WorldManager worldManager = WorldManager(
         [this](const size_t size) {
-            return enlargeVerticesBuffer(size);
+            return renderer.enlargeVerticesBuffer(size);
         },
         GenerationType::None,
         std::filesystem::path(PROJECT_SOURCE_DIR) / "data/levels/ztndm4.json"
@@ -50,13 +37,7 @@ private:
 
     UIManager uiManager;
 
-    GLuint dummyVAO = 0;
-    GLuint chunkDrawCmdBuffer = 0;
-    GLuint chunkDataBuffer = 0;
-    GLuint commandCountBuffer = 0;
-    GLuint verticesBuffer = 0;
-    GLuint paletteBuffer = 0;
+    Renderer renderer{windowWidth, windowHeight};
 
-    bool background = false;
     bool firstFrame = true;
 };

@@ -5,12 +5,10 @@
 #include "../core/FreeListAllocator.hpp"
 #include "../core/ThreadPool.hpp"
 #include "../Palette.hpp"
-#include "VertexFormat.hpp"
 #include "Primitive.hpp"
 
 #include <glad/glad.h>
 
-#include <array>
 #include <atomic>
 #include <filesystem>
 #include <mutex>
@@ -76,7 +74,7 @@ public:
     static size_t key(int i, int j);
 
     void updateGeneratedChunks();
-    void updateVerticesBuffer(const GLuint& verticesBuffer, const GLuint& chunkDataBuffer);
+    void updateVerticesBuffer(GLuint verticesBuffer, GLuint chunkDataBuffer);
     std::shared_ptr<Chunk> getChunk(int cx, int cz);
     std::shared_ptr<Chunk> getChunkFromWorld(int x, int z);
 
