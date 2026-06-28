@@ -11,7 +11,7 @@ constexpr siv::PerlinNoise::seed_type s = seed;
 const siv::PerlinNoise perlin{ s };
 
 Chunk::Chunk(const int cx, const int cz)
-  : cx(cx), cz(cz)
+  : cx(cx), cz(cz), lightMap(VoxelsSize, 0)
 {}
 
 void Chunk::store(const int x, const int y, const int z, const int v) {
@@ -48,8 +48,6 @@ auto Chunk::generateFlat() -> GenerationResult {
 
     result.minY = 0;
     result.maxY = ChunkHeight / 2 + 2;
-
-    result.lightMap = generateLightMapSun(result);
 
     return result;
 }
@@ -122,8 +120,6 @@ auto Chunk::generateVoxels2D(const int cx, const int cz) -> GenerationResult {
     result.minY = std::max(0, result.minY - 1);
     result.maxY = std::min(ChunkHeight, result.maxY + 1);
 
-    result.lightMap = generateLightMapSun(result);
-
     return result;
 }
 
@@ -149,27 +145,24 @@ auto Chunk::generateVoxels3D(const int cx, const int cz) -> GenerationResult {
     result.minY = std::max(0, result.minY - 1);
     result.maxY = std::min(ChunkHeight, result.maxY + 2);
 
-    result.lightMap = generateLightMapSun(result);
-
     return result;
 }
 
-std::vector<uint8_t> Chunk::generateLightMapSun(const GenerationResult& result) {
-    std::vector<uint8_t> lightMap(VoxelsSize, 0);
+std::vector<LightNode> Chunk::generateSunlightPositions(const GenerationResult& result) {
+    std::vector<LightNode> positions;
+
+    const int xOffset = result.chunk->cx << ChunkSizeShift;
+    const int zOffset = result.chunk->cz << ChunkSizeShift;
 
     for (int z = -1; z < ChunkSize + 1; ++z) {
         for (int x = -1; x < ChunkSize + 1; ++x) {
-            for (int y = result.maxY - 1; y >= result.minY; --y) {
-                if (result.voxelField[getVoxelIndex(x, y, z)] == 0) {
-                    lightMap[getVoxelIndex(x, y, z)] = 0xF;
-                } else {
-                    break;
-                }
+            if (result.voxelField[getVoxelIndex(x, ChunkHeight - 1, z)] == EmptyVoxel) {
+                positions.push_back({xOffset + x, ChunkHeight - 1, zOffset + z});
             }
         }
     }
 
-    return lightMap;
+    return positions;
 }
 
 int Chunk::getSunlight(int x, int y, int z) const {

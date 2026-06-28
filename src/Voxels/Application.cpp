@@ -123,6 +123,10 @@ void Application::loop() {
     ZoneScoped;
 
     {
+        ZoneScopedN("Poll Events");
+        glfwPollEvents();
+    }
+    {
         ZoneScopedN("Process Input");
         processInput();
     }
@@ -133,10 +137,6 @@ void Application::loop() {
     {
         ZoneScopedN("Render");
         render();
-    }
-    {
-        ZoneScopedN("Poll Events");
-        glfwPollEvents();
     }
     {
         ZoneScopedN("Swap Buffers");

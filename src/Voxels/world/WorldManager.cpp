@@ -300,13 +300,28 @@ void WorldManager::updateGeneratedChunks() {
     {
         ZoneScoped;
 
-        for (auto& [chunk, voxelField, lightMap, minY, maxY] : pendingGenerationResults) {
+        // Update all lightmaps first
+        for (auto& [chunk, voxelField, sunlightPositions, minY, maxY] : pendingGenerationResults) {
             chunk->voxels = std::move(voxelField);
-            chunk->lightMap = std::move(lightMap);
             chunk->minY = minY;
             chunk->maxY = maxY;
 
-            // Only once the generation has finished, can we call this function
+            const int xOffset = chunk->cx << ChunkSizeShift;
+            const int zOffset = chunk->cz << ChunkSizeShift;
+            for (const auto [x, y, z] : sunlightPositions) {
+                chunk->setSunlight(x - xOffset, y, z - zOffset, 0xF);
+            }
+        }
+
+        // Then propagate all
+        for (auto& [chunk, voxelField, sunlightPositions, minY, maxY] : pendingGenerationResults) {
+            if (std::ranges::any_of(chunk->voxels, [](int v) { return v != 0; })) {
+                propagateSunlight(sunlightPositions);
+            }
+        }
+
+        // Then mesh everything
+        for (auto& [chunk, voxelField, sunlightPositions, minY, maxY] : pendingGenerationResults) {
             {
                 ZoneScoped;
                 queueMeshChunk(chunk);
@@ -425,6 +440,8 @@ void WorldManager::queueGenerateChunk(std::shared_ptr<Chunk> chunk) {
 
         // Handle primitives
         applyEdits(cx, cz, result);
+
+        result.sunlightPositions = Chunk::generateSunlightPositions(result);
 
         // Update the chunk itself on the main thread
         {
@@ -699,10 +716,13 @@ int WorldManager::load(const int x, const int y, const int z) {
     const int cz = z >> ChunkSizeShift;
 
     const auto it = chunkByCoords.find(key(cx, cz));
-    if (it == chunkByCoords.end() || !it->second || !it->second->bufferRegionAllocated) {
+    if (it == chunkByCoords.end() || !it->second) {
         return 0;
     }
     const std::shared_ptr<Chunk> chunk = it->second;
+    if (chunk->voxels.empty()) {
+        return 0;
+    }
 
     const int lx = x - (cx << ChunkSizeShift);
     const int lz = z - (cz << ChunkSizeShift);
@@ -1232,12 +1252,63 @@ void WorldManager::setTorchlight(int x, int y, int z, int val) {
     }
 }
 
-void WorldManager::propagateTorchLight(int x, int y, int z, int lightLevel) {
+int WorldManager::getSunlight(int x, int y, int z) {
+    if (y < 0) return 0;
 
-    struct LightNode {
-        int x, y, z;
+    int cx = x >> ChunkSizeShift;
+    int cz = z >> ChunkSizeShift;
+    auto chunk = getChunk(cx, cz);
+    if (!chunk) return 0;
+
+    const int lx = x - (cx << ChunkSizeShift);
+    const int lz = z - (cz << ChunkSizeShift);
+
+    return chunk->getSunlight(lx, y, lz);
+}
+
+void WorldManager::setSunlight(int x, int y, int z, int val) {
+    if (y < 0) return;
+
+    int cx = x >> ChunkSizeShift;
+    int cz = z >> ChunkSizeShift;
+    auto chunk = getChunk(cx, cz);
+    if (!chunk) return;
+
+    const int lx = x - (cx << ChunkSizeShift);
+    const int lz = z - (cz << ChunkSizeShift);
+
+    chunk->setSunlight(lx, y, lz, val);
+
+    auto storeLightValue = [this](int cx, int cz, int lx, int y, int lz, int light) {
+        auto chunk = getChunk(cx, cz);
+        if (!chunk) return;
+
+        chunk->setSunlight(lx, y, lz, light);
     };
 
+    if (lx == 0) {
+        storeLightValue(cx - 1, cz, ChunkSize, y, lz, val);
+        if (lz == 0) {
+            storeLightValue(cx - 1, cz - 1, ChunkSize, y, ChunkSize, val);
+        } else if (lz == ChunkSize - 1) {
+            storeLightValue(cx - 1, cz + 1, ChunkSize, y, -1, val);
+        }
+    } else if (lx == ChunkSize - 1) {
+        storeLightValue(cx + 1, cz, -1, y, lz, val);
+        if (lz == 0) {
+            storeLightValue(cx + 1, cz - 1, -1, y, ChunkSize, val);
+        } else if (lz == ChunkSize - 1) {
+            storeLightValue(cx + 1, cz + 1, -1, y, -1, val);
+        }
+    }
+    if (lz == 0) {
+        storeLightValue(cx, cz - 1, lx, y, ChunkSize, val);
+    } else if (lz == ChunkSize - 1) {
+        storeLightValue(cx, cz + 1, lx, y, -1, val);
+    }
+}
+
+void WorldManager::propagateTorchLight(int x, int y, int z, int lightLevel) {
     std::queue<LightNode> queue;
 
     std::unordered_set<std::shared_ptr<Chunk>> chunksToMeshSet;
@@ -1314,6 +1385,80 @@ void WorldManager::propagateTorchLight(int x, int y, int z, int lightLevel) {
     }
 }
 
+void WorldManager::propagateSunlight(const std::vector<LightNode>& positions) {
+    std::queue<LightNode> queue;
+    for (const auto [x, y, z] : positions) {
+        queue.push({x, y, z});
+    }
+
+    std::unordered_set<std::shared_ptr<Chunk>> chunksToMeshSet;
+
+    constexpr std::array directions{
+        std::array{ 1,  0,  0},
+        std::array{-1,  0,  0},
+        std::array{ 0,  1,  0},
+        std::array{ 0, -1,  0},
+        std::array{ 0,  0,  1},
+        std::array{ 0,  0, -1}
+    };
+
+    while (!queue.empty()) {
+
+        auto [x, y, z] = queue.front();
+        queue.pop();
+
+        int currentLight = getSunlight(x, y, z);
+
+        if (currentLight <= 1) {
+            continue;
+        }
+
+        auto currentChunk = getChunkFromWorld(x, z);
+        if (currentChunk) {
+            chunksToMeshSet.insert(currentChunk);
+        }
+
+        for (auto [dx, dy, dz] : directions) {
+
+            int nx = x + dx;
+            int ny = y + dy;
+            int nz = z + dz;
+
+            // skip out of bounds
+            if (ny < 0 || ny >= ChunkHeight) {
+                continue;
+            }
+
+            // temp (make this better)
+            if (nx < -5 || nx > 64 || nz < -10 || nz > 64) {
+                continue;
+            }
+
+            // skip solid blocks
+            if (load(nx, ny, nz) != 0) {
+                continue;
+            }
+
+            auto neighbourChunk = getChunkFromWorld(nx, nz);
+            if (neighbourChunk) {
+                chunksToMeshSet.insert(neighbourChunk);
+            }
+
+            const int newLight = (dy == -1 && currentLight == 0xF) ? currentLight : currentLight - 1;
+
+            if (getSunlight(nx, ny, nz) <= newLight - 1) {
+
+                setSunlight(nx, ny, nz, newLight);
+                queue.push({nx, ny, nz});
+            }
+        }
+    }
+
+    for (auto& chunk : chunksToMeshSet) {
+        queueMeshChunk(chunk);
+    }
+}
+
 VoxelInfo WorldManager::getVoxelInfoAtWorld(int worldX, int worldY, int worldZ) const {
     // Out of vertical bounds
     if (worldY < 0 || worldY >= ChunkHeight) {
@@ -1350,10 +1495,10 @@ VoxelInfo WorldManager::getVoxelInfoAtWorld(int worldX, int worldY, int worldZ) 
 
     // Read voxel type and light
     const int type = chunk->load(lx, worldY, lz);
-    const int lightInt = chunk->getTorchlight(lx, worldY, lz);
-    const uint8_t light = static_cast<uint8_t>(std::clamp(lightInt, 0, 255));
+    const int torchlightInt = chunk->getTorchlight(lx, worldY, lz);
+    const int sunlightInt = chunk->getSunlight(lx, worldY, lz);
 
-    return VoxelInfo{ true, type, light };
+    return VoxelInfo{ true, type, torchlightInt, sunlightInt };
 }
 
 void WorldManager::cleanup() {

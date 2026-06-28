@@ -22,7 +22,7 @@ struct ChunkDrawCommand {
 out vec3 ourColor;
 flat out int normal;
 out float fragAO;
-out float fragLight;
+flat out int fragLightLevel;
 
 out vec2 vTexCoord;
 flat out int vColourIndex;
@@ -81,8 +81,7 @@ void main() {
     normal = int((vertex >> normalShift) & normalMask);
     float ao = float((vertex >> aoShift) & aoMask);
 
-    float light = float((vertex >> lightShift) & lightMask);
-    fragLight = light / 15.0;
+    fragLightLevel = int((vertex >> lightShift) & lightMask);
 
     mat4 model = mat4(1.0, 0.0, 0.0, 0.0,
                       0.0, 1.0, 0.0, 0.0,

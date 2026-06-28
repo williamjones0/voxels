@@ -40,7 +40,8 @@ struct RaycastResult {
 struct VoxelInfo {
     bool valid;   // true when data is available for this world coordinate
     int type;     // voxel / palette index (0 = empty / air)
-    uint8_t light; // lightmap value (0..255 or your project's range)
+    int torchlight;
+    int sunlight;
 };
 
 constexpr int InitialVertexBufferSize = 1 << 20;
@@ -97,7 +98,10 @@ public:
 
     int getTorchlight(int x, int y, int z);
     void setTorchlight(int x, int y, int z, int val);
+    int getSunlight(int x, int y, int z);
+    void setSunlight(int x, int y, int z, int val);
     void propagateTorchLight(int x, int y, int z, int lightLevel);
+    void propagateSunlight(const std::vector<LightNode>& positions);
 
     VoxelInfo getVoxelInfoAtWorld(int worldX, int worldY, int worldZ) const;
 

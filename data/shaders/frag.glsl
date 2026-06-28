@@ -6,7 +6,7 @@ in float fragAO;
 in vec2 vTexCoord;
 flat in int vColourIndex;
 flat in int normal;
-in float fragLight;
+flat in int fragLightLevel;
 
 uniform sampler2D atlas;
 uniform int windowWidth;
@@ -38,7 +38,27 @@ float get_shade(int type) {
 void main() {
     float shade = get_shade(normal);
     float ao = clamp(fragAO, 0.0, 1.0);
-    float light = clamp(fragLight, 0.0, 1.0);
+
+    const float brightness[16] = float[](
+        0.08,
+        0.10,
+        0.12,
+        0.15,
+        0.19,
+        0.24,
+        0.30,
+        0.37,
+        0.46,
+        0.56,
+        0.67,
+        0.77,
+        0.85,
+        0.91,
+        0.96,
+        1.00
+    );
+
+    float light = brightness[fragLightLevel];
 
     PaletteEntry entry = palette[vColourIndex];
 

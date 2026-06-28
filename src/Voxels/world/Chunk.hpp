@@ -3,6 +3,7 @@
 #include <atomic>
 #include <memory>
 #include <mutex>
+#include <queue>
 #include <vector>
 
 constexpr int ChunkSizeShift = 4;
@@ -21,12 +22,16 @@ enum class GenerationType {
 
 constexpr int EmptyVoxel = 0;
 
+struct LightNode {
+    int x, y, z;
+};
+
 class Chunk {
 public:
     struct GenerationResult {
         std::shared_ptr<Chunk> chunk;
         std::vector<int> voxelField = std::vector(VoxelsSize, 0);
-        std::vector<uint8_t> lightMap = std::vector<uint8_t>(VoxelsSize, 0);
+        std::vector<LightNode> sunlightPositions;
         int minY{};
         int maxY{};
     };
@@ -55,7 +60,7 @@ public:
     int debug = 0;
 
     std::vector<int> voxels{};
-    std::vector<uint8_t> lightMap{};
+    std::vector<uint8_t> lightMap;
     void store(int x, int y, int z, int v);
     int load(int x, int y, int z) const;
 
@@ -65,7 +70,7 @@ public:
     static GenerationResult generateVoxels2D(int cx, int cz);
     static GenerationResult generateVoxels3D(int cx, int cz);
 
-    static std::vector<uint8_t> generateLightMapSun(const GenerationResult& result);
+    static std::vector<LightNode> generateSunlightPositions(const GenerationResult& result);
 
     int getSunlight(int x, int y, int z) const;
     void setSunlight(int x, int y, int z, int val);

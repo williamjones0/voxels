@@ -89,8 +89,8 @@ void VoxelsApplication::setupInput() {
     // Register action callbacks
     Input::registerCallback({ActionType::Break, ActionStateType::None}, [this] {
         if (const auto result = worldManager.raycast(player.get<Transform>()->position, getFront(player.get<Transform>()->angles), 16)) {
-            worldManager.propagateTorchLight((result->cx << ChunkSizeShift) + result->x, result->y, (result->cz << ChunkSizeShift) + result->z, 15);
-            // worldManager.updateVoxel(*result, false);
+            // worldManager.propagateTorchLight((result->cx << ChunkSizeShift) + result->x, result->y, (result->cz << ChunkSizeShift) + result->z, 15);
+            worldManager.updateVoxel(*result, false);
         }
     });
 

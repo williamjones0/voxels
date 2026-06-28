@@ -489,7 +489,7 @@ void UIManager::registerLookAt(WorldManager& worldManager, const Entity& player)
                     ImGui::Separator();
                     ImGui::Text("Looked voxel:");
                     ImGui::Text("  Type: %d", info.type);
-                    ImGui::Text("  Light: %d", info.light);
+                    ImGui::Text("  Light: (%d, %d)", info.torchlight, info.sunlight);
                     if (info.type > 0 && info.type <= static_cast<int>(worldManager.palette.size())) {
                         const auto& entry = worldManager.palette.getEntry(info.type - 1);
                         ImGui::SameLine();
@@ -522,7 +522,7 @@ void UIManager::registerLookAt(WorldManager& worldManager, const Entity& player)
 
                     const auto ninfo = worldManager.getVoxelInfoAtWorld(nx, ny, nz);
                     if (ninfo.valid) {
-                        ImGui::Text("%s (%d,%d,%d): type=%d light=%d", d.name, nx, ny, nz, ninfo.type, ninfo.light);
+                        ImGui::Text("%s (%d,%d,%d): type=%d light=(%d,%d)", d.name, nx, ny, nz, ninfo.type, ninfo.torchlight, ninfo.sunlight);
                         if (ninfo.type > 0 && ninfo.type <= static_cast<int>(worldManager.palette.size())) {
                             const auto& entry = worldManager.palette.getEntry(ninfo.type - 1);
                             ImGui::SameLine();
