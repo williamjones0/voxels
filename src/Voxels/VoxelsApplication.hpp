@@ -21,6 +21,8 @@ private:
     void setupInput();
     void setupUI();
 
+    void saveScreenshot();
+
     Entity player;
     Entity camera;
 

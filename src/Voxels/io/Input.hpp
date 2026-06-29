@@ -22,6 +22,8 @@ enum class ActionType {
     Break,
     Place,
 
+    Screenshot,
+
     Exit,
     ToggleWireframe,
     SaveLevel,

@@ -3,8 +3,13 @@
 #define GLM_ENABLE_EXPERIMENTAL
 #include <glm/gtx/string_cast.hpp>
 
+#include <imgui.h>
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include <stb_image_write.h>
 #include <tracy/Tracy.hpp>
 #include <tracy/TracyOpenGL.hpp>
+
+#include <iostream>
 
 #include "entity/components/CameraProperties.hpp"
 #include "entity/components/CharacterController.hpp"
@@ -82,6 +87,8 @@ void VoxelsApplication::setupInput() {
     Input::bindings.insert({{Input::uiToggleKey, GLFW_PRESS}, {ActionType::ToggleUIMode, ActionStateType::None}});
     Input::bindings.insert({{GLFW_MOUSE_BUTTON_4, GLFW_PRESS, true}, {ActionType::ToggleNoclip, ActionStateType::None}});
 
+    Input::bindings.insert({{GLFW_KEY_F12, GLFW_PRESS}, {ActionType::Screenshot, ActionStateType::None}});
+
     for (int i = 0; i < worldManager.palette.size(); ++i) {
         Input::bindings.insert({{GLFW_KEY_1 + i, GLFW_PRESS}, {ActionType::SelectPaletteIndex, ActionStateType::None, i}});
     }
@@ -98,6 +105,10 @@ void VoxelsApplication::setupInput() {
         if (const auto result = worldManager.raycast(player.get<Transform>()->position, getFront(player.get<Transform>()->angles), 16)) {
             worldManager.updateVoxel(*result, true);
         }
+    });
+
+    Input::registerCallback({ActionType::Screenshot, ActionStateType::None}, [this] {
+        saveScreenshot();
     });
 
     Input::registerCallback({ActionType::Exit, ActionStateType::None}, [this] {
@@ -229,4 +240,60 @@ void VoxelsApplication::cleanup() {
     uiManager.cleanup();
 
     Application::cleanup();
+}
+
+void VoxelsApplication::saveScreenshot()
+{
+    int width = windowWidth;
+    int height = windowHeight;
+    std::vector<unsigned char> pixels(width * height * 3);
+
+    glPixelStorei(GL_PACK_ALIGNMENT, 1);
+
+    glReadBuffer(GL_FRONT);   // use GL_BACK if taking screenshot before swapping
+    glReadPixels(
+        0, 0,
+        width, height,
+        GL_RGB,
+        GL_UNSIGNED_BYTE,
+        pixels.data());
+
+    // Flip vertically
+    std::vector<unsigned char> flipped(width * height * 3);
+
+    for (int y = 0; y < height; ++y)
+    {
+        memcpy(
+            &flipped[y * width * 3],
+            &pixels[(height - 1 - y) * width * 3],
+            width * 3);
+    }
+
+    // Timestamp filename
+    auto now = std::chrono::system_clock::now();
+    auto t = std::chrono::system_clock::to_time_t(now);
+
+    std::tm tm{};
+#ifdef _WIN32
+    localtime_s(&tm, &t);
+#else
+    localtime_r(&t, &tm);
+#endif
+
+    std::ostringstream filename;
+    filename << "screenshots/";
+    filename << std::put_time(&tm, "%Y-%m-%d_%H-%M-%S");
+    filename << ".png";
+
+    std::filesystem::create_directory("screenshots");
+
+    stbi_write_png(
+        filename.str().c_str(),
+        width,
+        height,
+        3,
+        flipped.data(),
+        width * 3);
+
+    std::cout << "Saved screenshot at " << filename.str() << std::endl;
 }
