@@ -60,11 +60,14 @@ public:
     int debug = 0;
 
     std::vector<int> voxels{};
+    std::vector<LightNode> sunlightPositions{};
     std::vector<uint8_t> lightMap;
     void store(int x, int y, int z, int v);
     int load(int x, int y, int z) const;
 
     static void storeInto(std::vector<int>& field, int& minY, int& maxY, int x, int y, int z, int v);  // TODO: maybe a better way to do this
+
+    bool columnOpenToSky(int x, int z) const;
 
     static GenerationResult generateFlat();
     static GenerationResult generateVoxels2D(int cx, int cz);

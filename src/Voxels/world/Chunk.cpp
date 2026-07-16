@@ -1,7 +1,5 @@
 #include "Chunk.hpp"
 
-#include <queue>
-
 #include "../util/PerlinNoise.hpp"
 
 constexpr float Epsilon = 0.000001;
@@ -29,6 +27,15 @@ void Chunk::storeInto(std::vector<int>& field, int& minY, int& maxY, const int x
     field[getVoxelIndex(x, y, z)] = v;
     minY = std::min(minY, y);
     maxY = std::max(maxY, y + 2);
+}
+
+bool Chunk::columnOpenToSky(const int x, const int z) const {
+    for (int y = minY; y < maxY; ++y) {
+        if (load(x, y, z) != EmptyVoxel) {
+            return false;
+        }
+    }
+    return true;
 }
 
 auto Chunk::generateFlat() -> GenerationResult {

@@ -100,8 +100,11 @@ public:
     void setTorchlight(int x, int y, int z, int val);
     int getSunlight(int x, int y, int z);
     void setSunlight(int x, int y, int z, int val);
-    void propagateTorchLight(int x, int y, int z, int lightLevel);
-    void propagateSunlight(const std::vector<LightNode>& positions);
+
+    std::unordered_set<std::shared_ptr<Chunk>> propagateTorchLight(std::vector<LightNode> queue);
+    std::unordered_set<std::shared_ptr<Chunk>> propagateSunlight(std::vector<LightNode> queue);
+    std::unordered_set<std::shared_ptr<Chunk>> removeTorchlight(int x, int y, int z);
+    std::unordered_set<std::shared_ptr<Chunk>> removeSunlight(int x, int y, int z);
 
     VoxelInfo getVoxelInfoAtWorld(int worldX, int worldY, int worldZ) const;
 
