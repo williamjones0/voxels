@@ -319,7 +319,7 @@ void WorldManager::updateGeneratedChunks() {
         // Then propagate all
         for (auto& [chunk, voxelField, sunlightPositions, minY, maxY] : pendingGenerationResults) {
             if (std::ranges::any_of(chunk->voxels, [](int v) { return v != 0; })) {
-                chunksToMesh.merge(propagateSunlight(sunlightPositions));
+                chunksToMesh.merge(propagateLight(sunlightPositions, true));
             }
         }
 
@@ -964,48 +964,48 @@ void WorldManager::updateVoxels(Primitive::EditMap& edits) {
 
             // Torchlight
             auto maxNeighbourLight = std::max({
-                getTorchlight(x - 1, y, z),
-                getTorchlight(x + 1, y, z),
-                getTorchlight(x, y - 1, z),
-                getTorchlight(x, y + 1, z),
-                getTorchlight(x, y, z - 1),
-                getTorchlight(x, y, z + 1),
+                getLight(x - 1, y, z, false),
+                getLight(x + 1, y, z, false),
+                getLight(x, y - 1, z, false),
+                getLight(x, y + 1, z, false),
+                getLight(x, y, z - 1, false),
+                getLight(x, y, z + 1, false),
             });
 
             if (maxNeighbourLight > 1) {
-                setTorchlight(x, y, z, maxNeighbourLight - 1);
-                chunksToMesh.merge(propagateTorchLight({{x, y, z}}));
+                setLight(x, y, z, maxNeighbourLight - 1, false);
+                chunksToMesh.merge(propagateLight({{x, y, z}}, false));
             }
 
             // Skylight
             if (chunk->columnOpenToSky(lx, lz)) {
-                chunksToMesh.merge(propagateSunlight({{x, y, z}}));
+                chunksToMesh.merge(propagateLight({{x, y, z}}, true));
             } else {
                 auto maxNeighbourLight = std::max({
-                    getSunlight(x - 1, y, z),
-                    getSunlight(x + 1, y, z),
-                    getSunlight(x, y - 1, z),
-                    getSunlight(x, y + 1, z),
-                    getSunlight(x, y, z - 1),
-                    getSunlight(x, y, z + 1),
+                    getLight(x - 1, y, z, true),
+                    getLight(x + 1, y, z, true),
+                    getLight(x, y - 1, z, true),
+                    getLight(x, y + 1, z, true),
+                    getLight(x, y, z - 1, true),
+                    getLight(x, y, z + 1, true),
                 });
 
                 if (maxNeighbourLight > 1) {
-                    setSunlight(x, y, z, maxNeighbourLight - 1);
-                    chunksToMesh.merge(propagateSunlight({{x, y, z}}));
+                    setLight(x, y, z, maxNeighbourLight - 1, true);
+                    chunksToMesh.merge(propagateLight({{x, y, z}}, true));
                 }
             }
         } else {
             // Placing
 
             // Torchlight
-            if (getTorchlight(x, y, z) > 0) {
-                chunksToMesh.merge(removeTorchlight(x, y, z));
+            if (getLight(x, y, z, false) > 0) {
+                chunksToMesh.merge(removeLight(x, y, z, false));
             }
 
             // Sunlight
-            if (getSunlight(x, y, z) > 0) {
-                chunksToMesh.merge(removeSunlight(x, y, z));
+            if (getLight(x, y, z, true) > 0) {
+                chunksToMesh.merge(removeLight(x, y, z, true));
             }
         }
     }
@@ -1259,7 +1259,7 @@ void WorldManager::movePrimitive(const size_t index, const glm::ivec3& newOrigin
     }
 }
 
-int WorldManager::getTorchlight(int x, int y, int z) {
+int WorldManager::getLight(int x, int y, int z, bool isSun) {
     if (y < 0) return 0;
 
     int cx = x >> ChunkSizeShift;
@@ -1270,10 +1270,10 @@ int WorldManager::getTorchlight(int x, int y, int z) {
     const int lx = x - (cx << ChunkSizeShift);
     const int lz = z - (cz << ChunkSizeShift);
 
-    return chunk->getTorchlight(lx, y, lz);
+    return isSun ? chunk->getSunlight(lx, y, lz) : chunk->getTorchlight(lx, y, lz);
 }
 
-void WorldManager::setTorchlight(int x, int y, int z, int val) {
+void WorldManager::setLight(int x, int y, int z, int val, bool isSun) {
     if (y < 0) return;
 
     int cx = x >> ChunkSizeShift;
@@ -1284,13 +1284,21 @@ void WorldManager::setTorchlight(int x, int y, int z, int val) {
     const int lx = x - (cx << ChunkSizeShift);
     const int lz = z - (cz << ChunkSizeShift);
 
-    chunk->setTorchlight(lx, y, lz, val);
+    if (isSun) {
+        chunk->setSunlight(lx, y, lz, val);
+    } else {
+        chunk->setTorchlight(lx, y, lz, val);
+    }
 
-    auto storeLightValue = [this](int cx, int cz, int lx, int y, int lz, int light) {
+    auto storeLightValue = [this, isSun](int cx, int cz, int lx, int y, int lz, int light) {
         auto chunk = getChunk(cx, cz);
         if (!chunk) return;
 
-        chunk->setTorchlight(lx, y, lz, light);
+        if (isSun) {
+            chunk->setSunlight(lx, y, lz, light);
+        } else {
+            chunk->setTorchlight(lx, y, lz, light);
+        }
     };
 
     if (lx == 0) {
@@ -1315,64 +1323,8 @@ void WorldManager::setTorchlight(int x, int y, int z, int val) {
     }
 }
 
-int WorldManager::getSunlight(int x, int y, int z) {
-    if (y < 0) return 0;
-
-    int cx = x >> ChunkSizeShift;
-    int cz = z >> ChunkSizeShift;
-    auto chunk = getChunk(cx, cz);
-    if (!chunk) return 0;
-
-    const int lx = x - (cx << ChunkSizeShift);
-    const int lz = z - (cz << ChunkSizeShift);
-
-    return chunk->getSunlight(lx, y, lz);
-}
-
-void WorldManager::setSunlight(int x, int y, int z, int val) {
-    if (y < 0) return;
-
-    int cx = x >> ChunkSizeShift;
-    int cz = z >> ChunkSizeShift;
-    auto chunk = getChunk(cx, cz);
-    if (!chunk) return;
-
-    const int lx = x - (cx << ChunkSizeShift);
-    const int lz = z - (cz << ChunkSizeShift);
-
-    chunk->setSunlight(lx, y, lz, val);
-
-    auto storeLightValue = [this](int cx, int cz, int lx, int y, int lz, int light) {
-        auto chunk = getChunk(cx, cz);
-        if (!chunk) return;
-
-        chunk->setSunlight(lx, y, lz, light);
-    };
-
-    if (lx == 0) {
-        storeLightValue(cx - 1, cz, ChunkSize, y, lz, val);
-        if (lz == 0) {
-            storeLightValue(cx - 1, cz - 1, ChunkSize, y, ChunkSize, val);
-        } else if (lz == ChunkSize - 1) {
-            storeLightValue(cx - 1, cz + 1, ChunkSize, y, -1, val);
-        }
-    } else if (lx == ChunkSize - 1) {
-        storeLightValue(cx + 1, cz, -1, y, lz, val);
-        if (lz == 0) {
-            storeLightValue(cx + 1, cz - 1, -1, y, ChunkSize, val);
-        } else if (lz == ChunkSize - 1) {
-            storeLightValue(cx + 1, cz + 1, -1, y, -1, val);
-        }
-    }
-    if (lz == 0) {
-        storeLightValue(cx, cz - 1, lx, y, ChunkSize, val);
-    } else if (lz == ChunkSize - 1) {
-        storeLightValue(cx, cz + 1, lx, y, -1, val);
-    }
-}
-
-std::unordered_set<std::shared_ptr<Chunk>> WorldManager::propagateTorchLight(std::vector<LightNode> queue) {
-    std::unordered_set<std::shared_ptr<Chunk>> chunksToMeshSet;
+std::unordered_set<std::shared_ptr<Chunk>> WorldManager::propagateLight(std::vector<LightNode> queue, bool isSun) {
+    std::unordered_set<std::shared_ptr<Chunk>> chunksToMesh;
 
     constexpr std::array directions{
         std::array{ 1,  0,  0},
@@ -1384,11 +1336,10 @@ std::unordered_set<std::shared_ptr<Chunk>> WorldManager::propagateTorchLight(std
     };
 
     while (!queue.empty()) {
-
         auto [x, y, z] = queue.back();
         queue.pop_back();
 
-        int currentLight = getTorchlight(x, y, z);
+        int currentLight = getLight(x, y, z, isSun);
 
         if (currentLight <= 1) {
             continue;
@@ -1396,81 +1347,10 @@ std::unordered_set<std::shared_ptr<Chunk>> WorldManager::propagateTorchLight(std
 
         auto currentChunk = getChunkFromWorld(x, z);
         if (currentChunk) {
-            chunksToMeshSet.insert(currentChunk);
+            chunksToMesh.insert(currentChunk);
         }
 
         for (auto [dx, dy, dz] : directions) {
-
-            int nx = x + dx;
-            int ny = y + dy;
-            int nz = z + dz;
-
-            // skip solid blocks
-            if (load(nx, ny, nz) != 0) {
-                continue;
-            }
-
-            auto neighbourChunk = getChunkFromWorld(nx, nz);
-            if (neighbourChunk) {
-                chunksToMeshSet.insert(neighbourChunk);
-            }
-
-            if (getTorchlight(nx, ny, nz) + 2 <= currentLight) {
-
-                setTorchlight(nx, ny, nz, currentLight - 1);
-                queue.push_back({nx, ny, nz});
-
-                if (nx == 11 && ny == 10 && nz == 15) {
-                    std::cout << "setting 11 10 15 to " << currentLight - 1 << std::endl;
-                    std::cout << "it is " << getTorchlight(nx, ny, nz) << std::endl;
-                }
-
-                if (nx == 11 && ny == 10 && nz == 16) {
-                    std::cout << "setting 11 10 16 to " << currentLight - 1 << std::endl;
-                    std::cout << "it is " << getTorchlight(nx, ny, nz) << std::endl;
-                }
-            }
-        }
-    }
-
-    return chunksToMeshSet;
-}
-
-std::unordered_set<std::shared_ptr<Chunk>> WorldManager::propagateSunlight(std::vector<LightNode> queue) {
-    std::unordered_set<std::shared_ptr<Chunk>> chunksToMeshSet;
-
-    constexpr std::array directions{
-        std::array{ 1,  0,  0},
-        std::array{-1,  0,  0},
-        std::array{ 0,  1,  0},
-        std::array{ 0, -1,  0},
-        std::array{ 0,  0,  1},
-        std::array{ 0,  0, -1}
-    };
-
-    while (!queue.empty()) {
-
-        auto [x, y, z] = queue.back();
-        queue.pop_back();
-
-        int currentLight = getSunlight(x, y, z);
-
-        if (x == 1 && z == 4) {
-            std::cout << "load(1, " << y << ", 4): " << load(1, y, 4) << std::endl;
-            std::cout << "currentLight: " << currentLight << std::endl;
-        }
-
-        if (currentLight <= 1) {
-            continue;
-        }
-
-        auto currentChunk = getChunkFromWorld(x, z);
-        if (currentChunk) {
-            chunksToMeshSet.insert(currentChunk);
-        }
-
-        for (auto [dx, dy, dz] : directions) {
-
             int nx = x + dx;
             int ny = y + dy;
             int nz = z + dz;
@@ -1485,10 +1365,6 @@ std::unordered_set<std::shared_ptr<Chunk>> WorldManager::propagateSunlight(std::
                 continue;
             }
 
-            if (nx == 1 && nz == 4) {
-                std::cout << "load(1, " << ny << ", 4): " << load(1, ny, 4) << std::endl;
-            }
-
             // skip solid blocks
             if (load(nx, ny, nz) != 0) {
                 continue;
@@ -1496,25 +1372,24 @@ std::unordered_set<std::shared_ptr<Chunk>> WorldManager::propagateSunlight(std::
 
             auto neighbourChunk = getChunkFromWorld(nx, nz);
             if (neighbourChunk) {
-                chunksToMeshSet.insert(neighbourChunk);
+                chunksToMesh.insert(neighbourChunk);
             }
 
-            const int newLight = (dy == -1 && currentLight == 0xF) ? currentLight : currentLight - 1;
+            const int newLight = (isSun && dy == -1 && currentLight == 0xF) ? currentLight : currentLight - 1;
 
-            if (getSunlight(nx, ny, nz) <= newLight - 1) {
-
-                setSunlight(nx, ny, nz, newLight);
+            if (getLight(nx, ny, nz, isSun) <= newLight - 1) {
+                setLight(nx, ny, nz, newLight, isSun);
                 queue.push_back({nx, ny, nz});
             }
         }
     }
 
-    return chunksToMeshSet;
+    return chunksToMesh;
 }
 
-std::unordered_set<std::shared_ptr<Chunk>> WorldManager::removeTorchlight(int x, int y, int z) {
-    auto oldLevel = getTorchlight(x, y, z);
-    setTorchlight(x, y, z, 0);
+std::unordered_set<std::shared_ptr<Chunk> > WorldManager::removeLight(int x, int y, int z, bool isSun) {
+    auto oldLevel = getLight(x, y, z, isSun);
+    setLight(x, y, z, 0, isSun);
 
     using Node = std::pair<LightNode, int>;
     auto removalQueue = std::vector<Node>{{{x, y, z}, oldLevel}};
@@ -1538,14 +1413,14 @@ std::unordered_set<std::shared_ptr<Chunk>> WorldManager::removeTorchlight(int x,
             int ny = pos.y + dy;
             int nz = pos.z + dz;
 
-            auto nLevel = getTorchlight(nx, ny, nz);
+            auto nLevel = getLight(nx, ny, nz, isSun);
             if (nLevel == 0) continue;
 
-            auto skyVertical = false;
+            auto skyVertical = isSun && nx == 0 && ny == -1 && nz == 0 && nLevel == 15;
 
             if (nLevel < level || skyVertical) {
                 // Neighbour less than us, so it was lit by us. Clear it
-                setTorchlight(nx, ny, nz, 0);
+                setLight(nx, ny, nz, 0, isSun);
                 removalQueue.push_back({{nx, ny, nz}, nLevel});
             } else {
                 // Neighbour is as bright or brighter, so it was lit by another source.
@@ -1555,53 +1430,7 @@ std::unordered_set<std::shared_ptr<Chunk>> WorldManager::removeTorchlight(int x,
         }
     }
 
-    return propagateTorchLight(repropQueue);
-}
-
-std::unordered_set<std::shared_ptr<Chunk>> WorldManager::removeSunlight(int x, int y, int z) {
-    auto oldLevel = getSunlight(x, y, z);
-    setSunlight(x, y, z, 0);
-
-    using Node = std::pair<LightNode, int>;
-    auto removalQueue = std::vector<Node>{{{x, y, z}, oldLevel}};
-    auto repropQueue = std::vector<LightNode>{};
-
-    constexpr std::array directions{
-        std::array{ 1,  0,  0},
-        std::array{-1,  0,  0},
-        std::array{ 0,  1,  0},
-        std::array{ 0, -1,  0},
-        std::array{ 0,  0,  1},
-        std::array{ 0,  0, -1}
-    };
-
-    while (!removalQueue.empty()) {
-        auto [pos, level] = removalQueue.back();
-        removalQueue.pop_back();
-
-        for (auto [dx, dy, dz] : directions) {
-            int nx = pos.x + dx;
-            int ny = pos.y + dy;
-            int nz = pos.z + dz;
-
-            auto nLevel = getSunlight(nx, ny, nz);
-            if (nLevel == 0) continue;
-
-            auto skyVertical = nx == 0 && ny == -1 && nz == 0 && nLevel == 15;
-
-            if (nLevel < level || skyVertical) {
-                // Neighbour less than us, so it was lit by us. Clear it
-                setSunlight(nx, ny, nz, 0);
-                removalQueue.push_back({{nx, ny, nz}, nLevel});
-            } else {
-                // Neighbour is as bright or brighter, so it was lit by another source.
-                // Remember it so it can refill the hole afterwards
-                repropQueue.push_back({nx, ny, nz});
-            }
-        }
-    }
-
-    return propagateSunlight(repropQueue);
+    return propagateLight(repropQueue, isSun);
 }
 
 VoxelInfo WorldManager::getVoxelInfoAtWorld(int worldX, int worldY, int worldZ) const {

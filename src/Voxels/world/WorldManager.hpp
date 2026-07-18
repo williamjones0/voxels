@@ -96,15 +96,11 @@ public:
     void removePrimitive(size_t index);
     void movePrimitive(size_t index, const glm::ivec3& newOrigin);
 
-    int getTorchlight(int x, int y, int z);
-    void setTorchlight(int x, int y, int z, int val);
-    int getSunlight(int x, int y, int z);
-    void setSunlight(int x, int y, int z, int val);
+    int getLight(int x, int y, int z, bool isSun);
+    void setLight(int x, int y, int z, int val, bool isSun);
 
-    std::unordered_set<std::shared_ptr<Chunk>> propagateTorchLight(std::vector<LightNode> queue);
-    std::unordered_set<std::shared_ptr<Chunk>> propagateSunlight(std::vector<LightNode> queue);
-    std::unordered_set<std::shared_ptr<Chunk>> removeTorchlight(int x, int y, int z);
-    std::unordered_set<std::shared_ptr<Chunk>> removeSunlight(int x, int y, int z);
+    std::unordered_set<std::shared_ptr<Chunk>> propagateLight(std::vector<LightNode> queue, bool isSun);
+    std::unordered_set<std::shared_ptr<Chunk>> removeLight(int x, int y, int z, bool isSun);
 
     VoxelInfo getVoxelInfoAtWorld(int worldX, int worldY, int worldZ) const;
 
