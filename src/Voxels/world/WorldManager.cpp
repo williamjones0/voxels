@@ -510,6 +510,7 @@ void WorldManager::saveLevel() {
     for (const auto& entry : palette.entries) {
         json entryJson;
         entryJson["colour"] = {entry.colour.r, entry.colour.g, entry.colour.b};
+        entryJson["lightLevel"] = entry.lightLevel;
         entryJson["texturePath"] = entry.texturePath;
         entryJson["useTexture"] = entry.useTexture;
         paletteJson.push_back(entryJson);
@@ -634,6 +635,7 @@ void WorldManager::loadLevel() {
         const auto colorArray = entryJson.value("colour", json::array({0, 0, 0}));
         const std::string texturePath = entryJson.value("texturePath", "");
         palette.entries[i].colour = glm::vec3(colorArray[0], colorArray[1], colorArray[2]);
+        palette.entries[i].lightLevel = entryJson.value("lightLevel", 0);
         palette.entries[i].texturePath = texturePath;
         palette.entries[i].useTexture = entryJson.value("useTexture", false);
     }
@@ -962,6 +964,12 @@ void WorldManager::updateVoxels(Primitive::EditMap& edits) {
         if (editOpt->voxelType == 0) {
             // Removed
 
+            // If the block was emissive, remove its light contribution first
+            int light = palette.entries[editOpt->oldVoxelType - 1].lightLevel;
+            if (light > 0) {
+                removeLight(x, y, z, false);
+            }
+
             // Torchlight
             auto maxNeighbourLight = std::max({
                 getLight(x - 1, y, z, false),
@@ -1006,6 +1014,12 @@ void WorldManager::updateVoxels(Primitive::EditMap& edits) {
             // Sunlight
             if (getLight(x, y, z, true) > 0) {
                 chunksToMesh.merge(removeLight(x, y, z, true));
+            }
+
+            int light = palette.entries[voxelType - 1].lightLevel;
+            if (light > 0) {
+                setLight(x, y, z, light, false);
+                propagateLight({{x, y, z}}, false);
             }
         }
     }

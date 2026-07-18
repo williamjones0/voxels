@@ -11,6 +11,8 @@
 struct PaletteEntry {
     glm::vec3 colour = glm::vec3(0.0f);
 
+    int lightLevel = 0;
+
     std::string texturePath;
     bool useTexture = false;
 

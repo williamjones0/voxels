@@ -92,7 +92,7 @@ void Palette::uploadToGPU() {
     // Create palette SSBO
     std::vector<GPUPaletteEntry> gpuPalette(entries.size());
     for (size_t i = 0; i < entries.size(); i++) {
-        const auto& [colour, texturePath, useTexture, uvOffset, uvScale] = entries[i];
+        const auto& [colour, lightLevel, texturePath, useTexture, uvOffset, uvScale] = entries[i];
 
         gpuPalette[i] = {
             glm::vec4(colour, 1.0f),

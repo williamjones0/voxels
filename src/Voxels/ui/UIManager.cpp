@@ -557,6 +557,8 @@ void UIManager::drawPaletteEntryEditor(Palette& palette, PaletteEntry& entry) {
         palette.uploadToGPU();
     }
 
+    ImGui::DragInt("Light", &entry.lightLevel);
+
     ImGui::Text("Texture:");
 
     // Preview
