@@ -32,6 +32,7 @@ public:
         std::shared_ptr<Chunk> chunk;
         std::vector<int> voxelField = std::vector(VoxelsSize, 0);
         std::vector<LightNode> sunlightPositions;
+        std::vector<LightNode> torchlightPositions;
         int minY{};
         int maxY{};
     };

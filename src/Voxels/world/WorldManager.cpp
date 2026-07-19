@@ -173,10 +173,10 @@ void WorldManager::applyEdits(const int cx, const int cz, Chunk::GenerationResul
         const int lx = pos.x - (cx << ChunkSizeShift);
         const int lz = pos.z - (cz << ChunkSizeShift);
 
-        if (voxelType == 0) {
-            Chunk::storeInto(result.voxelField, result.minY, result.maxY, lx, pos.y, lz, EmptyVoxel);
-        } else {
-            Chunk::storeInto(result.voxelField, result.minY, result.maxY, lx, pos.y, lz, voxelType);
+        Chunk::storeInto(result.voxelField, result.minY, result.maxY, lx, pos.y, lz, voxelType);
+
+        if (voxelType != 0 && palette.entries[voxelType - 1].lightLevel > 0) {
+            result.torchlightPositions.push_back({pos.x, pos.y, pos.z});
         }
     }
 
@@ -301,7 +301,7 @@ void WorldManager::updateGeneratedChunks() {
         ZoneScoped;
 
         // Update all lightmaps first
-        for (auto& [chunk, voxelField, sunlightPositions, minY, maxY] : pendingGenerationResults) {
+        for (auto& [chunk, voxelField, sunlightPositions, torchlightPositions, minY, maxY] : pendingGenerationResults) {
             chunk->voxels = std::move(voxelField);
             chunk->minY = minY;
             chunk->maxY = maxY;
@@ -312,19 +312,27 @@ void WorldManager::updateGeneratedChunks() {
             for (const auto [x, y, z] : sunlightPositions) {
                 chunk->setSunlight(x - xOffset, y, z - zOffset, 0xF);
             }
+
+            for (const auto [x, y, z] : torchlightPositions) {
+                // Get the voxel type at this position
+                int voxelType = chunk->load(x - xOffset, y, z - zOffset);
+                int lightLevel = palette.entries[voxelType - 1].lightLevel;
+                chunk->setTorchlight(x - xOffset, y, z - zOffset, lightLevel);
+            }
         }
 
         std::unordered_set<std::shared_ptr<Chunk>> chunksToMesh;
 
         // Then propagate all
-        for (auto& [chunk, voxelField, sunlightPositions, minY, maxY] : pendingGenerationResults) {
+        for (auto& [chunk, voxelField, sunlightPositions, torchlightPositions, minY, maxY] : pendingGenerationResults) {
             if (std::ranges::any_of(chunk->voxels, [](int v) { return v != 0; })) {
                 chunksToMesh.merge(propagateLight(sunlightPositions, true));
+                chunksToMesh.merge(propagateLight(torchlightPositions, false));
             }
         }
 
         // Then mesh everything
-        for (auto& [chunk, voxelField, sunlightPositions, minY, maxY] : pendingGenerationResults) {
+        for (auto& [chunk, voxelField, sunlightPositions, torchlightPositions, minY, maxY] : pendingGenerationResults) {
             {
                 chunksToMesh.insert(chunk);
             }
@@ -1375,7 +1383,7 @@ std::unordered_set<std::shared_ptr<Chunk>> WorldManager::propagateLight(std::vec
             }
 
             // temp (make this better)
-            if (nx < -5 || nx > 64 || nz < -10 || nz > 64) {
+            if (nx < -30 || nx > 64 || nz < -10 || nz > 64) {
                 continue;
             }
 
