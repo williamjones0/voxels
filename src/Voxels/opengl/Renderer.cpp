@@ -31,6 +31,7 @@ void Renderer::load(const WorldManager& worldManager) {
                          nullptr,
                          GL_DYNAMIC_STORAGE_BIT);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, chunkDrawCmdBuffer);
+    glObjectLabel(GL_BUFFER, chunkDrawCmdBuffer, -1, "chunkDrawCmdBuffer");
 
     glCreateBuffers(1, &chunkDataBuffer);
     glNamedBufferData(chunkDataBuffer,
@@ -38,6 +39,7 @@ void Renderer::load(const WorldManager& worldManager) {
                          static_cast<const void*>(worldManager.chunkData.data()),
                          GL_DYNAMIC_DRAW);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, chunkDataBuffer);
+    glObjectLabel(GL_BUFFER, chunkDataBuffer, -1, "chunkDataBuffer");
 
     glCreateBuffers(1, &commandCountBuffer);
     glNamedBufferStorage(commandCountBuffer,
@@ -46,6 +48,7 @@ void Renderer::load(const WorldManager& worldManager) {
                          GL_DYNAMIC_STORAGE_BIT);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 2, commandCountBuffer);
     glBindBuffer(GL_PARAMETER_BUFFER, commandCountBuffer);
+    glObjectLabel(GL_BUFFER, commandCountBuffer, -1, "commandCountBuffer");
 
     glCreateBuffers(1, &verticesBuffer);
     glNamedBufferStorage(verticesBuffer,
@@ -53,12 +56,24 @@ void Renderer::load(const WorldManager& worldManager) {
                       nullptr,
                       GL_DYNAMIC_STORAGE_BIT);
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, verticesBuffer);
+    glObjectLabel(GL_BUFFER, verticesBuffer, -1, "verticesBuffer");
+
+    glCreateBuffers(1, &lightmapBuffer);
+    glNamedBufferStorage(lightmapBuffer,
+                      sizeof(uint8_t) * InitialLightmapBufferSize,
+                      nullptr,
+                      GL_DYNAMIC_STORAGE_BIT);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, lightmapBuffer);
+    glObjectLabel(GL_BUFFER, lightmapBuffer, -1, "lightmapBuffer");
+    std::cout << "Created lightmap buffer = " << lightmapBuffer << '\n';
 
     shader = Shader("vert.glsl", "frag.glsl");
     drawCommandProgram = Shader("drawcmd_comp.glsl");
 
     shader.use();
     shader.setInt("chunkSizeShift", ChunkSizeShift);
+    shader.setInt("chunkHeight", ChunkHeight);
+
     shader.setInt("windowWidth", windowWidth);
     shader.setInt("windowHeight", windowHeight);
 
@@ -87,6 +102,7 @@ void Renderer::load(const WorldManager& worldManager) {
     shader.setUInt("lightMask", VertexFormat::LightMask);
 
     shader.setInt("atlas", 0);
+    // shader.setUInt("atlas", worldManager.palette.getAtlasTextureID());
 }
 
 void Renderer::render(const Entity& camera, const Entity& player) const {
@@ -134,11 +150,12 @@ void Renderer::render(const Entity& camera, const Entity& player) const {
     glMultiDrawArraysIndirectCount(GL_TRIANGLES, nullptr, 0, MaxChunks, sizeof(ChunkDrawCommand));
 }
 
-void Renderer::cleanup() {
+void Renderer::cleanup() const {
     glDeleteBuffers(1, &chunkDrawCmdBuffer);
     glDeleteBuffers(1, &chunkDataBuffer);
     glDeleteBuffers(1, &commandCountBuffer);
     glDeleteBuffers(1, &verticesBuffer);
+    glDeleteBuffers(1, &lightmapBuffer);
 }
 
 size_t Renderer::enlargeVerticesBuffer(const size_t currentCapacity) {
@@ -159,5 +176,26 @@ size_t Renderer::enlargeVerticesBuffer(const size_t currentCapacity) {
     glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 3, verticesBuffer);
 
     std::cout << "Enlarged vertices buffer to " << newCapacity << " elements." << std::endl;
+    return newCapacity;
+}
+
+size_t Renderer::enlargeLightmapBuffer(size_t currentCapacity) {
+    const size_t newCapacity = currentCapacity * 2;
+
+    GLuint newBuffer;
+    glCreateBuffers(1, &newBuffer);
+    glNamedBufferStorage(newBuffer,
+                         sizeof(uint8_t) * newCapacity,
+                         nullptr,
+                         GL_DYNAMIC_STORAGE_BIT);
+
+    glCopyNamedBufferSubData(lightmapBuffer, newBuffer, 0, 0, sizeof(uint8_t) * currentCapacity);
+
+    glDeleteBuffers(1, &lightmapBuffer);
+    lightmapBuffer = newBuffer;
+
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, lightmapBuffer);
+
+    std::cout << "Enlarged lightmap buffer to " << newCapacity << " elements." << std::endl;
     return newCapacity;
 }

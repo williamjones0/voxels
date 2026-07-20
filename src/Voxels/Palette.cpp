@@ -114,7 +114,7 @@ void Palette::uploadToGPU() {
         GL_DYNAMIC_DRAW
     );
 
-    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 4, paletteBuffer);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 5, paletteBuffer);
 
     // Bind atlas texture
     glBindTextureUnit(0, atlas.textureID);

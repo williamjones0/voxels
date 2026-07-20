@@ -24,8 +24,8 @@ struct ChunkData {
     int maxY;
     unsigned int numVertices;
     unsigned int firstIndex;
+    unsigned int lightmapIndex;
     unsigned int _pad0;
-    unsigned int _pad1;
 };
 
 struct RaycastResult {
@@ -51,10 +51,13 @@ constexpr int MaxRenderDistanceChunks = 16;
 constexpr int MaxRenderDistanceMetres = MaxRenderDistanceChunks << ChunkSizeShift;
 constexpr int MaxChunks = (2 * MaxRenderDistanceChunks + 1) * (2 * MaxRenderDistanceChunks + 1);
 
+constexpr int InitialLightmapBufferSize = VoxelsSize * MaxChunks;
+
 class WorldManager {
 public:
-    explicit WorldManager(
-        std::function<size_t(size_t)> outOfCapacityCallback,
+    WorldManager(
+        std::function<size_t(size_t)> vertexBufferOutOfCapacityCallback,
+        std::function<size_t(size_t)> lightmapBufferOutOfCapacityCallback,
         GenerationType generationType = GenerationType::Perlin2D,
         std::filesystem::path levelFile = "data/levels/level0.txt"
     );
@@ -74,8 +77,10 @@ public:
     double squaredDistanceToChunk(glm::vec3 position, int cx, int cz) const;
     static size_t key(int i, int j);
 
-    void updateGeneratedChunks();
+    void updateGeneratedChunks(GLuint lightmapBuffer, GLuint chunkDataBuffer);
     void updateVerticesBuffer(GLuint verticesBuffer, GLuint chunkDataBuffer);
+    void updateLightmapBuffer(GLuint lightmapBuffer, GLuint chunkDataBuffer, Chunk& chunk);
+
     std::shared_ptr<Chunk> getChunk(int cx, int cz);
     std::shared_ptr<Chunk> getChunkFromWorld(int x, int z);
 
@@ -128,9 +133,7 @@ public:
     std::mutex pendingGenerationResultsMutex;
     std::mutex pendingMeshResultsMutex;
 
-    FreeListAllocator allocator;
+    FreeListAllocator vertexBufferAllocator;
+    FreeListAllocator lightmapBufferAllocator;
     ThreadPool threadPool;
-
-private:
-    std::function<size_t(size_t)> outOfCapacityCallback;
 };

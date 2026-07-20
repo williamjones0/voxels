@@ -33,6 +33,9 @@ private:
         [this](const size_t size) {
             return renderer.enlargeVerticesBuffer(size);
         },
+        [this](const size_t size) {
+            return renderer.enlargeLightmapBuffer(size);
+        },
         GenerationType::None,
         std::filesystem::path(PROJECT_SOURCE_DIR) / "data/levels/ztndm4.json"
     );

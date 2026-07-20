@@ -1,10 +1,9 @@
 #pragma once
 
 #include <algorithm>
+#include <functional>
 #include <iostream>
 #include <list>
-#include <mutex>
-#include <functional>
 
 struct Region {
     size_t offset; // Start offset of the region
@@ -64,6 +63,10 @@ public:
         mergeFreeRegions();
     }
 
+    void reset() {
+        freeRegions = {{0, bufferSize}};
+    }
+
     void printFreeRegions() const {
         std::cout << "Free Regions:\n";
         for (const auto& [offset, length] : freeRegions) {
@@ -78,7 +81,12 @@ private:
     std::function<size_t(size_t)> outOfCapacityCallback;
 
     static size_t align(const size_t offset, const size_t alignment) {
-        return offset + alignment - 1 & ~(alignment - 1);
+        // return offset + alignment - 1 & ~(alignment - 1);
+        size_t remainder = offset % alignment;
+        if (remainder == 0)
+            return offset;
+
+        return offset + alignment - remainder;
     }
 
     void mergeFreeRegions() {

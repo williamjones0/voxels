@@ -56,7 +56,11 @@ public:
     unsigned int numVertices = 0;
     unsigned int firstIndex = -1;
 
-    std::atomic_bool bufferRegionAllocated = false;
+    unsigned int lightmapIndex = -1;
+
+    bool vertexBufferRegionAllocated = false;
+    bool lightmapBufferRegionAllocated = false;
+
     std::atomic_bool destroyed = false;
     int debug = 0;
 

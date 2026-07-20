@@ -7,8 +7,8 @@ struct Chunk {
     int maxY;
     uint numVertices;
     uint firstIndex;
+    uint lightmapOffset;
     uint _pad0;
-    uint _pad1;
 };
 
 struct ChunkDrawCommand {
@@ -19,13 +19,12 @@ struct ChunkDrawCommand {
     uint chunkIndex;
 };
 
-out vec3 ourColor;
+out vec3 vLocalPos;
 flat out int normal;
-out float fragAO;
-flat out int fragLightLevel;
-
-out vec2 vTexCoord;
+flat out uint vLightmapOffset;
 flat out int vColourIndex;
+out vec2 vTexCoord;
+out float fragAO;
 
 uniform mat4 view;
 uniform mat4 projection;
@@ -69,19 +68,25 @@ layout (binding = 3) readonly buffer Vertices {
     uint vertices[];
 };
 
+layout (binding = 4) readonly buffer Lightmap {
+    uint lightmap[];
+};
+
 void main() {
     ChunkDrawCommand drawCommand = drawCommands[gl_DrawID];
     Chunk chunk = chunks[drawCommand.chunkIndex];
 
     uint vertex = vertices[gl_VertexID];
-    float x = float(vertex & xMask);
-    float y = float((vertex >> yShift) & yMask);
-    float z = float((vertex >> zShift) & zMask);
+    uint x = vertex & xMask;
+    uint y = (vertex >> yShift) & yMask;
+    uint z = (vertex >> zShift) & zMask;
     vColourIndex = int((vertex >> colourShift) & colourMask);
     normal = int((vertex >> normalShift) & normalMask);
-    float ao = float((vertex >> aoShift) & aoMask);
+    uint ao = (vertex >> aoShift) & aoMask;
 
-    fragLightLevel = int((vertex >> lightShift) & lightMask);
+    vLightmapOffset = chunk.lightmapOffset;
+
+    vLocalPos = vec3(float(x), float(y), float(z));
 
     mat4 model = mat4(1.0, 0.0, 0.0, 0.0,
                       0.0, 1.0, 0.0, 0.0,

@@ -17,17 +17,14 @@
 using json = nlohmann::json;
 
 WorldManager::WorldManager(
-    std::function<size_t(size_t)> outOfCapacityCallback,
+    std::function<size_t(size_t)> vertexBufferOutOfCapacityCallback,
+    std::function<size_t(size_t)> lightmapBufferOutOfCapacityCallback,
     const GenerationType generationType,
     std::filesystem::path levelFile)
     : generationType(generationType),
       levelFile(std::move(levelFile)),
-      allocator(FreeListAllocator(
-          InitialVertexBufferSize,
-          4096,
-          outOfCapacityCallback
-      )),
-      outOfCapacityCallback(std::move(outOfCapacityCallback))
+      vertexBufferAllocator(InitialVertexBufferSize, 4096, std::move(vertexBufferOutOfCapacityCallback)),
+      lightmapBufferAllocator(InitialLightmapBufferSize, VoxelsSize, std::move(lightmapBufferOutOfCapacityCallback))
 {
     chunks.reserve(MaxChunks);
     chunkData.resize(MaxChunks);
@@ -86,10 +83,15 @@ void WorldManager::destroyFrontierChunks(glm::vec3 position) {
             chunkByCoords.erase(key(chunk->cx, chunk->cz));
 
             // This should only happen if the chunk has already had its region allocated
-            if (chunk->bufferRegionAllocated) {
+            if (chunk->vertexBufferRegionAllocated) {
                 ZoneScopedN("Deallocate chunk vertices");
-                allocator.deallocate(chunk->firstIndex, chunk->numVertices);
-                chunk->bufferRegionAllocated = false;
+                vertexBufferAllocator.deallocate(chunk->firstIndex, chunk->numVertices);
+                chunk->vertexBufferRegionAllocated = false;
+            }
+
+            if (chunk->lightmapBufferRegionAllocated) {
+                lightmapBufferAllocator.deallocate(chunk->lightmapIndex, VoxelsSize);
+                chunk->lightmapBufferRegionAllocated = false;
             }
 
             chunk->destroyed = true;
@@ -145,8 +147,8 @@ std::shared_ptr<Chunk> WorldManager::createChunk(const int cx, const int cz) {
         .maxY = 0,
         .numVertices = 0,
         .firstIndex = 0,
-        ._pad0 = 0,
-        ._pad1 = 0,
+        .lightmapIndex = 0,
+        ._pad0 = 0
     };
 
     ++chunkTasksCount;
@@ -292,7 +294,7 @@ size_t WorldManager::key(const int i, const int j) {
     return static_cast<size_t>(i) << 32 | static_cast<unsigned int>(j);
 }
 
-void WorldManager::updateGeneratedChunks() {
+void WorldManager::updateGeneratedChunks(GLuint lightmapBuffer, GLuint chunkDataBuffer) {
     ZoneScoped;
 
     std::scoped_lock lock(pendingGenerationResultsMutex);
@@ -331,6 +333,10 @@ void WorldManager::updateGeneratedChunks() {
             }
         }
 
+        for (auto& [chunk, voxelField, sunlightPositions, torchlightPositions, minY, maxY] : pendingGenerationResults) {
+            updateLightmapBuffer(lightmapBuffer, chunkDataBuffer, *chunk);
+        }
+
         // Then mesh everything
         for (auto& [chunk, voxelField, sunlightPositions, torchlightPositions, minY, maxY] : pendingGenerationResults) {
             {
@@ -363,9 +369,9 @@ void WorldManager::updateVerticesBuffer(GLuint verticesBuffer, GLuint chunkDataB
             }
 
             // First, free up the chunk's old region in the vertex buffer (if it exists)
-            if (chunk->bufferRegionAllocated) {
-                allocator.deallocate(chunk->firstIndex, chunk->numVertices);
-                chunk->bufferRegionAllocated = false;
+            if (chunk->vertexBufferRegionAllocated) {
+                vertexBufferAllocator.deallocate(chunk->firstIndex, chunk->numVertices);
+                chunk->vertexBufferRegionAllocated = false;
             }
 
             // Update number of vertices
@@ -374,8 +380,8 @@ void WorldManager::updateVerticesBuffer(GLuint verticesBuffer, GLuint chunkDataB
             // Now, allocate a new region in the vertex buffer
             Region region{};
             {
-                region = allocator.allocate(chunk->numVertices);
-                chunk->bufferRegionAllocated = true;
+                region = vertexBufferAllocator.allocate(chunk->numVertices);
+                chunk->vertexBufferRegionAllocated = true;
             }
 
             chunk->firstIndex = region.offset;
@@ -386,17 +392,12 @@ void WorldManager::updateVerticesBuffer(GLuint verticesBuffer, GLuint chunkDataB
                                  static_cast<const void*>(vertices.data()));
 
             // Update chunk data
-            const ChunkData cd = {
-                    .cx = chunk->cx,
-                    .cz = chunk->cz,
-                    .minY = chunk->minY,
-                    .maxY = chunk->maxY,
-                    .numVertices = chunk->numVertices,
-                    .firstIndex = chunk->firstIndex,
-                    ._pad0 = 0,
-                    ._pad1 = 0,
-            };
-            chunkData[chunk->index] = cd;
+            chunkData[chunk->index].cx = chunk->cx;
+            chunkData[chunk->index].cz = chunk->cz;
+            chunkData[chunk->index].minY = chunk->minY;
+            chunkData[chunk->index].maxY = chunk->maxY;
+            chunkData[chunk->index].numVertices = chunk->numVertices;
+            chunkData[chunk->index].firstIndex = chunk->firstIndex;
 
             if (chunk->numVertices == 0) {
                 // std::cerr << "Chunk has no vertices!" << std::endl;
@@ -412,6 +413,52 @@ void WorldManager::updateVerticesBuffer(GLuint verticesBuffer, GLuint chunkDataB
         // Reset vector ready for next update
         pendingMeshResults.clear();
     }
+}
+
+void WorldManager::updateLightmapBuffer(GLuint lightmapBuffer, GLuint chunkDataBuffer, Chunk& chunk) {
+    std::cout << "Updating buffer = " << lightmapBuffer << '\n';
+
+    Region region;
+    if (chunk.lightmapBufferRegionAllocated) {
+        // Since the new data will be the same size, we can just replace it where it is
+        region.offset = chunk.lightmapIndex;
+        region.length = VoxelsSize;
+    } else {
+        region = lightmapBufferAllocator.allocate(VoxelsSize);
+        chunk.lightmapBufferRegionAllocated = true;
+        chunk.lightmapIndex = region.offset;
+        chunkData[chunk.index].lightmapIndex = chunk.lightmapIndex;
+        // Update chunk data buffer
+        glNamedBufferData(chunkDataBuffer, sizeof(ChunkData) * chunkData.size(),
+                          static_cast<const void*>(chunkData.data()), GL_DYNAMIC_DRAW);
+    }
+
+    GLint64 size = 0;
+    glGetNamedBufferParameteri64v(
+        lightmapBuffer,
+        GL_BUFFER_SIZE,
+        &size);
+
+    std::cout << "Buffer size = " << size << '\n';
+
+    auto check = [](const char* where)
+    {
+        GLenum err = glGetError();
+        if (err != GL_NO_ERROR)
+            std::cout << where << " error = " << err << '\n';
+    };
+
+    check("before");
+
+    // Update the lightmap buffer itself
+    glNamedBufferSubData(
+        lightmapBuffer,
+        region.offset * sizeof(uint8_t),
+        VoxelsSize * sizeof(uint8_t),
+        static_cast<const void*>(chunk.lightMap.data())
+    );
+
+    check("after");
 }
 
 std::shared_ptr<Chunk> WorldManager::getChunk(const int cx, const int cz) {
@@ -718,6 +765,7 @@ void WorldManager::loadLevel() {
     chunkByCoords.clear();
     chunkData.clear();
     chunkData.resize(MaxChunks);
+    lightmapBufferAllocator.reset();
 
     for (const auto& primitive : primitives) {
         placePrimitive(*primitive);
