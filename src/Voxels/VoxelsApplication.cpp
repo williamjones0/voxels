@@ -88,6 +88,7 @@ void VoxelsApplication::setupInput() {
     Input::bindings.insert({{GLFW_MOUSE_BUTTON_4, GLFW_PRESS, true}, {ActionType::ToggleNoclip, ActionStateType::None}});
 
     Input::bindings.insert({{GLFW_KEY_F12, GLFW_PRESS}, {ActionType::Screenshot, ActionStateType::None}});
+    Input::bindings.insert({{GLFW_KEY_G, GLFW_PRESS}, {ActionType::ToggleDebug, ActionStateType::None}});
 
     for (int i = 0; i < worldManager.palette.size(); ++i) {
         Input::bindings.insert({{GLFW_KEY_1 + i, GLFW_PRESS}, {ActionType::SelectPaletteIndex, ActionStateType::None, i}});
@@ -109,6 +110,11 @@ void VoxelsApplication::setupInput() {
 
     Input::registerCallback({ActionType::Screenshot, ActionStateType::None}, [this] {
         saveScreenshot();
+    });
+
+    Input::registerCallback({ActionType::ToggleDebug, ActionStateType::None}, [this] {
+        debugMode = !debugMode;
+        renderer.setDebugMode(debugMode);
     });
 
     Input::registerCallback({ActionType::Exit, ActionStateType::None}, [this] {

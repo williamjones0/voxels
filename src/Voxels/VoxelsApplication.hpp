@@ -44,5 +44,7 @@ private:
 
     Renderer renderer{windowWidth, windowHeight};
 
+    bool debugMode = false;
+
     bool firstFrame = true;
 };

@@ -23,6 +23,7 @@ enum class ActionType {
     Place,
 
     Screenshot,
+    ToggleDebug,
 
     Exit,
     ToggleWireframe,

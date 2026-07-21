@@ -458,6 +458,13 @@ void WorldManager::updateLightmapBuffer(GLuint lightmapBuffer, GLuint chunkDataB
         static_cast<const void*>(chunk.lightMap.data())
     );
 
+    glNamedBufferSubData(
+        6,
+        region.offset * sizeof(int),
+        VoxelsSize * sizeof(int),
+        static_cast<const void*>(chunk.voxels.data())
+    );
+
     check("after");
 }
 

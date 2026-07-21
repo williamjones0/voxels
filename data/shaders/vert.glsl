@@ -21,7 +21,7 @@ struct ChunkDrawCommand {
 
 out vec3 vLocalPos;
 flat out int normal;
-flat out uint vLightmapOffset;
+flat out uint vCellOffset;
 flat out int vColourIndex;
 out vec2 vTexCoord;
 out float fragAO;
@@ -68,10 +68,6 @@ layout (binding = 3) readonly buffer Vertices {
     uint vertices[];
 };
 
-layout (binding = 4) readonly buffer Lightmap {
-    uint lightmap[];
-};
-
 void main() {
     ChunkDrawCommand drawCommand = drawCommands[gl_DrawID];
     Chunk chunk = chunks[drawCommand.chunkIndex];
@@ -84,9 +80,10 @@ void main() {
     normal = int((vertex >> normalShift) & normalMask);
     uint ao = (vertex >> aoShift) & aoMask;
 
-    vLightmapOffset = chunk.lightmapOffset;
+    vCellOffset = chunk.lightmapOffset;
 
     vLocalPos = vec3(float(x), float(y), float(z));
+//    vLocalPos = vec3(x, y, z);
 
     mat4 model = mat4(1.0, 0.0, 0.0, 0.0,
                       0.0, 1.0, 0.0, 0.0,

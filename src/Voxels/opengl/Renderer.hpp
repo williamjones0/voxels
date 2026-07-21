@@ -16,11 +16,14 @@ public:
     size_t enlargeVerticesBuffer(size_t currentCapacity);
     size_t enlargeLightmapBuffer(size_t currentCapacity);
 
+    void setDebugMode(bool enabled);
+
     GLuint chunkDrawCmdBuffer = 0;
     GLuint chunkDataBuffer = 0;
     GLuint commandCountBuffer = 0;
     GLuint verticesBuffer = 0;
     GLuint lightmapBuffer = 0;
+    GLuint voxelsBuffer = 0;
 
 private:
     int windowWidth;

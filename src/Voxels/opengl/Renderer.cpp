@@ -67,12 +67,22 @@ void Renderer::load(const WorldManager& worldManager) {
     glObjectLabel(GL_BUFFER, lightmapBuffer, -1, "lightmapBuffer");
     std::cout << "Created lightmap buffer = " << lightmapBuffer << '\n';
 
+    glCreateBuffers(1, &voxelsBuffer);
+    glNamedBufferStorage(voxelsBuffer,
+                      sizeof(uint8_t) * InitialLightmapBufferSize,
+                      nullptr,
+                        GL_DYNAMIC_STORAGE_BIT);
+    glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 5, voxelsBuffer);
+    glObjectLabel(GL_BUFFER, voxelsBuffer, -1, "voxelsBuffer");
+
     shader = Shader("vert.glsl", "frag.glsl");
     drawCommandProgram = Shader("drawcmd_comp.glsl");
 
     shader.use();
     shader.setInt("chunkSizeShift", ChunkSizeShift);
     shader.setInt("chunkHeight", ChunkHeight);
+
+    shader.setInt("debugToggle", 0);
 
     shader.setInt("windowWidth", windowWidth);
     shader.setInt("windowHeight", windowHeight);
@@ -198,4 +208,9 @@ size_t Renderer::enlargeLightmapBuffer(size_t currentCapacity) {
 
     std::cout << "Enlarged lightmap buffer to " << newCapacity << " elements." << std::endl;
     return newCapacity;
+}
+
+void Renderer::setDebugMode(bool debugMode) {
+    shader.use();
+    shader.setInt("debugToggle", debugMode ? 1 : 0);
 }
